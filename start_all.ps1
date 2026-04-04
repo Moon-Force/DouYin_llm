@@ -14,7 +14,4 @@ Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", 
 Write-Host "Starting frontend in a new PowerShell window..."
 Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $root "start_frontend.ps1")
 
-Write-Host "Starting collector in a new PowerShell window..."
-Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-Command", "Set-Location '$root'; python client.py"
-
-Write-Host "All services launched."
+Write-Host "All services launched. Backend now includes the built-in collector."

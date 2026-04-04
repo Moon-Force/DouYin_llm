@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,18 +14,10 @@ from backend.memory.vector_store import VectorMemory
 from backend.schemas.live import LiveEvent, ModelStatus
 from backend.services.agent import LivePromptAgent
 from backend.services.broker import EventBroker
+from backend.services.collector import DouyinCollector
 
 settings.ensure_dirs()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-
-app = FastAPI(title="Live Prompter Backend", version="0.1.0")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 broker = EventBroker()
 session_memory = SessionMemory(settings.redis_url, settings.session_ttl_seconds)
@@ -48,20 +42,7 @@ def snapshot_with_status(room_id):
     return snapshot
 
 
-@app.get("/health")
-async def health():
-    return {"status": "ok", "room_id": settings.room_id}
-
-
-@app.get("/api/bootstrap")
-async def bootstrap(room_id: str | None = None):
-    target_room_id = room_id or settings.room_id
-    snapshot = snapshot_with_status(target_room_id)
-    return snapshot.model_dump()
-
-
-@app.post("/api/events")
-async def ingest_event(event: LiveEvent):
+async def process_event(event: LiveEvent):
     session_memory.add_event(event)
     long_term_store.persist_event(event)
     vector_memory.add_event(event)
@@ -80,6 +61,46 @@ async def ingest_event(event: LiveEvent):
     await broker.publish(event_envelope("stats", stats.model_dump()))
     await broker.publish(event_envelope("model_status", ModelStatus(**agent.current_status()).model_dump()))
 
+    return suggestion
+
+
+collector = DouyinCollector(settings, event_handler=process_event)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    collector.start(asyncio.get_running_loop())
+    try:
+        yield
+    finally:
+        collector.stop()
+
+
+app = FastAPI(title="Live Prompter Backend", version="0.1.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "room_id": settings.room_id}
+
+
+@app.get("/api/bootstrap")
+async def bootstrap(room_id: str | None = None):
+    target_room_id = room_id or settings.room_id
+    snapshot = snapshot_with_status(target_room_id)
+    return snapshot.model_dump()
+
+
+@app.post("/api/events")
+async def ingest_event(event: LiveEvent):
+    suggestion = await process_event(event)
     return {
         "accepted": True,
         "event_id": event.event_id,

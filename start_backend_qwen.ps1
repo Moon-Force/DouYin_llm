@@ -8,5 +8,5 @@ if (-not (Test-Path ".env")) {
     exit 1
 }
 
-Write-Host "Starting backend with Qwen online mode..."
+Write-Host "Starting backend with Qwen online mode and built-in collector..."
 python -m uvicorn backend.app:app --host 127.0.0.1 --port 8010 --reload
