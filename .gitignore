@@ -11,3 +11,7 @@ logs/backend-*.log
 logs/backend-*.err.log
 logs/frontend-*.log
 logs/frontend-*.err.log
+logs/*.out.log
+logs/*.err.log
+logs/*.png
+logs/douyinlive_*.log
