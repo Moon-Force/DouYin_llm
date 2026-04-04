@@ -8,7 +8,16 @@ import TeleprompterCard from "./components/TeleprompterCard.vue";
 import { useLiveStore } from "./stores/live";
 
 const liveStore = useLiveStore();
-const { activeSuggestion, connectionState, events, modelStatus, roomId, stats } = storeToRefs(liveStore);
+const {
+  activeSuggestion,
+  connectionState,
+  eventFilters,
+  filteredEvents,
+  modelStatus,
+  roomId,
+  selectedEventTypes,
+  stats,
+} = storeToRefs(liveStore);
 
 onMounted(async () => {
   await liveStore.bootstrap();
@@ -27,7 +36,12 @@ onMounted(async () => {
 
     <section class="grid flex-1 gap-6 xl:grid-cols-[1.75fr_0.85fr]">
       <TeleprompterCard :suggestion="activeSuggestion" />
-      <EventFeed :events="events" />
+      <EventFeed
+        :events="filteredEvents"
+        :event-filters="eventFilters"
+        :selected-event-types="selectedEventTypes"
+        @toggle-filter="liveStore.toggleEventType"
+      />
     </section>
   </main>
 </template>
