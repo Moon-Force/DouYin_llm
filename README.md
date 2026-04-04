@@ -114,6 +114,27 @@ npm install
 npm run dev
 ```
 
+### 5.5 推荐的一键启动方式
+
+先复制配置：
+
+```bash
+copy .env.example .env
+```
+
+然后填写 `.env` 里的 `DASHSCOPE_API_KEY`，再运行：
+
+```powershell
+.\start_all.ps1
+```
+
+如果只想单独启动后端或前端：
+
+```powershell
+.\start_backend_qwen.ps1
+.\start_frontend.ps1
+```
+
 ### 6. 调试原始消息
 
 ```bash
@@ -145,6 +166,8 @@ set LLM_MODEL=gpt-4.1-mini
 set LLM_API_KEY=your_api_key
 set REDIS_URL=redis://127.0.0.1:6379/0
 ```
+
+项目根目录支持 `.env` 文件。后端启动时会自动读取 `.env`，不存在时才回退到当前 shell 环境变量。
 
 如果你要接在线 Qwen，推荐直接用内置 `qwen` 模式：
 
