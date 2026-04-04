@@ -1,11 +1,16 @@
 import json
+import logging
 import re
 import time
+import traceback
 import urllib.error
 import urllib.request
 import uuid
 
 from backend.schemas.live import Suggestion
+
+
+logger = logging.getLogger(__name__)
 
 
 class LivePromptAgent:
@@ -48,6 +53,12 @@ class LivePromptAgent:
             result = self._generate_with_openai_compatible(event, context)
             if result:
                 return result
+            logger.warning(
+                "LLM generation failed, falling back to heuristic mode: room_id=%s event_id=%s model=%s",
+                event.room_id,
+                event.event_id,
+                self.settings.resolved_llm_model(),
+            )
 
         return self._generate_heuristic(event, context)
 
@@ -147,20 +158,103 @@ class LivePromptAgent:
 
         try:
             with urllib.request.urlopen(request, timeout=self.settings.llm_timeout_seconds) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError):
+                raw_body = response.read().decode("utf-8")
+                payload = json.loads(raw_body)
+        except urllib.error.HTTPError as exc:
+            error_body = ""
+            try:
+                error_body = exc.read().decode("utf-8", errors="replace")
+            except Exception:
+                pass
+            logger.error(
+                "LLM HTTP error: mode=%s model=%s status=%s reason=%s body=%s",
+                self.settings.llm_mode,
+                self.settings.resolved_llm_model(),
+                exc.code,
+                exc.reason,
+                error_body[:500],
+            )
+            return None
+        except urllib.error.URLError as exc:
+            logger.error(
+                "LLM network error: mode=%s model=%s reason=%s",
+                self.settings.llm_mode,
+                self.settings.resolved_llm_model(),
+                exc.reason,
+            )
+            return None
+        except TimeoutError:
+            logger.error(
+                "LLM timeout: mode=%s model=%s timeout=%s",
+                self.settings.llm_mode,
+                self.settings.resolved_llm_model(),
+                self.settings.llm_timeout_seconds,
+            )
+            return None
+        except json.JSONDecodeError:
+            logger.error(
+                "LLM returned invalid JSON envelope: mode=%s model=%s",
+                self.settings.llm_mode,
+                self.settings.resolved_llm_model(),
+            )
+            return None
+        except OSError as exc:
+            logger.error(
+                "LLM OS/network failure: mode=%s model=%s error=%s",
+                self.settings.llm_mode,
+                self.settings.resolved_llm_model(),
+                exc,
+            )
+            return None
+        except Exception:
+            logger.error(
+                "LLM unexpected exception: mode=%s model=%s traceback=%s",
+                self.settings.llm_mode,
+                self.settings.resolved_llm_model(),
+                traceback.format_exc(),
+            )
             return None
 
         try:
             content = payload["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+        except (KeyError, IndexError, TypeError):
+            logger.error(
+                "LLM response missing choices/message/content: mode=%s model=%s keys=%s",
+                self.settings.llm_mode,
+                self.settings.resolved_llm_model(),
+                list(payload.keys()) if isinstance(payload, dict) else type(payload).__name__,
+            )
             return None
 
         parsed = self._parse_model_json(content)
         if not parsed:
+            logger.error(
+                "LLM content could not be parsed into JSON payload: mode=%s model=%s content=%s",
+                self.settings.llm_mode,
+                self.settings.resolved_llm_model(),
+                content[:500],
+            )
             return None
 
-        return self._normalize_model_payload(parsed)
+        normalized = self._normalize_model_payload(parsed)
+        if not normalized:
+            logger.error(
+                "LLM payload missing required fields or had invalid types: mode=%s model=%s payload=%s",
+                self.settings.llm_mode,
+                self.settings.resolved_llm_model(),
+                json.dumps(parsed, ensure_ascii=False)[:500],
+            )
+            return None
+
+        logger.info(
+            "LLM suggestion generated: room_id=%s event_id=%s model=%s priority=%s confidence=%.2f",
+            event.room_id,
+            event.event_id,
+            self.settings.resolved_llm_model(),
+            normalized["priority"],
+            normalized["confidence"],
+        )
+        return normalized
 
     def _parse_model_json(self, content):
         candidates = [content.strip()]
