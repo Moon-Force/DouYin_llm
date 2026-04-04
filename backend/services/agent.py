@@ -160,16 +160,7 @@ class LivePromptAgent:
         if not parsed:
             return None
 
-        required = {"priority", "reply_text", "tone", "reason", "confidence"}
-        if not required.issubset(parsed):
-            return None
-
-        try:
-            parsed["confidence"] = float(parsed["confidence"])
-        except (TypeError, ValueError):
-            return None
-
-        return parsed
+        return self._normalize_model_payload(parsed)
 
     def _parse_model_json(self, content):
         candidates = [content.strip()]
@@ -190,3 +181,41 @@ class LivePromptAgent:
                 return parsed
 
         return None
+
+    def _normalize_model_payload(self, parsed):
+        required = {"priority", "reply_text", "tone", "reason", "confidence"}
+        if not required.issubset(parsed):
+            return None
+
+        priority = parsed["priority"]
+        if isinstance(priority, (int, float)):
+            if priority >= 3:
+                priority = "high"
+            elif priority >= 2:
+                priority = "medium"
+            else:
+                priority = "low"
+        else:
+            priority = str(priority).strip().lower()
+            if priority not in {"low", "medium", "high"}:
+                if any(token in priority for token in ("高", "urgent", "critical")):
+                    priority = "high"
+                elif any(token in priority for token in ("中", "normal")):
+                    priority = "medium"
+                else:
+                    priority = "low"
+
+        try:
+            confidence = float(parsed["confidence"])
+        except (TypeError, ValueError):
+            return None
+
+        confidence = max(0.0, min(1.0, confidence))
+
+        return {
+            "priority": priority,
+            "reply_text": str(parsed["reply_text"]).strip(),
+            "tone": str(parsed["tone"]).strip(),
+            "reason": str(parsed["reason"]).strip(),
+            "confidence": confidence,
+        }
