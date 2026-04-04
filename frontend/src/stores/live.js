@@ -3,6 +3,7 @@ import { defineStore } from "pinia";
 
 const MAX_EVENTS = 30;
 const MAX_SUGGESTIONS = 12;
+const VISIBLE_EVENT_TYPES = new Set(["comment", "gift"]);
 
 export const useLiveStore = defineStore("live", () => {
   const roomId = ref("32137571630");
@@ -36,11 +37,16 @@ export const useLiveStore = defineStore("live", () => {
     roomId.value = payload.room_id;
     stats.value = payload.stats;
     modelStatus.value = payload.model_status || modelStatus.value;
-    events.value = payload.recent_events || [];
+    events.value = (payload.recent_events || []).filter((event) =>
+      VISIBLE_EVENT_TYPES.has(event.event_type),
+    );
     suggestions.value = payload.recent_suggestions || [];
   }
 
   function ingestEvent(event) {
+    if (!VISIBLE_EVENT_TYPES.has(event.event_type)) {
+      return;
+    }
     events.value = [event, ...events.value].slice(0, MAX_EVENTS);
   }
 
