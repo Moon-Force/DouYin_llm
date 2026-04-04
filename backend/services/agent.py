@@ -1,0 +1,155 @@
+import json
+import time
+import urllib.error
+import urllib.request
+import uuid
+
+from backend.schemas.live import Suggestion
+
+
+class LivePromptAgent:
+    def __init__(self, settings, vector_memory, long_term_store):
+        self.settings = settings
+        self.vector_memory = vector_memory
+        self.long_term_store = long_term_store
+
+    def build_context(self, event, recent_events):
+        similar = self.vector_memory.similar(event.content, limit=3)
+        profile = self.long_term_store.get_user_profile(event.room_id, event.user.nickname)
+        return {
+            "recent_events": [item.model_dump() for item in recent_events[:8]],
+            "similar_history": similar,
+            "user_profile": profile,
+        }
+
+    def maybe_generate(self, event, recent_events):
+        if event.event_type not in {"comment", "gift", "follow"}:
+            return None
+
+        context = self.build_context(event, recent_events)
+        payload = self._generate_payload(event, context)
+        return Suggestion(
+            suggestion_id=str(uuid.uuid4()),
+            room_id=event.room_id,
+            event_id=event.event_id,
+            priority=payload["priority"],
+            reply_text=payload["reply_text"],
+            tone=payload["tone"],
+            reason=payload["reason"],
+            confidence=payload["confidence"],
+            references=context["similar_history"],
+            source_events=[event.event_id],
+            created_at=int(time.time() * 1000),
+        )
+
+    def _generate_payload(self, event, context):
+        if self.settings.llm_mode != "heuristic" and self.settings.llm_api_key:
+            result = self._generate_with_openai_compatible(event, context)
+            if result:
+                return result
+
+        return self._generate_heuristic(event, context)
+
+    def _generate_heuristic(self, event, context):
+        nickname = event.user.nickname
+        if event.event_type == "gift":
+            gift_name = event.metadata.get("gift_name", event.content or "礼物")
+            return {
+                "priority": "high",
+                "reply_text": f"感谢{nickname}送来的{gift_name}，这份支持我收到了。",
+                "tone": "热情感谢",
+                "reason": "礼物消息优先级高，适合立即感谢并放大互动。",
+                "confidence": 0.91,
+            }
+
+        if event.event_type == "follow":
+            return {
+                "priority": "medium",
+                "reply_text": f"欢迎{nickname}关注直播间，后面有想听的话题可以直接说。",
+                "tone": "欢迎互动",
+                "reason": "关注行为适合用轻量欢迎话术承接。",
+                "confidence": 0.83,
+            }
+
+        content = event.content.strip() or "这条评论"
+        if any(keyword in content for keyword in ("价格", "多少钱", "链接", "怎么买")):
+            return {
+                "priority": "high",
+                "reply_text": "这类问题优先直接给结论，再补购买方式和限制条件。",
+                "tone": "明确直接",
+                "reason": "评论显式询问转化信息，适合马上回答价格或购买路径。",
+                "confidence": 0.88,
+            }
+
+        if any(keyword in content for keyword in ("减", "瘦", "胖", "体重", "健身")):
+            return {
+                "priority": "medium",
+                "reply_text": "先接住目标，再给一个可执行的小步骤，别一上来把压力拉满。",
+                "tone": "温和鼓励",
+                "reason": "评论带有体重或自我目标表达，适合给低压力建议。",
+                "confidence": 0.8,
+            }
+
+        if context["similar_history"]:
+            return {
+                "priority": "medium",
+                "reply_text": "这类话题以前有过高互动，可以先复用熟悉的回应节奏，再补一句追问。",
+                "tone": "延续语境",
+                "reason": "向量检索命中了相似互动，适合沿用已验证的回答路径。",
+                "confidence": 0.76,
+            }
+
+        return {
+            "priority": "low",
+            "reply_text": f"先复述{nickname}的关键信息，再抛一个短追问，把对话继续拉住。",
+            "tone": "自然接话",
+            "reason": "普通评论优先追求自然承接和继续互动。",
+            "confidence": 0.68,
+        }
+
+    def _generate_with_openai_compatible(self, event, context):
+        prompt = {
+            "event": event.model_dump(),
+            "context": context,
+            "instruction": (
+                "你是直播提词器助手。输出一个 JSON 对象，包含 priority, reply_text, "
+                "tone, reason, confidence。reply_text 必须简短、口语化、适合主播直接念。"
+            ),
+        }
+        request = urllib.request.Request(
+            f"{self.settings.llm_base_url.rstrip('/')}/chat/completions",
+            data=json.dumps(
+                {
+                    "model": self.settings.llm_model,
+                    "temperature": self.settings.llm_temperature,
+                    "messages": [
+                        {"role": "system", "content": "你是直播间实时提词器。"},
+                        {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
+                    ],
+                },
+                ensure_ascii=False,
+            ).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self.settings.llm_api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(request, timeout=5.0) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError):
+            return None
+
+        try:
+            content = payload["choices"][0]["message"]["content"]
+            parsed = json.loads(content)
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+            return None
+
+        required = {"priority", "reply_text", "tone", "reason", "confidence"}
+        if not required.issubset(parsed):
+            return None
+
+        return parsed
