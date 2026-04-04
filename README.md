@@ -199,56 +199,56 @@ set LLM_MODEL=glm-4-flash
 - Agent 当前以低延迟启发式策略为默认模式。
 - Redis 和 Chroma 是可选增强，不安装时会自动退化。
 - 当前还没有做多房间隔离 UI、权限体系和完整运营后台。
-## Acknowledgements
+## 致谢
 
-Special thanks to [jwwsjlm/douyinLive](https://github.com/jwwsjlm/douyinLive). This project relies on the `douyinLive` executable under `tool/` as the local Douyin live message source.
+特别感谢 [jwwsjlm/douyinLive](https://github.com/jwwsjlm/douyinLive)。本项目依赖 `tool/` 目录下的 `douyinLive` 可执行文件作为本地抖音直播消息源。
 
-## Star History
+## Star 历史
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Moon-Force/DouYin_llm&type=Date)](https://star-history.com/#Moon-Force/DouYin_llm&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Moon-Force/DouYin_llm&type=Timeline)](https://star-history.com/#Moon-Force/DouYin_llm&Timeline)
 
-## TODO
+## 待办事项
 
-- [ ] Persist full suggestion fields in SQLite, including `source`, `references`, and `source_events`, so model-generated suggestions keep their original labels after restart.
-- [ ] Make live session stats authoritative instead of counting only the most recent in-memory window.
-- [ ] Add bounded queues or an explicit drop policy in the SSE/WebSocket broker to avoid unbounded memory growth with slow subscribers.
-- [ ] Scope vector retrieval by `room_id` so similar-history results do not leak across rooms.
-- [ ] Clean up legacy collector paths and docs to match the backend-managed collector architecture.
-- [ ] Expand `.gitignore` for current runtime logs and debugging artifacts.
-- [ ] Replace remaining garbled text in docs and UI strings with clean UTF-8 Chinese content.
-- [ ] Add basic regression tests for backend ingestion, persistence, and frontend filter behavior.
+- [ ] 在 SQLite 中完整持久化 suggestion 字段，包括 `source`、`references`、`source_events`，避免重启后模型建议被错误标记。
+- [ ] 让直播统计变成真实总量，而不是只统计最近一段内存窗口。
+- [ ] 给 SSE / WebSocket broker 增加有界队列或明确的丢弃策略，避免慢连接导致内存持续增长。
+- [ ] 按 `room_id` 隔离向量检索结果，避免不同直播间之间的相似历史串线。
+- [ ] 清理旧的 collector 路径和文档，让说明和“后端内置采集器”的现状保持一致。
+- [ ] 继续补强 `.gitignore`，覆盖更多运行日志和调试产物。
+- [ ] 把文档和界面里剩余的乱码文本统一修复成正常的 UTF-8 中文。
+- [ ] 为后端入库、事件处理、前端筛选等核心流程补基础回归测试。
 
-## Roadmap
+## 路线图
 
-### Phase 1: Productize The Current Version
+### 第一阶段：把当前版本产品化
 
-- [ ] Add a lightweight control panel for pause/resume suggestions, reconnect, and clearing the current session view.
-- [ ] Support suggestion feedback actions such as used, ignored, and unsuitable.
-- [ ] Add multi-room support across collector, storage, retrieval, and frontend switching.
+- [ ] 增加轻量控制面板，支持暂停/恢复建议、重连采集器、清空当前会话视图。
+- [ ] 为建议增加反馈动作，比如“已使用”“忽略”“不合适”。
+- [ ] 支持多直播间，在采集、存储、检索、前端切换上都按房间隔离。
 
-### Phase 2: Improve Suggestion Quality
+### 第二阶段：提升建议质量
 
-- [ ] Make prompt templates configurable for different live-stream scenarios such as ecommerce, casual chat, fitness, and emotional support.
-- [ ] Expand user profiles with recency, repeated questions, and high-value interaction markers.
-- [ ] Add deduplication and throttling for repetitive events and near-duplicate suggestions.
-- [ ] Split suggestions into categories such as direct reply, follow-up question, conversion hint, moderation hint, and risk alert.
+- [ ] 让 Prompt 模板可配置，支持电商、闲聊、健身、情感陪伴等不同直播场景。
+- [ ] 扩充用户画像，加入最近出现时间、重复问题、高价值互动标记等信息。
+- [ ] 对重复事件和近似建议做去重与节流。
+- [ ] 将建议类型细分为直接回复、追问建议、转化提示、场控提示、风险提示等。
 
-### Phase 3: Live Commerce And Moderation Features
+### 第三阶段：直播转化与风控能力
 
-- [ ] Detect purchase-intent signals such as price, link, shipping, and fit questions.
-- [ ] Highlight high-value events such as large gifts, repeated engagement, follows, and strong negative sentiment.
-- [ ] Add sensitive-content and risk detection for compliance-sensitive phrases and unsafe responses.
-- [ ] Add stage-control guidance for pacing, product reminders, and call-to-action timing.
+- [ ] 识别购买意图信号，例如价格、链接、发货、适用人群等问题。
+- [ ] 高亮高价值事件，例如大礼物、重复互动、关注、强烈负面情绪等。
+- [ ] 增加敏感内容和风险话术检测，降低违规回复风险。
+- [ ] 增加场控建议，例如节奏提醒、卖点重复、福利引导、口播时机提示。
 
-### Phase 4: Review And Analytics
+### 第四阶段：复盘与分析
 
-- [ ] Generate post-live reports with high-frequency questions, peak interaction windows, and suggestion effectiveness.
-- [ ] Add a richer dashboard for event volume, gift peaks, follow growth, model success rate, and fallback rate.
-- [ ] Support exporting events, suggestions, user profiles, and review summaries.
+- [ ] 生成直播结束后的复盘报告，包括高频问题、互动高峰、建议有效性等。
+- [ ] 增加更完整的数据面板，展示弹幕量、礼物峰值、关注增长、模型成功率、fallback 率等。
+- [ ] 支持导出事件、建议、用户画像和复盘总结。
 
-### Phase 5: Engineering And Platform
+### 第五阶段：工程与平台化
 
-- [ ] Add a settings/admin page so room, model, and prompt configuration no longer depend only on `.env`.
-- [ ] Add a replay tool for historical event logs to reproduce sessions and debug model behavior.
-- [ ] Introduce authentication if the frontend will be exposed beyond a single local operator.
-- [ ] Refactor collector support toward pluggable adapters for multiple platforms beyond Douyin.
+- [ ] 增加设置/管理页面，让房间号、模型参数、Prompt 配置不再只依赖 `.env`。
+- [ ] 增加历史事件回放工具，方便复现实验和调试模型行为。
+- [ ] 如果前端要给多人使用，补上基本鉴权能力。
+- [ ] 将采集层逐步抽象成可插拔适配器，支持未来接入更多平台，不只限于抖音。
