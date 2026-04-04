@@ -59,6 +59,7 @@ class LivePromptAgent:
             suggestion_id=str(uuid.uuid4()),
             room_id=event.room_id,
             event_id=event.event_id,
+            source=payload["source"],
             priority=payload["priority"],
             reply_text=payload["reply_text"],
             tone=payload["tone"],
@@ -84,13 +85,14 @@ class LivePromptAgent:
             )
 
         self._mark_status("heuristic")
-        return self._generate_heuristic(event, context)
+        return self._generate_heuristic(event, context, source="heuristic_fallback" if self.settings.llm_mode != "heuristic" else "heuristic")
 
-    def _generate_heuristic(self, event, context):
+    def _generate_heuristic(self, event, context, source="heuristic"):
         nickname = event.user.nickname
         if event.event_type == "gift":
             gift_name = event.metadata.get("gift_name", event.content or "礼物")
             return {
+                "source": source,
                 "priority": "high",
                 "reply_text": f"感谢{nickname}送来的{gift_name}，这份支持我收到了。",
                 "tone": "热情感谢",
@@ -100,6 +102,7 @@ class LivePromptAgent:
 
         if event.event_type == "follow":
             return {
+                "source": source,
                 "priority": "medium",
                 "reply_text": f"欢迎{nickname}关注直播间，后面有想听的话题可以直接说。",
                 "tone": "欢迎互动",
@@ -110,6 +113,7 @@ class LivePromptAgent:
         content = event.content.strip() or "这条评论"
         if any(keyword in content for keyword in ("价格", "多少钱", "链接", "怎么买")):
             return {
+                "source": source,
                 "priority": "high",
                 "reply_text": "这类问题优先直接给结论，再补购买方式和限制条件。",
                 "tone": "明确直接",
@@ -119,6 +123,7 @@ class LivePromptAgent:
 
         if any(keyword in content for keyword in ("减", "瘦", "胖", "体重", "健身")):
             return {
+                "source": source,
                 "priority": "medium",
                 "reply_text": "先接住目标，再给一个可执行的小步骤，别一上来把压力拉满。",
                 "tone": "温和鼓励",
@@ -128,6 +133,7 @@ class LivePromptAgent:
 
         if context["similar_history"]:
             return {
+                "source": source,
                 "priority": "medium",
                 "reply_text": "这类话题以前有过高互动，可以先复用熟悉的回应节奏，再补一句追问。",
                 "tone": "延续语境",
@@ -136,6 +142,7 @@ class LivePromptAgent:
             }
 
         return {
+            "source": source,
             "priority": "low",
             "reply_text": f"先复述{nickname}的关键信息，再抛一个短追问，把对话继续拉住。",
             "tone": "自然接话",
@@ -340,6 +347,7 @@ class LivePromptAgent:
         confidence = max(0.0, min(1.0, confidence))
 
         return {
+            "source": "model",
             "priority": priority,
             "reply_text": str(parsed["reply_text"]).strip(),
             "tone": str(parsed["tone"]).strip(),

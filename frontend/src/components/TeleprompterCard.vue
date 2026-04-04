@@ -5,6 +5,18 @@ defineProps({
     default: null,
   },
 });
+
+function sourceLabel(source) {
+  switch (source) {
+    case "model":
+      return "模型生成";
+    case "heuristic_fallback":
+      return "规则兜底";
+    case "heuristic":
+    default:
+      return "规则生成";
+  }
+}
 </script>
 
 <template>
@@ -13,6 +25,7 @@ defineProps({
 
     <div v-if="suggestion" class="mt-10">
       <div class="flex items-center gap-3 text-xs uppercase tracking-[0.25em] text-accent-soft">
+        <span>{{ sourceLabel(suggestion.source) }}</span>
         <span>{{ suggestion.priority }}</span>
         <span>{{ suggestion.tone }}</span>
       </div>

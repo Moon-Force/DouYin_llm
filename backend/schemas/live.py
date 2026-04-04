@@ -26,6 +26,7 @@ class Suggestion(BaseModel):
     suggestion_id: str
     room_id: str
     event_id: str
+    source: str = "heuristic"
     priority: str
     reply_text: str
     tone: str
