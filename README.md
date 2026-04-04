@@ -199,3 +199,56 @@ set LLM_MODEL=glm-4-flash
 - Agent 当前以低延迟启发式策略为默认模式。
 - Redis 和 Chroma 是可选增强，不安装时会自动退化。
 - 当前还没有做多房间隔离 UI、权限体系和完整运营后台。
+## Acknowledgements
+
+Special thanks to [jwwsjlm/douyinLive](https://github.com/jwwsjlm/douyinLive). This project relies on the `douyinLive` executable under `tool/` as the local Douyin live message source.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Moon-Force/DouYin_llm&type=Date)](https://star-history.com/#Moon-Force/DouYin_llm&Date)
+
+## TODO
+
+- [ ] Persist full suggestion fields in SQLite, including `source`, `references`, and `source_events`, so model-generated suggestions keep their original labels after restart.
+- [ ] Make live session stats authoritative instead of counting only the most recent in-memory window.
+- [ ] Add bounded queues or an explicit drop policy in the SSE/WebSocket broker to avoid unbounded memory growth with slow subscribers.
+- [ ] Scope vector retrieval by `room_id` so similar-history results do not leak across rooms.
+- [ ] Clean up legacy collector paths and docs to match the backend-managed collector architecture.
+- [ ] Expand `.gitignore` for current runtime logs and debugging artifacts.
+- [ ] Replace remaining garbled text in docs and UI strings with clean UTF-8 Chinese content.
+- [ ] Add basic regression tests for backend ingestion, persistence, and frontend filter behavior.
+
+## Roadmap
+
+### Phase 1: Productize The Current Version
+
+- [ ] Add a lightweight control panel for pause/resume suggestions, reconnect, and clearing the current session view.
+- [ ] Support suggestion feedback actions such as used, ignored, and unsuitable.
+- [ ] Add multi-room support across collector, storage, retrieval, and frontend switching.
+
+### Phase 2: Improve Suggestion Quality
+
+- [ ] Make prompt templates configurable for different live-stream scenarios such as ecommerce, casual chat, fitness, and emotional support.
+- [ ] Expand user profiles with recency, repeated questions, and high-value interaction markers.
+- [ ] Add deduplication and throttling for repetitive events and near-duplicate suggestions.
+- [ ] Split suggestions into categories such as direct reply, follow-up question, conversion hint, moderation hint, and risk alert.
+
+### Phase 3: Live Commerce And Moderation Features
+
+- [ ] Detect purchase-intent signals such as price, link, shipping, and fit questions.
+- [ ] Highlight high-value events such as large gifts, repeated engagement, follows, and strong negative sentiment.
+- [ ] Add sensitive-content and risk detection for compliance-sensitive phrases and unsafe responses.
+- [ ] Add stage-control guidance for pacing, product reminders, and call-to-action timing.
+
+### Phase 4: Review And Analytics
+
+- [ ] Generate post-live reports with high-frequency questions, peak interaction windows, and suggestion effectiveness.
+- [ ] Add a richer dashboard for event volume, gift peaks, follow growth, model success rate, and fallback rate.
+- [ ] Support exporting events, suggestions, user profiles, and review summaries.
+
+### Phase 5: Engineering And Platform
+
+- [ ] Add a settings/admin page so room, model, and prompt configuration no longer depend only on `.env`.
+- [ ] Add a replay tool for historical event logs to reproduce sessions and debug model behavior.
+- [ ] Introduce authentication if the frontend will be exposed beyond a single local operator.
+- [ ] Refactor collector support toward pluggable adapters for multiple platforms beyond Douyin.
