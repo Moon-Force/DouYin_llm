@@ -133,6 +133,8 @@ BACKEND_EVENT_URL = "http://127.0.0.1:8000/api/events"
 FORWARD_TIMEOUT = 1.5
 ```
 
+`tool/config.yaml` 里的 `cookie.douyin` 只保留示例空值；如果你本地需要真实 Cookie，直接本地填写，但不要提交到仓库。
+
 可选环境变量：
 
 ```bash
