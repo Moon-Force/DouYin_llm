@@ -199,13 +199,6 @@ set LLM_MODEL=glm-4-flash
 - Agent 当前以低延迟启发式策略为默认模式。
 - Redis 和 Chroma 是可选增强，不安装时会自动退化。
 - 当前还没有做多房间隔离 UI、权限体系和完整运营后台。
-## 致谢
-
-特别感谢 [jwwsjlm/douyinLive](https://github.com/jwwsjlm/douyinLive)。本项目依赖 `tool/` 目录下的 `douyinLive` 可执行文件作为本地抖音直播消息源。
-
-## Star 历史
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Moon-Force/DouYin_llm&type=Timeline)](https://star-history.com/#Moon-Force/DouYin_llm&Timeline)
 
 ## 待办事项
 
@@ -252,3 +245,11 @@ set LLM_MODEL=glm-4-flash
 - [ ] 增加历史事件回放工具，方便复现实验和调试模型行为。
 - [ ] 如果前端要给多人使用，补上基本鉴权能力。
 - [ ] 将采集层逐步抽象成可插拔适配器，支持未来接入更多平台，不只限于抖音。
+
+## 致谢
+
+特别感谢 [jwwsjlm/douyinLive](https://github.com/jwwsjlm/douyinLive)。本项目依赖 `tool/` 目录下的 `douyinLive` 可执行文件作为本地抖音直播消息源。
+
+## Star 历史
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Moon-Force/DouYin_llm&type=Timeline)](https://star-history.com/#Moon-Force/DouYin_llm&Timeline)

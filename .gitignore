@@ -6,6 +6,7 @@ data/*
 !data/DATABASE.md
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
 logs/*.local.log
 logs/backend-*.log
 logs/backend-*.err.log
