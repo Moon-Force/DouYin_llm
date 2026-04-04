@@ -1,0 +1,226 @@
+import asyncio
+import json
+import logging
+import threading
+import time
+from collections.abc import Awaitable, Callable
+
+import websocket
+
+from backend.config import Settings
+from backend.schemas.live import LiveEvent
+
+
+logger = logging.getLogger(__name__)
+
+METHOD_EVENT_TYPE_MAP = {
+    "WebcastChatMessage": "comment",
+    "WebcastGiftMessage": "gift",
+    "WebcastLikeMessage": "like",
+    "WebcastMemberMessage": "member",
+    "WebcastSocialMessage": "follow",
+}
+
+
+class DouyinCollector:
+    def __init__(
+        self,
+        settings: Settings,
+        event_handler: Callable[[LiveEvent], Awaitable[None]],
+    ):
+        self.settings = settings
+        self.event_handler = event_handler
+        self.loop: asyncio.AbstractEventLoop | None = None
+        self.thread: threading.Thread | None = None
+        self.ping_thread: threading.Thread | None = None
+        self.ping_stop_event: threading.Event | None = None
+        self.ws: websocket.WebSocketApp | None = None
+        self.running = False
+        self.stop_event = threading.Event()
+
+    @property
+    def url(self) -> str:
+        return (
+            f"ws://{self.settings.collector_host}:"
+            f"{self.settings.collector_port}/ws/{self.settings.room_id}"
+        )
+
+    def start(self, loop: asyncio.AbstractEventLoop) -> bool:
+        if not self.settings.collector_enabled:
+            logger.info("Douyin collector disabled by configuration")
+            return False
+
+        if not self.settings.room_id:
+            logger.warning("Douyin collector skipped because ROOM_ID is empty")
+            return False
+
+        if self.thread and self.thread.is_alive():
+            return True
+
+        self.loop = loop
+        self.stop_event.clear()
+        self.thread = threading.Thread(target=self._run, name="douyin-collector", daemon=True)
+        self.thread.start()
+        logger.info("Douyin collector started for room %s", self.settings.room_id)
+        return True
+
+    def stop(self) -> None:
+        self.stop_event.set()
+        self.running = False
+        if self.ping_stop_event:
+            self.ping_stop_event.set()
+
+        if self.ws:
+            try:
+                self.ws.close()
+            except Exception:
+                logger.exception("Failed to close Douyin collector websocket cleanly")
+
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=5)
+
+        if self.ping_thread and self.ping_thread.is_alive():
+            self.ping_thread.join(timeout=1)
+
+    def _run(self) -> None:
+        while not self.stop_event.is_set():
+            self.ws = websocket.WebSocketApp(
+                self.url,
+                on_open=self._on_open,
+                on_message=self._on_message,
+                on_error=self._on_error,
+                on_close=self._on_close,
+            )
+
+            try:
+                logger.info("Connecting to Douyin websocket at %s", self.url)
+                self.ws.run_forever()
+            except Exception:
+                logger.exception("Douyin collector crashed")
+
+            if self.stop_event.is_set():
+                break
+
+            delay = self.settings.collector_reconnect_delay_seconds
+            logger.warning("Douyin collector disconnected, retrying in %.1fs", delay)
+            time.sleep(delay)
+
+    def _on_open(self, ws) -> None:
+        logger.info("Douyin collector connected")
+        self.running = True
+        self._start_ping_loop()
+
+    def _on_message(self, ws, message: str) -> None:
+        if message == "pong":
+            return
+
+        try:
+            data = json.loads(message)
+        except json.JSONDecodeError:
+            logger.warning("Ignoring non-JSON Douyin message: %s", message)
+            return
+
+        event = self.normalize_event(data)
+        if not event:
+            return
+
+        self._submit_event(event)
+
+    def _on_error(self, ws, error) -> None:
+        if self.stop_event.is_set():
+            return
+
+        logger.warning("Douyin collector websocket error: %s", error)
+
+    def _on_close(self, ws, close_status_code, close_msg) -> None:
+        self.running = False
+        if self.ping_stop_event:
+            self.ping_stop_event.set()
+
+        if self.stop_event.is_set():
+            logger.info("Douyin collector stopped")
+            return
+
+        logger.warning(
+            "Douyin collector connection closed: code=%s msg=%s",
+            close_status_code,
+            close_msg,
+        )
+
+    def _start_ping_loop(self) -> None:
+        ping_stop_event = threading.Event()
+        self.ping_stop_event = ping_stop_event
+
+        def ping() -> None:
+            while self.running and not self.stop_event.is_set() and not ping_stop_event.is_set():
+                try:
+                    if self.ws and self.ws.sock and self.ws.sock.connected:
+                        self.ws.send("ping")
+                    time.sleep(self.settings.collector_ping_interval_seconds)
+                except Exception:
+                    if not self.stop_event.is_set():
+                        logger.exception("Douyin collector ping failed")
+                    break
+
+        self.ping_thread = threading.Thread(target=ping, name="douyin-collector-ping", daemon=True)
+        self.ping_thread.start()
+
+    def _submit_event(self, event: LiveEvent) -> None:
+        if not self.loop:
+            logger.warning("Dropping Douyin event because backend loop is unavailable")
+            return
+
+        future = asyncio.run_coroutine_threadsafe(self.event_handler(event), self.loop)
+        future.add_done_callback(self._log_handler_result)
+
+    @staticmethod
+    def _log_handler_result(future) -> None:
+        try:
+            future.result()
+        except Exception:
+            logger.exception("Douyin event handling failed")
+
+    def normalize_event(self, data: dict) -> LiveEvent | None:
+        common = data.get("common", {})
+        method = common.get("method", "unknown")
+        user = data.get("user", {})
+        event_type = METHOD_EVENT_TYPE_MAP.get(method, "system")
+
+        content = data.get("content", "")
+        metadata = {
+            "method": method,
+            "livename": data.get("livename", ""),
+        }
+
+        if method == "WebcastGiftMessage":
+            metadata["gift_name"] = data.get("gift", {}).get("name", "")
+        elif method == "WebcastLikeMessage":
+            metadata["action"] = "like"
+        elif method == "WebcastMemberMessage":
+            metadata["action"] = "join"
+        elif method == "WebcastSocialMessage":
+            metadata["action"] = "follow"
+
+        if not content and "gift_name" in metadata:
+            content = metadata["gift_name"]
+
+        try:
+            return LiveEvent(
+                event_id=common.get("msgId") or f"local-{int(time.time() * 1000)}",
+                room_id=self.settings.room_id,
+                platform="douyin",
+                event_type=event_type,
+                method=method,
+                livename=data.get("livename", ""),
+                ts=int(common.get("createTime") or time.time() * 1000),
+                user={
+                    "id": user.get("id") or user.get("secUid") or "",
+                    "nickname": user.get("nickname", ""),
+                },
+                content=content,
+                metadata=metadata,
+                raw=data,
+            )
+        except Exception:
+            logger.exception("Failed to normalize Douyin message")
+            return None

@@ -1,24 +1,82 @@
-import websocket
 import json
 import threading
 import time
+import urllib.error
+import urllib.request
+
+import websocket
 
 try:
-    from config import ROOM_ID, HOST, PORT
+    from config import (
+        BACKEND_EVENT_URL,
+        FORWARD_EVENTS,
+        FORWARD_TIMEOUT,
+        HOST,
+        PORT,
+        ROOM_ID,
+    )
 except ImportError:
     ROOM_ID = "516466932480"
     HOST = "127.0.0.1"
     PORT = 1088
+    FORWARD_EVENTS = True
+    BACKEND_EVENT_URL = "http://127.0.0.1:8000/api/events"
+    FORWARD_TIMEOUT = 1.5
+
+
+METHOD_EVENT_TYPE_MAP = {
+    "WebcastChatMessage": "comment",
+    "WebcastGiftMessage": "gift",
+    "WebcastLikeMessage": "like",
+    "WebcastMemberMessage": "member",
+    "WebcastSocialMessage": "follow",
+}
+
+
+class EventForwarder:
+    def __init__(self, target_url, timeout=1.5):
+        self.target_url = target_url
+        self.timeout = timeout
+        self.error_reported = False
+
+    def forward(self, event):
+        payload = json.dumps(event, ensure_ascii=False).encode("utf-8")
+        request = urllib.request.Request(
+            self.target_url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout):
+                self.error_reported = False
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            if not self.error_reported:
+                print(f"事件转发失败: {exc}")
+                self.error_reported = True
 
 
 class DouyinLiveClient:
-    def __init__(self, room_id, host="127.0.0.1", port=1088):
+    def __init__(
+        self,
+        room_id,
+        host="127.0.0.1",
+        port=1088,
+        forward_events=True,
+        backend_event_url=None,
+        forward_timeout=1.5,
+    ):
         self.room_id = room_id
         self.host = host
         self.port = port
         self.ws = None
         self.ping_thread = None
         self.running = False
+        self.forwarder = None
+
+        if forward_events and backend_event_url:
+            self.forwarder = EventForwarder(backend_event_url, forward_timeout)
 
     def on_message(self, ws, message):
         try:
@@ -41,6 +99,47 @@ class DouyinLiveClient:
         print("已连接到直播间")
         self.running = True
         self.start_ping()
+
+    def normalize_event(self, data):
+        common = data.get("common", {})
+        method = common.get("method", "unknown")
+        user = data.get("user", {})
+        event_type = METHOD_EVENT_TYPE_MAP.get(method, "system")
+
+        content = data.get("content", "")
+        metadata = {
+            "method": method,
+            "livename": data.get("livename", "未知直播间"),
+        }
+
+        if method == "WebcastGiftMessage":
+            metadata["gift_name"] = data.get("gift", {}).get("name", "未知礼物")
+        elif method == "WebcastLikeMessage":
+            metadata["action"] = "点赞"
+        elif method == "WebcastMemberMessage":
+            metadata["action"] = "进场"
+        elif method == "WebcastSocialMessage":
+            metadata["action"] = "关注"
+
+        if not content and "gift_name" in metadata:
+            content = metadata["gift_name"]
+
+        return {
+            "event_id": common.get("msgId") or f"local-{int(time.time() * 1000)}",
+            "room_id": self.room_id,
+            "platform": "douyin",
+            "event_type": event_type,
+            "method": method,
+            "livename": data.get("livename", "未知直播间"),
+            "ts": int(common.get("createTime") or time.time() * 1000),
+            "user": {
+                "id": user.get("id") or user.get("secUid") or "",
+                "nickname": user.get("nickname", "未知用户"),
+            },
+            "content": content,
+            "metadata": metadata,
+            "raw": data,
+        }
 
     def handle_message(self, data):
         method = data.get("common", {}).get("method")
@@ -65,6 +164,9 @@ class DouyinLiveClient:
             print(f"[{livename}] 关注: {nickname} 关注了主播")
         else:
             print(f"[{livename}] 其他消息: {method}")
+
+        if self.forwarder:
+            self.forwarder.forward(self.normalize_event(data))
 
     def start_ping(self):
         def ping():
@@ -113,7 +215,14 @@ def main():
         host = HOST
         port = PORT
 
-    client = DouyinLiveClient(room_id, host, port)
+    client = DouyinLiveClient(
+        room_id,
+        host,
+        port,
+        forward_events=FORWARD_EVENTS,
+        backend_event_url=BACKEND_EVENT_URL,
+        forward_timeout=FORWARD_TIMEOUT,
+    )
 
     try:
         client.connect()

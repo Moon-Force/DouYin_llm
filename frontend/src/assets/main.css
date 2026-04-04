@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-ink: #111111;
+  --color-panel: #191919;
+  --color-panel-soft: #232323;
+  --color-paper: #f5f1e8;
+  --color-muted: #9f998d;
+  --color-accent: #d7ff64;
+  --color-accent-soft: #b6d94d;
+  --font-display: "IBM Plex Sans", "Noto Sans SC", sans-serif;
+  font-family: var(--font-display);
+  background:
+    radial-gradient(circle at top left, rgba(215, 255, 100, 0.12), transparent 24%),
+    linear-gradient(180deg, #141414, #0d0d0d 52%, #111111);
+  color: var(--color-paper);
+}
+
+body {
+  min-height: 100vh;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.grain {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 20px 20px;
+}

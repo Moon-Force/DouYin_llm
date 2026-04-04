@@ -1,120 +1,201 @@
-# Python 客户端使用说明
+# Live Prompter Stack
 
-这是 douyinLive 的 Python 客户端，用于连接并接收抖音直播弹幕消息。
+这个仓库现在包含三层：
 
-## 文件说明
+1. `tool/` 里的 `douyinLive-windows-amd64.exe`
+   负责连接抖音直播间并在本地暴露 WebSocket 服务。
+2. 根目录 `client.py`
+   负责从本地 WebSocket 读取直播消息、做标准化，并转发到业务后端。
+3. `backend/` + `frontend/`
+   负责实时提词、会话记忆、长期存储和极简提词器界面。
 
-| 文件 | 说明 |
+## 目录说明
+
+| 路径 | 说明 |
 |------|------|
-| `config.py` | 配置文件（房间号、端口等） |
-| `client.py` | 实用版客户端（已经封装好） |
-| `debug_client.py` | 调试版客户端（查看原始数据） |
-| `requirements.txt` | Python 依赖库 |
+| `config.py` | 采集层配置，包含直播间号、本地 ws 地址、后端转发地址 |
+| `client.py` | 采集客户端，读取抖音消息并转发到 FastAPI |
+| `debug_client.py` | 调试客户端，打印原始 JSON 并写入日志 |
+| `backend/app.py` | FastAPI 后端入口，提供 REST、SSE、WebSocket |
+| `backend/memory/` | 短期记忆、长期存储、向量检索 |
+| `backend/services/agent.py` | 轻量级直播提词 Agent |
+| `frontend/` | Vue3 + Tailwind 极简提词器 |
+| `tool/` | 预编译 douyinLive 服务端 |
 
-## 安装依赖
+## 架构
+
+```text
+douyinLive.exe
+  -> ws://127.0.0.1:1088/ws/{room_id}
+  -> client.py 标准化消息
+  -> POST /api/events
+  -> FastAPI 写 Redis/SQLite/Chroma
+  -> 生成建议
+  -> SSE/WebSocket 推给 Vue3 提词器
+```
+
+## 消息格式
+
+实际消息类型字段在 `common.method`，不是顶层 `method`。
+
+采集端会标准化为统一事件：
+
+```json
+{
+  "event_id": "7624505524721748020",
+  "room_id": "32137571630",
+  "platform": "douyin",
+  "event_type": "comment",
+  "method": "WebcastChatMessage",
+  "livename": "直播间名称",
+  "ts": 1775218578225,
+  "user": {
+    "id": "",
+    "nickname": "观众昵称"
+  },
+  "content": "评论内容",
+  "metadata": {},
+  "raw": {}
+}
+```
+
+## 后端能力
+
+- FastAPI 实时事件入口
+- SSE `GET /api/events/stream`
+- WebSocket `GET /ws/live`
+- 短期记忆：Redis 优先，缺失时退化到进程内内存
+- 长期记忆：SQLite
+- 向量检索：Chroma 优先，缺失时退化到轻量文本相似度
+- 轻量 Agent：
+  - 默认 `heuristic`
+  - 也支持 OpenAI 兼容接口模式
+  - 现在内置 `qwen` 模式，默认指向在线官方百炼兼容接口
+
+## 前端风格
+
+- Vue 3 + Tailwind CSS
+- 极简提词器布局
+- 主区只突出一条建议
+- 侧栏展示最近弹幕
+- 使用 SSE 接收实时推送
+
+## 运行方式
+
+### 1. 启动抖音消息服务
+
+```bash
+tool\douyinLive-windows-amd64.exe
+```
+
+### 2. 安装 Python 依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-或者直接安装：
+### 3. 启动后端
 
 ```bash
-pip install websocket-client
+uvicorn backend.app:app --reload
 ```
 
-## 快速开始
-
-### 1. 配置
-
-编辑 `config.py`，修改直播间号：
-
-```python
-ROOM_ID = "你的直播间号"  # 改成你的直播间标识
-HOST = "127.0.0.1"
-PORT = 1088
-LOG_DIR = "logs"
-```
-
-### 2. 确保服务端运行
-
-先运行 `douyinLive-windows-amd64.exe` 启动服务端。
-
-### 3. 运行客户端
-
-#### 方式一：使用 config.py 配置（推荐）
-
-```bash
-python debug_client.py
-```
-
-或
+### 4. 启动采集客户端
 
 ```bash
 python client.py
 ```
 
-#### 方式二：命令行传参
+### 5. 启动前端
 
 ```bash
-python debug_client.py <直播间标识>
+cd frontend
+npm install
+npm run dev
 ```
 
-示例：
+### 5.5 推荐的一键启动方式
+
+先复制配置：
 
 ```bash
-python debug_client.py 516466932480
+copy .env.example .env
 ```
 
-## 两个客户端的区别
+然后填写 `.env` 里的 `DASHSCOPE_API_KEY`，再运行：
 
-### debug_client.py（调试版）
+```powershell
+.\start_all.ps1
+```
 
-- 显示完整的原始 JSON 数据
-- 自动保存日志到 `logs/` 文件夹
-- 适合开发调试，查看数据结构
+如果只想单独启动后端或前端：
 
-### client.py（实用版）
+```powershell
+.\start_backend_qwen.ps1
+.\start_frontend.ps1
+```
 
-- 已经封装好常见消息类型
-- 简洁的输出格式
-- 适合直接使用
+### 6. 调试原始消息
 
-## 支持的消息类型
+```bash
+python debug_client.py
+```
 
-| 消息类型 | 说明 |
-|----------|------|
-| WebcastChatMessage | 弹幕 |
-| WebcastGiftMessage | 礼物 |
-| WebcastLikeMessage | 点赞 |
-| WebcastMemberMessage | 进场 |
-| WebcastSocialMessage | 关注 |
+## 配置
 
-## 自定义开发
-
-### 修改 client.py
-
-在 `handle_message` 方法中添加你的业务逻辑：
+编辑 `config.py`：
 
 ```python
-def handle_message(self, data):
-    method = data.get("method")
-    
-    if method == "WebcastChatMessage":
-        # 在这里添加你的弹幕处理代码
-        pass
+ROOM_ID = "你的直播间号"
+HOST = "127.0.0.1"
+PORT = 1088
+LOG_DIR = "logs"
+FORWARD_EVENTS = True
+BACKEND_EVENT_URL = "http://127.0.0.1:8010/api/events"
+FORWARD_TIMEOUT = 1.5
 ```
 
-### 查看原始数据
+`tool/config.yaml` 里的 `cookie.douyin` 只保留示例空值；如果你本地需要真实 Cookie，直接本地填写，但不要提交到仓库。
 
-先用 `debug_client.py` 运行，查看完整的数据结构，了解都有哪些字段可用。
+可选环境变量：
 
-## 日志文件
-
-运行 `debug_client.py` 时会自动在 `logs/` 目录下生成日志文件，文件名格式：
-
+```bash
+set LLM_MODE=openai
+set LLM_BASE_URL=https://api.openai.com/v1
+set LLM_MODEL=gpt-4.1-mini
+set LLM_API_KEY=your_api_key
+set REDIS_URL=redis://127.0.0.1:6379/0
 ```
-douyinlive_20260403_123456.log
+
+项目根目录支持 `.env` 文件。后端启动时会自动读取 `.env`，不存在时才回退到当前 shell 环境变量。
+
+如果你要接在线 Qwen，推荐直接用内置 `qwen` 模式：
+
+```bash
+set LLM_MODE=qwen
+set DASHSCOPE_API_KEY=your_dashscope_api_key
+set LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+set LLM_MODEL=qwen-plus-latest
+set LLM_TIMEOUT_SECONDS=6
 ```
 
-所有打印的内容都会同时保存到日志文件中。
+如果你想显式使用统一变量名，也可以这样写：
+
+```bash
+set LLM_API_KEY=your_dashscope_api_key
+```
+
+如果接其他在线 OpenAI 兼容网关，比如 GLM：
+
+```bash
+set LLM_MODE=openai
+set LLM_BASE_URL=http://127.0.0.1:8001/v1
+set LLM_MODEL=glm-4-flash
+```
+
+## 当前实现边界
+
+- 这版已经能跑通采集 -> 后端 -> 前端展示的主链路。
+- Agent 当前以低延迟启发式策略为默认模式。
+- Redis 和 Chroma 是可选增强，不安装时会自动退化。
+- 当前还没有做多房间隔离 UI、权限体系和完整运营后台。
