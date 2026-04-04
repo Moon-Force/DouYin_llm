@@ -69,7 +69,8 @@ douyinLive.exe
 - 向量检索：Chroma 优先，缺失时退化到轻量文本相似度
 - 轻量 Agent：
   - 默认 `heuristic`
-  - 也支持 OpenAI 兼容接口模式，适配 OpenAI / 本地 Qwen / GLM 网关
+  - 也支持 OpenAI 兼容接口模式
+  - 现在内置 `qwen` 模式，默认指向在线官方百炼兼容接口
 
 ## 前端风格
 
@@ -145,12 +146,28 @@ set LLM_API_KEY=your_api_key
 set REDIS_URL=redis://127.0.0.1:6379/0
 ```
 
-如果接本地 OpenAI 兼容网关，比如 Qwen / GLM：
+如果你要接在线 Qwen，推荐直接用内置 `qwen` 模式：
+
+```bash
+set LLM_MODE=qwen
+set DASHSCOPE_API_KEY=your_dashscope_api_key
+set LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+set LLM_MODEL=qwen-plus-latest
+set LLM_TIMEOUT_SECONDS=6
+```
+
+如果你想显式使用统一变量名，也可以这样写：
+
+```bash
+set LLM_API_KEY=your_dashscope_api_key
+```
+
+如果接其他在线 OpenAI 兼容网关，比如 GLM：
 
 ```bash
 set LLM_MODE=openai
 set LLM_BASE_URL=http://127.0.0.1:8001/v1
-set LLM_MODEL=qwen2.5-7b-instruct
+set LLM_MODEL=glm-4-flash
 ```
 
 ## 当前实现边界

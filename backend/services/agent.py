@@ -1,4 +1,5 @@
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -43,7 +44,7 @@ class LivePromptAgent:
         )
 
     def _generate_payload(self, event, context):
-        if self.settings.llm_mode != "heuristic" and self.settings.llm_api_key:
+        if self.settings.llm_mode != "heuristic":
             result = self._generate_with_openai_compatible(event, context)
             if result:
                 return result
@@ -112,44 +113,80 @@ class LivePromptAgent:
             "event": event.model_dump(),
             "context": context,
             "instruction": (
-                "你是直播提词器助手。输出一个 JSON 对象，包含 priority, reply_text, "
-                "tone, reason, confidence。reply_text 必须简短、口语化、适合主播直接念。"
+                "你是直播提词器助手。请只输出一个 JSON 对象，不要输出解释、前后缀或 markdown。"
+                "JSON 必须包含 priority, reply_text, tone, reason, confidence。"
+                "reply_text 必须简短、口语化、适合主播直接念。"
             ),
         }
+        headers = {"Content-Type": "application/json"}
+        if self.settings.llm_api_key:
+            headers["Authorization"] = f"Bearer {self.settings.llm_api_key}"
+
         request = urllib.request.Request(
-            f"{self.settings.llm_base_url.rstrip('/')}/chat/completions",
+            f"{self.settings.resolved_llm_base_url()}/chat/completions",
             data=json.dumps(
                 {
-                    "model": self.settings.llm_model,
+                    "model": self.settings.resolved_llm_model(),
                     "temperature": self.settings.llm_temperature,
                     "messages": [
-                        {"role": "system", "content": "你是直播间实时提词器。"},
+                        {
+                            "role": "system",
+                            "content": (
+                                "你是直播间实时提词器，擅长中文短句口播。"
+                                "输出必须是合法 JSON，不要使用 markdown 代码块。"
+                            ),
+                        },
                         {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
                     ],
                 },
                 ensure_ascii=False,
             ).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {self.settings.llm_api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             method="POST",
         )
 
         try:
-            with urllib.request.urlopen(request, timeout=5.0) as response:
+            with urllib.request.urlopen(request, timeout=self.settings.llm_timeout_seconds) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError):
             return None
 
         try:
             content = payload["choices"][0]["message"]["content"]
-            parsed = json.loads(content)
         except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+            return None
+
+        parsed = self._parse_model_json(content)
+        if not parsed:
             return None
 
         required = {"priority", "reply_text", "tone", "reason", "confidence"}
         if not required.issubset(parsed):
             return None
 
+        try:
+            parsed["confidence"] = float(parsed["confidence"])
+        except (TypeError, ValueError):
+            return None
+
         return parsed
+
+    def _parse_model_json(self, content):
+        candidates = [content.strip()]
+        fenced = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", content, flags=re.S)
+        candidates.extend(fenced)
+
+        start = content.find("{")
+        end = content.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            candidates.append(content[start : end + 1].strip())
+
+        for candidate in candidates:
+            try:
+                parsed = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                return parsed
+
+        return None
