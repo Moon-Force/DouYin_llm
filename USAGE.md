@@ -242,7 +242,7 @@ python debug_client.py
 先看：
 
 - `python client.py` 是否已运行
-- `BACKEND_EVENT_URL` 是否是 `http://127.0.0.1:8000/api/events`
+- `BACKEND_EVENT_URL` 是否是 `http://127.0.0.1:8010/api/events`
 
 ## 当前版本定位
 

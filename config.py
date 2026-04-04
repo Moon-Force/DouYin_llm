@@ -17,7 +17,7 @@ LOG_DIR = "logs"
 FORWARD_EVENTS = True
 
 # 业务后端的事件接收地址
-BACKEND_EVENT_URL = "http://127.0.0.1:8000/api/events"
+BACKEND_EVENT_URL = "http://127.0.0.1:8010/api/events"
 
 # 采集端转发超时时间，单位秒
 FORWARD_TIMEOUT = 1.5

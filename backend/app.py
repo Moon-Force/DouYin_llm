@@ -38,6 +38,12 @@ def event_envelope(kind, data):
 
 def snapshot_with_status(room_id):
     snapshot = session_memory.snapshot(room_id)
+    if not snapshot.recent_events:
+        snapshot.recent_events = long_term_store.recent_events(room_id, limit=30)
+    if not snapshot.recent_suggestions:
+        snapshot.recent_suggestions = long_term_store.recent_suggestions(room_id, limit=10)
+    if snapshot.stats.total_events == 0:
+        snapshot.stats = long_term_store.stats(room_id)
     snapshot.model_status = ModelStatus(**agent.current_status())
     return snapshot
 

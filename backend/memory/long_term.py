@@ -1,7 +1,7 @@
 import json
 import sqlite3
 
-from backend.schemas.live import LiveEvent, Suggestion
+from backend.schemas.live import Actor, LiveEvent, SessionSnapshot, SessionStats, Suggestion
 
 
 class LongTermStore:
@@ -126,6 +126,114 @@ class LongTermStore:
                     suggestion.created_at,
                 ),
             )
+
+    def recent_events(self, room_id, limit=30):
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT event_id, room_id, platform, event_type, method, livename,
+                       user_id, nickname, content, ts, metadata_json, raw_json
+                FROM events
+                WHERE room_id = ?
+                ORDER BY ts DESC
+                LIMIT ?
+                """,
+                (room_id, limit),
+            ).fetchall()
+
+        events = []
+        for row in rows:
+            events.append(
+                LiveEvent(
+                    event_id=row["event_id"],
+                    room_id=row["room_id"],
+                    platform=row["platform"],
+                    event_type=row["event_type"],
+                    method=row["method"],
+                    livename=row["livename"],
+                    ts=row["ts"],
+                    user=Actor(
+                        id=row["user_id"] or "",
+                        nickname=row["nickname"] or Actor().nickname,
+                    ),
+                    content=row["content"] or "",
+                    metadata=json.loads(row["metadata_json"] or "{}"),
+                    raw=json.loads(row["raw_json"] or "{}"),
+                )
+            )
+        return events
+
+    def recent_suggestions(self, room_id, limit=10):
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT suggestion_id, room_id, event_id, priority, reply_text,
+                       tone, reason, confidence, created_at
+                FROM suggestions
+                WHERE room_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (room_id, limit),
+            ).fetchall()
+
+        suggestions = []
+        for row in rows:
+            suggestions.append(
+                Suggestion(
+                    suggestion_id=row["suggestion_id"],
+                    room_id=row["room_id"],
+                    event_id=row["event_id"],
+                    source="heuristic",
+                    priority=row["priority"],
+                    reply_text=row["reply_text"],
+                    tone=row["tone"],
+                    reason=row["reason"],
+                    confidence=row["confidence"],
+                    source_events=[row["event_id"]],
+                    references=[],
+                    created_at=row["created_at"],
+                )
+            )
+        return suggestions
+
+    def stats(self, room_id):
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_events,
+                    SUM(CASE WHEN event_type = 'comment' THEN 1 ELSE 0 END) AS comments,
+                    SUM(CASE WHEN event_type = 'gift' THEN 1 ELSE 0 END) AS gifts,
+                    SUM(CASE WHEN event_type = 'like' THEN 1 ELSE 0 END) AS likes,
+                    SUM(CASE WHEN event_type = 'member' THEN 1 ELSE 0 END) AS members,
+                    SUM(CASE WHEN event_type = 'follow' THEN 1 ELSE 0 END) AS follows
+                FROM events
+                WHERE room_id = ?
+                """,
+                (room_id,),
+            ).fetchone()
+
+        if not row or not row["total_events"]:
+            return SessionStats(room_id=room_id)
+
+        return SessionStats(
+            room_id=room_id,
+            total_events=row["total_events"] or 0,
+            comments=row["comments"] or 0,
+            gifts=row["gifts"] or 0,
+            likes=row["likes"] or 0,
+            members=row["members"] or 0,
+            follows=row["follows"] or 0,
+        )
+
+    def snapshot(self, room_id):
+        return SessionSnapshot(
+            room_id=room_id,
+            recent_events=self.recent_events(room_id, limit=30),
+            recent_suggestions=self.recent_suggestions(room_id, limit=10),
+            stats=self.stats(room_id),
+        )
 
     def get_user_profile(self, room_id, nickname):
         with self._connect() as connection:

@@ -151,7 +151,7 @@ HOST = "127.0.0.1"
 PORT = 1088
 LOG_DIR = "logs"
 FORWARD_EVENTS = True
-BACKEND_EVENT_URL = "http://127.0.0.1:8000/api/events"
+BACKEND_EVENT_URL = "http://127.0.0.1:8010/api/events"
 FORWARD_TIMEOUT = 1.5
 ```
 
