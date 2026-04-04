@@ -10,6 +10,7 @@ import { useLiveStore } from "./stores/live";
 const liveStore = useLiveStore();
 const {
   activeSuggestion,
+  areAllEventTypesSelected,
   connectionState,
   eventFilters,
   filteredEvents,
@@ -40,7 +41,9 @@ onMounted(async () => {
         :events="filteredEvents"
         :event-filters="eventFilters"
         :selected-event-types="selectedEventTypes"
+        :are-all-event-types-selected="areAllEventTypesSelected"
         @toggle-filter="liveStore.toggleEventType"
+        @select-all-filters="liveStore.selectAllEventTypes"
       />
     </section>
   </main>

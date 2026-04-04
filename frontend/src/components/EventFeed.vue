@@ -12,9 +12,13 @@ const props = defineProps({
     type: Array,
     required: true,
   },
+  areAllEventTypesSelected: {
+    type: Boolean,
+    required: true,
+  },
 });
 
-const emit = defineEmits(["toggle-filter"]);
+const emit = defineEmits(["toggle-filter", "select-all-filters"]);
 
 function badge(eventType) {
   switch (eventType) {
@@ -36,27 +40,53 @@ function badge(eventType) {
 function isSelected(eventType) {
   return props.selectedEventTypes.includes(eventType);
 }
+
+function isLockedSelected(eventType) {
+  return isSelected(eventType) && props.selectedEventTypes.length === 1;
+}
 </script>
 
 <template>
   <section class="rounded-[28px] border border-white/8 bg-panel-soft/80 p-6">
-    <p class="text-[11px] uppercase tracking-[0.3em] text-muted">Live Feed</p>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <p class="text-[11px] uppercase tracking-[0.3em] text-muted">Live Feed</p>
+      <button
+        type="button"
+        class="rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.18em] transition"
+        :class="
+          areAllEventTypesSelected
+            ? 'border-white/10 bg-white/4 text-muted'
+            : 'border-accent/60 bg-accent/10 text-accent'
+        "
+        :disabled="areAllEventTypesSelected"
+        @click="emit('select-all-filters')"
+      >
+        Show All
+      </button>
+    </div>
+
     <div class="mt-4 flex flex-wrap gap-2">
       <button
         v-for="filter in eventFilters"
         :key="filter.value"
         type="button"
-        class="rounded-full border px-3 py-1 text-xs tracking-[0.15em] transition"
+        class="rounded-full border px-3 py-1 text-xs tracking-[0.15em] transition disabled:cursor-not-allowed disabled:opacity-60"
         :class="
           isSelected(filter.value)
             ? 'border-accent bg-accent text-ink'
             : 'border-white/10 bg-white/4 text-muted'
         "
+        :disabled="isLockedSelected(filter.value)"
         @click="emit('toggle-filter', filter.value)"
       >
         {{ filter.label }}
       </button>
     </div>
+
+    <p class="mt-3 text-xs text-muted">
+      Showing {{ selectedEventTypes.length }} / {{ eventFilters.length }} event types
+    </p>
+
     <div class="mt-5 space-y-3">
       <article
         v-for="event in events.slice(0, 10)"

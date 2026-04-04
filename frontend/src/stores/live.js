@@ -3,7 +3,6 @@ import { defineStore } from "pinia";
 
 const MAX_EVENTS = 30;
 const MAX_SUGGESTIONS = 12;
-const DEFAULT_VISIBLE_EVENT_TYPES = ["comment", "gift"];
 const EVENT_FILTERS = [
   { value: "comment", label: "弹幕" },
   { value: "gift", label: "礼物" },
@@ -12,11 +11,36 @@ const EVENT_FILTERS = [
   { value: "like", label: "点赞" },
   { value: "system", label: "系统" },
 ];
+const DEFAULT_VISIBLE_EVENT_TYPES = EVENT_FILTERS.map((filter) => filter.value);
+const FILTER_STORAGE_KEY = "live-prompter:selected-event-types";
+
+function normalizeSelectedEventTypes(eventTypes) {
+  const validValues = new Set(EVENT_FILTERS.map((filter) => filter.value));
+  const normalized = Array.isArray(eventTypes)
+    ? eventTypes.filter((eventType) => validValues.has(eventType))
+    : [];
+
+  return normalized.length > 0 ? [...new Set(normalized)] : [...DEFAULT_VISIBLE_EVENT_TYPES];
+}
+
+function loadSelectedEventTypes() {
+  if (typeof window === "undefined") {
+    return [...DEFAULT_VISIBLE_EVENT_TYPES];
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(FILTER_STORAGE_KEY);
+    return normalizeSelectedEventTypes(rawValue ? JSON.parse(rawValue) : DEFAULT_VISIBLE_EVENT_TYPES);
+  } catch {
+    return [...DEFAULT_VISIBLE_EVENT_TYPES];
+  }
+}
 
 export const useLiveStore = defineStore("live", () => {
   const roomId = ref("32137571630");
   const connectionState = ref("connecting");
-  const selectedEventTypes = ref([...DEFAULT_VISIBLE_EVENT_TYPES]);
+  const eventFilters = ref(EVENT_FILTERS);
+  const selectedEventTypes = ref(loadSelectedEventTypes());
   const modelStatus = ref({
     mode: "heuristic",
     model: "heuristic",
@@ -39,9 +63,20 @@ export const useLiveStore = defineStore("live", () => {
   let eventSource;
 
   const activeSuggestion = computed(() => suggestions.value[0] || null);
+  const areAllEventTypesSelected = computed(
+    () => selectedEventTypes.value.length === EVENT_FILTERS.length,
+  );
   const filteredEvents = computed(() =>
     events.value.filter((event) => selectedEventTypes.value.includes(event.event_type)),
   );
+
+  function persistSelectedEventTypes() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selectedEventTypes.value));
+  }
 
   async function bootstrap() {
     const response = await fetch("/api/bootstrap");
@@ -96,20 +131,35 @@ export const useLiveStore = defineStore("live", () => {
 
   function toggleEventType(eventType) {
     if (selectedEventTypes.value.includes(eventType)) {
+      if (selectedEventTypes.value.length === 1) {
+        return;
+      }
+
       selectedEventTypes.value = selectedEventTypes.value.filter((value) => value !== eventType);
+      persistSelectedEventTypes();
       return;
     }
 
-    selectedEventTypes.value = [...selectedEventTypes.value, eventType];
+    selectedEventTypes.value = normalizeSelectedEventTypes([
+      ...selectedEventTypes.value,
+      eventType,
+    ]);
+    persistSelectedEventTypes();
+  }
+
+  function selectAllEventTypes() {
+    selectedEventTypes.value = [...DEFAULT_VISIBLE_EVENT_TYPES];
+    persistSelectedEventTypes();
   }
 
   return {
     roomId,
     connectionState,
     selectedEventTypes,
-    eventFilters: EVENT_FILTERS,
+    eventFilters,
     modelStatus,
     stats,
+    areAllEventTypesSelected,
     events,
     filteredEvents,
     suggestions,
@@ -117,5 +167,6 @@ export const useLiveStore = defineStore("live", () => {
     bootstrap,
     connect,
     toggleEventType,
+    selectAllEventTypes,
   };
 });
