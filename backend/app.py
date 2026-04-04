@@ -1,4 +1,5 @@
 import json
+import logging
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,11 +9,12 @@ from backend.config import settings
 from backend.memory.long_term import LongTermStore
 from backend.memory.session_memory import SessionMemory
 from backend.memory.vector_store import VectorMemory
-from backend.schemas.live import LiveEvent
+from backend.schemas.live import LiveEvent, ModelStatus
 from backend.services.agent import LivePromptAgent
 from backend.services.broker import EventBroker
 
 settings.ensure_dirs()
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 app = FastAPI(title="Live Prompter Backend", version="0.1.0")
 app.add_middleware(
@@ -34,6 +36,12 @@ def event_envelope(kind, data):
     return {"type": kind, "data": data}
 
 
+def snapshot_with_status(room_id):
+    snapshot = session_memory.snapshot(room_id)
+    snapshot.model_status = ModelStatus(**agent.current_status())
+    return snapshot
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "room_id": settings.room_id}
@@ -42,7 +50,7 @@ async def health():
 @app.get("/api/bootstrap")
 async def bootstrap(room_id: str | None = None):
     target_room_id = room_id or settings.room_id
-    snapshot = session_memory.snapshot(target_room_id)
+    snapshot = snapshot_with_status(target_room_id)
     return snapshot.model_dump()
 
 
@@ -64,6 +72,7 @@ async def ingest_event(event: LiveEvent):
 
     stats = session_memory.stats(event.room_id)
     await broker.publish(event_envelope("stats", stats.model_dump()))
+    await broker.publish(event_envelope("model_status", ModelStatus(**agent.current_status()).model_dump()))
 
     return {
         "accepted": True,
@@ -96,7 +105,7 @@ async def live_socket(websocket: WebSocket):
     await websocket.accept()
     queue = broker.subscribe()
 
-    snapshot = session_memory.snapshot(settings.room_id)
+    snapshot = snapshot_with_status(settings.room_id)
     await websocket.send_json(event_envelope("bootstrap", snapshot.model_dump()))
 
     try:

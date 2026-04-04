@@ -46,8 +46,18 @@ class SessionStats(BaseModel):
     follows: int = 0
 
 
+class ModelStatus(BaseModel):
+    mode: str = "heuristic"
+    model: str = "heuristic"
+    backend: str = "local"
+    last_result: str = "idle"
+    last_error: str = ""
+    updated_at: int = 0
+
+
 class SessionSnapshot(BaseModel):
     room_id: str
     recent_events: list[LiveEvent] = Field(default_factory=list)
     recent_suggestions: list[Suggestion] = Field(default_factory=list)
     stats: SessionStats
+    model_status: ModelStatus = Field(default_factory=ModelStatus)

@@ -7,6 +7,14 @@ const MAX_SUGGESTIONS = 12;
 export const useLiveStore = defineStore("live", () => {
   const roomId = ref("32137571630");
   const connectionState = ref("connecting");
+  const modelStatus = ref({
+    mode: "heuristic",
+    model: "heuristic",
+    backend: "local",
+    last_result: "idle",
+    last_error: "",
+    updated_at: 0,
+  });
   const stats = ref({
     room_id: roomId.value,
     total_events: 0,
@@ -27,6 +35,7 @@ export const useLiveStore = defineStore("live", () => {
     const payload = await response.json();
     roomId.value = payload.room_id;
     stats.value = payload.stats;
+    modelStatus.value = payload.model_status || modelStatus.value;
     events.value = payload.recent_events || [];
     suggestions.value = payload.recent_suggestions || [];
   }
@@ -66,11 +75,16 @@ export const useLiveStore = defineStore("live", () => {
     eventSource.addEventListener("stats", (message) => {
       stats.value = JSON.parse(message.data);
     });
+
+    eventSource.addEventListener("model_status", (message) => {
+      modelStatus.value = JSON.parse(message.data);
+    });
   }
 
   return {
     roomId,
     connectionState,
+    modelStatus,
     stats,
     events,
     suggestions,

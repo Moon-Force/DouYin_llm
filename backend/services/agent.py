@@ -18,6 +18,27 @@ class LivePromptAgent:
         self.settings = settings
         self.vector_memory = vector_memory
         self.long_term_store = long_term_store
+        self._status = {
+            "mode": settings.llm_mode,
+            "model": settings.resolved_llm_model() if settings.llm_mode != "heuristic" else "heuristic",
+            "backend": settings.resolved_llm_base_url() if settings.llm_mode != "heuristic" else "local",
+            "last_result": "idle",
+            "last_error": "",
+            "updated_at": 0,
+        }
+
+    def current_status(self):
+        return dict(self._status)
+
+    def _mark_status(self, result, error=""):
+        self._status = {
+            "mode": self.settings.llm_mode,
+            "model": self.settings.resolved_llm_model() if self.settings.llm_mode != "heuristic" else "heuristic",
+            "backend": self.settings.resolved_llm_base_url() if self.settings.llm_mode != "heuristic" else "local",
+            "last_result": result,
+            "last_error": error,
+            "updated_at": int(time.time() * 1000),
+        }
 
     def build_context(self, event, recent_events):
         similar = self.vector_memory.similar(event.content, limit=3)
@@ -52,7 +73,9 @@ class LivePromptAgent:
         if self.settings.llm_mode != "heuristic":
             result = self._generate_with_openai_compatible(event, context)
             if result:
+                self._mark_status("ok")
                 return result
+            self._mark_status("fallback", "llm_generation_failed")
             logger.warning(
                 "LLM generation failed, falling back to heuristic mode: room_id=%s event_id=%s model=%s",
                 event.room_id,
@@ -60,6 +83,7 @@ class LivePromptAgent:
                 self.settings.resolved_llm_model(),
             )
 
+        self._mark_status("heuristic")
         return self._generate_heuristic(event, context)
 
     def _generate_heuristic(self, event, context):
@@ -174,6 +198,7 @@ class LivePromptAgent:
                 exc.reason,
                 error_body[:500],
             )
+            self._mark_status("error", f"http_{exc.code}")
             return None
         except urllib.error.URLError as exc:
             logger.error(
@@ -182,6 +207,7 @@ class LivePromptAgent:
                 self.settings.resolved_llm_model(),
                 exc.reason,
             )
+            self._mark_status("error", "network_error")
             return None
         except TimeoutError:
             logger.error(
@@ -190,6 +216,7 @@ class LivePromptAgent:
                 self.settings.resolved_llm_model(),
                 self.settings.llm_timeout_seconds,
             )
+            self._mark_status("error", "timeout")
             return None
         except json.JSONDecodeError:
             logger.error(
@@ -197,6 +224,7 @@ class LivePromptAgent:
                 self.settings.llm_mode,
                 self.settings.resolved_llm_model(),
             )
+            self._mark_status("error", "invalid_json_envelope")
             return None
         except OSError as exc:
             logger.error(
@@ -205,6 +233,7 @@ class LivePromptAgent:
                 self.settings.resolved_llm_model(),
                 exc,
             )
+            self._mark_status("error", "os_error")
             return None
         except Exception:
             logger.error(
@@ -213,6 +242,7 @@ class LivePromptAgent:
                 self.settings.resolved_llm_model(),
                 traceback.format_exc(),
             )
+            self._mark_status("error", "unexpected_exception")
             return None
 
         try:
@@ -224,6 +254,7 @@ class LivePromptAgent:
                 self.settings.resolved_llm_model(),
                 list(payload.keys()) if isinstance(payload, dict) else type(payload).__name__,
             )
+            self._mark_status("error", "missing_content")
             return None
 
         parsed = self._parse_model_json(content)
@@ -234,6 +265,7 @@ class LivePromptAgent:
                 self.settings.resolved_llm_model(),
                 content[:500],
             )
+            self._mark_status("error", "invalid_json_payload")
             return None
 
         normalized = self._normalize_model_payload(parsed)
@@ -244,6 +276,7 @@ class LivePromptAgent:
                 self.settings.resolved_llm_model(),
                 json.dumps(parsed, ensure_ascii=False)[:500],
             )
+            self._mark_status("error", "invalid_payload_shape")
             return None
 
         logger.info(
