@@ -1,8 +1,12 @@
 
+
+# Deprecated legacy client config.
+# Only used by files under `deprecated/`.
+
 # 配置文件
 
 # 抖音直播间标识
-ROOM_ID = "32137571630"
+ROOM_ID = "72869054040"
 
 # WebSocket 服务主机
 HOST = "127.0.0.1"

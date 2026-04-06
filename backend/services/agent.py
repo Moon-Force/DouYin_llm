@@ -1,3 +1,10 @@
+"""提词建议生成器。
+
+生成策略分两层：
+- 优先走在线 OpenAI 兼容接口
+- 失败时自动回退到本地 heuristic 规则
+"""
+
 import json
 import logging
 import re
@@ -15,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 class LivePromptAgent:
     def __init__(self, settings, vector_memory, long_term_store):
+        """初始化提词 Agent，并准备一份可供前端查看的状态信息。"""
+
         self.settings = settings
         self.vector_memory = vector_memory
         self.long_term_store = long_term_store
@@ -28,9 +37,13 @@ class LivePromptAgent:
         }
 
     def current_status(self):
+        """返回当前模型状态快照。"""
+
         return dict(self._status)
 
     def _mark_status(self, result, error=""):
+        """更新当前模型运行状态。"""
+
         self._status = {
             "mode": self.settings.llm_mode,
             "model": self.settings.resolved_llm_model() if self.settings.llm_mode != "heuristic" else "heuristic",
@@ -41,6 +54,14 @@ class LivePromptAgent:
         }
 
     def build_context(self, event, recent_events):
+        """为建议生成构造上下文。
+
+        当前上下文包含：
+        - 最近事件窗口
+        - 相似历史片段
+        - 用户画像
+        """
+
         similar = self.vector_memory.similar(event.content, limit=3)
         profile = self.long_term_store.get_user_profile(event.room_id, event.user.nickname)
         return {
@@ -50,6 +71,8 @@ class LivePromptAgent:
         }
 
     def maybe_generate(self, event, recent_events):
+        """根据事件类型决定是否需要生成提词建议。"""
+
         if event.event_type not in {"comment", "gift", "follow"}:
             return None
 
@@ -71,6 +94,8 @@ class LivePromptAgent:
         )
 
     def _generate_payload(self, event, context):
+        """选择模型模式或规则模式来生成建议主体。"""
+
         if self.settings.llm_mode != "heuristic":
             result = self._generate_with_openai_compatible(event, context)
             if result:
@@ -88,6 +113,11 @@ class LivePromptAgent:
         return self._generate_heuristic(event, context, source="heuristic_fallback" if self.settings.llm_mode != "heuristic" else "heuristic")
 
     def _generate_heuristic(self, event, context, source="heuristic"):
+        """本地规则兜底策略。
+
+        目标不是绝对智能，而是在模型不可用时仍能稳定给出可口播的短建议。
+        """
+
         nickname = event.user.nickname
         if event.event_type == "gift":
             gift_name = event.metadata.get("gift_name", event.content or "礼物")
@@ -151,6 +181,8 @@ class LivePromptAgent:
         }
 
     def _generate_with_openai_compatible(self, event, context):
+        """调用 OpenAI 兼容接口生成建议。"""
+
         prompt = {
             "event": event.model_dump(),
             "context": context,
@@ -297,6 +329,8 @@ class LivePromptAgent:
         return normalized
 
     def _parse_model_json(self, content):
+        """尽量从模型返回内容里提取出一个 JSON 对象。"""
+
         candidates = [content.strip()]
         fenced = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", content, flags=re.S)
         candidates.extend(fenced)
@@ -317,6 +351,8 @@ class LivePromptAgent:
         return None
 
     def _normalize_model_payload(self, parsed):
+        """校验并规范化模型返回字段。"""
+
         required = {"priority", "reply_text", "tone", "reason", "confidence"}
         if not required.issubset(parsed):
             return None

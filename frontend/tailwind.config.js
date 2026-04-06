@@ -4,13 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#111111",
-        panel: "#191919",
-        "panel-soft": "#232323",
-        paper: "#f5f1e8",
-        muted: "#9f998d",
-        accent: "#d7ff64",
-        "accent-soft": "#b6d94d",
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        panel: "rgb(var(--color-panel) / <alpha-value>)",
+        "panel-soft": "rgb(var(--color-panel-soft) / <alpha-value>)",
+        paper: "rgb(var(--color-paper) / <alpha-value>)",
+        muted: "rgb(var(--color-muted) / <alpha-value>)",
+        accent: "rgb(var(--color-accent) / <alpha-value>)",
+        "accent-soft": "rgb(var(--color-accent-soft) / <alpha-value>)",
+        line: "rgb(var(--color-line) / <alpha-value>)",
       },
       fontFamily: {
         display: ["IBM Plex Sans", "Noto Sans SC", "sans-serif"],

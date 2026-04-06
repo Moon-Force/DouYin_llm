@@ -1,3 +1,11 @@
+"""SQLite 长期存储层。
+
+这里负责持久化：
+- 直播事件
+- 提词建议
+- 基础用户画像
+"""
+
 import json
 import sqlite3
 
@@ -10,11 +18,15 @@ class LongTermStore:
         self._setup()
 
     def _connect(self):
+        """创建一个带字典行访问能力的 SQLite 连接。"""
+
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
         return connection
 
     def _setup(self):
+        """初始化数据库表结构。"""
+
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -59,6 +71,8 @@ class LongTermStore:
             )
 
     def persist_event(self, event: LiveEvent):
+        """持久化一条事件，并同步更新用户画像。"""
+
         with self._connect() as connection:
             connection.execute(
                 """
@@ -106,6 +120,8 @@ class LongTermStore:
             )
 
     def persist_suggestion(self, suggestion: Suggestion):
+        """持久化一条提词建议。"""
+
         with self._connect() as connection:
             connection.execute(
                 """
@@ -128,6 +144,8 @@ class LongTermStore:
             )
 
     def recent_events(self, room_id, limit=30):
+        """读取某个房间最近的事件记录。"""
+
         with self._connect() as connection:
             rows = connection.execute(
                 """
@@ -164,6 +182,8 @@ class LongTermStore:
         return events
 
     def recent_suggestions(self, room_id, limit=10):
+        """读取某个房间最近的建议记录。"""
+
         with self._connect() as connection:
             rows = connection.execute(
                 """
@@ -198,6 +218,8 @@ class LongTermStore:
         return suggestions
 
     def stats(self, room_id):
+        """从长期存储里统计某个房间的聚合数据。"""
+
         with self._connect() as connection:
             row = connection.execute(
                 """
@@ -228,6 +250,8 @@ class LongTermStore:
         )
 
     def snapshot(self, room_id):
+        """直接基于 SQLite 构造一个完整房间快照。"""
+
         return SessionSnapshot(
             room_id=room_id,
             recent_events=self.recent_events(room_id, limit=30),
@@ -236,6 +260,8 @@ class LongTermStore:
         )
 
     def get_user_profile(self, room_id, nickname):
+        """读取某个房间里某个昵称的画像信息。"""
+
         with self._connect() as connection:
             row = connection.execute(
                 """

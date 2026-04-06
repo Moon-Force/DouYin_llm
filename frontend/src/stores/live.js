@@ -3,6 +3,7 @@ import { defineStore } from "pinia";
 
 const MAX_EVENTS = 30;
 const MAX_SUGGESTIONS = 12;
+
 const EVENT_FILTERS = [
   { value: "comment", label: "弹幕" },
   { value: "gift", label: "礼物" },
@@ -11,8 +12,22 @@ const EVENT_FILTERS = [
   { value: "like", label: "点赞" },
   { value: "system", label: "系统" },
 ];
+
 const DEFAULT_VISIBLE_EVENT_TYPES = EVENT_FILTERS.map((filter) => filter.value);
 const FILTER_STORAGE_KEY = "live-prompter:selected-event-types";
+const THEME_STORAGE_KEY = "live-prompter:theme";
+
+function createEmptyStats(roomId) {
+  return {
+    room_id: roomId,
+    total_events: 0,
+    comments: 0,
+    gifts: 0,
+    likes: 0,
+    members: 0,
+    follows: 0,
+  };
+}
 
 function normalizeSelectedEventTypes(eventTypes) {
   const validValues = new Set(EVENT_FILTERS.map((filter) => filter.value));
@@ -36,8 +51,28 @@ function loadSelectedEventTypes() {
   }
 }
 
+function loadTheme() {
+  if (typeof window === "undefined") {
+    return "dark";
+  }
+
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === "light" ? "light" : "dark";
+}
+
+function applyTheme(theme) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.documentElement.dataset.theme = theme;
+}
+
 export const useLiveStore = defineStore("live", () => {
   const roomId = ref("32137571630");
+  const roomDraft = ref("");
+  const theme = ref(loadTheme());
+  const isSwitchingRoom = ref(false);
+  const roomError = ref("");
   const connectionState = ref("connecting");
   const eventFilters = ref(EVENT_FILTERS);
   const selectedEventTypes = ref(loadSelectedEventTypes());
@@ -49,20 +84,25 @@ export const useLiveStore = defineStore("live", () => {
     last_error: "",
     updated_at: 0,
   });
-  const stats = ref({
-    room_id: roomId.value,
-    total_events: 0,
-    comments: 0,
-    gifts: 0,
-    likes: 0,
-    members: 0,
-    follows: 0,
-  });
+  const stats = ref(createEmptyStats(roomId.value));
   const events = ref([]);
   const suggestions = ref([]);
   let eventSource;
 
   const activeSuggestion = computed(() => suggestions.value[0] || null);
+  const activeSourceEvent = computed(() => {
+    if (!activeSuggestion.value) {
+      return null;
+    }
+
+    const sourceEventIds = new Set([
+      activeSuggestion.value.event_id,
+      ...(activeSuggestion.value.source_events || []),
+    ]);
+
+    return events.value.find((event) => sourceEventIds.has(event.event_id)) || null;
+  });
+  const nextThemeLabel = computed(() => (theme.value === "dark" ? "切换白色" : "切换黑色"));
   const areAllEventTypesSelected = computed(
     () => selectedEventTypes.value.length === EVENT_FILTERS.length,
   );
@@ -78,14 +118,48 @@ export const useLiveStore = defineStore("live", () => {
     window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selectedEventTypes.value));
   }
 
-  async function bootstrap() {
-    const response = await fetch("/api/bootstrap");
-    const payload = await response.json();
+  function persistTheme() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme.value);
+  }
+
+  function hydrateSnapshot(payload) {
     roomId.value = payload.room_id;
-    stats.value = payload.stats;
+    stats.value = payload.stats || createEmptyStats(payload.room_id);
     modelStatus.value = payload.model_status || modelStatus.value;
     events.value = payload.recent_events || [];
     suggestions.value = payload.recent_suggestions || [];
+  }
+
+  function closeStream() {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = undefined;
+    }
+  }
+
+  function setRoomDraft(value) {
+    roomDraft.value = `${value ?? ""}`;
+  }
+
+  function setTheme(nextTheme) {
+    theme.value = nextTheme === "light" ? "light" : "dark";
+    applyTheme(theme.value);
+    persistTheme();
+  }
+
+  function toggleTheme() {
+    setTheme(theme.value === "dark" ? "light" : "dark");
+  }
+
+  async function bootstrap(targetRoomId = roomId.value) {
+    const query = new URLSearchParams({ room_id: targetRoomId });
+    const response = await fetch(`/api/bootstrap?${query.toString()}`);
+    const payload = await response.json();
+    hydrateSnapshot(payload);
   }
 
   function ingestEvent(event) {
@@ -96,16 +170,17 @@ export const useLiveStore = defineStore("live", () => {
     suggestions.value = [suggestion, ...suggestions.value].slice(0, MAX_SUGGESTIONS);
   }
 
-  function connect() {
-    if (eventSource) {
-      eventSource.close();
-    }
+  function connect(targetRoomId = roomId.value) {
+    closeStream();
 
-    eventSource = new EventSource("/api/events/stream");
+    const query = new URLSearchParams({ room_id: targetRoomId });
+    eventSource = new EventSource(`/api/events/stream?${query.toString()}`);
+
     connectionState.value = "connecting";
 
     eventSource.onopen = () => {
       connectionState.value = "live";
+      roomError.value = "";
     };
 
     eventSource.onerror = () => {
@@ -127,6 +202,51 @@ export const useLiveStore = defineStore("live", () => {
     eventSource.addEventListener("model_status", (message) => {
       modelStatus.value = JSON.parse(message.data);
     });
+  }
+
+  async function switchRoom(nextRoomId = roomDraft.value) {
+    const targetRoomId = `${nextRoomId ?? ""}`.trim();
+    if (!targetRoomId) {
+      roomError.value = "请输入房间号";
+      return;
+    }
+
+    if (targetRoomId === roomId.value) {
+      roomDraft.value = "";
+      roomError.value = "";
+      return;
+    }
+
+    isSwitchingRoom.value = true;
+    roomError.value = "";
+    connectionState.value = "switching";
+    closeStream();
+
+    try {
+      const response = await fetch("/api/room", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ room_id: targetRoomId }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || "切换房间失败");
+      }
+
+      const payload = await response.json();
+      hydrateSnapshot(payload);
+      roomDraft.value = "";
+      connect(payload.room_id);
+    } catch (error) {
+      roomError.value = error instanceof Error ? error.message : "切换房间失败";
+      await bootstrap(roomId.value);
+      connect(roomId.value);
+    } finally {
+      isSwitchingRoom.value = false;
+    }
   }
 
   function toggleEventType(eventType) {
@@ -152,8 +272,19 @@ export const useLiveStore = defineStore("live", () => {
     persistSelectedEventTypes();
   }
 
+  function clearEvents() {
+    events.value = [];
+  }
+
+  applyTheme(theme.value);
+
   return {
     roomId,
+    roomDraft,
+    theme,
+    nextThemeLabel,
+    isSwitchingRoom,
+    roomError,
     connectionState,
     selectedEventTypes,
     eventFilters,
@@ -164,9 +295,15 @@ export const useLiveStore = defineStore("live", () => {
     filteredEvents,
     suggestions,
     activeSuggestion,
+    activeSourceEvent,
     bootstrap,
     connect,
+    setRoomDraft,
+    setTheme,
+    toggleTheme,
+    switchRoom,
     toggleEventType,
     selectAllEventTypes,
+    clearEvents,
   };
 });

@@ -10,14 +10,20 @@ import { useLiveStore } from "./stores/live";
 const liveStore = useLiveStore();
 const {
   activeSuggestion,
+  activeSourceEvent,
   areAllEventTypesSelected,
   connectionState,
   eventFilters,
   filteredEvents,
+  isSwitchingRoom,
   modelStatus,
+  nextThemeLabel,
   roomId,
+  roomDraft,
+  roomError,
   selectedEventTypes,
   stats,
+  theme,
 } = storeToRefs(liveStore);
 
 onMounted(async () => {
@@ -30,13 +36,21 @@ onMounted(async () => {
   <main class="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-6 px-4 py-5 md:px-6 xl:px-10">
     <StatusStrip
       :room-id="roomId"
+      :room-draft="roomDraft"
+      :theme="theme"
+      :next-theme-label="nextThemeLabel"
+      :is-switching-room="isSwitchingRoom"
+      :room-error="roomError"
       :connection-state="connectionState"
       :model-status="modelStatus"
       :stats="stats"
+      @update-room-draft="liveStore.setRoomDraft"
+      @switch-room="liveStore.switchRoom"
+      @toggle-theme="liveStore.toggleTheme"
     />
 
-    <section class="grid flex-1 gap-6 xl:grid-cols-[1.75fr_0.85fr]">
-      <TeleprompterCard :suggestion="activeSuggestion" />
+    <section class="grid min-h-0 flex-1 gap-6 xl:grid-cols-[1.75fr_0.85fr]">
+      <TeleprompterCard :suggestion="activeSuggestion" :source-event="activeSourceEvent" />
       <EventFeed
         :events="filteredEvents"
         :event-filters="eventFilters"
@@ -44,6 +58,7 @@ onMounted(async () => {
         :are-all-event-types-selected="areAllEventTypesSelected"
         @toggle-filter="liveStore.toggleEventType"
         @select-all-filters="liveStore.selectAllEventTypes"
+        @clear-events="liveStore.clearEvents"
       />
     </section>
   </main>

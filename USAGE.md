@@ -7,7 +7,7 @@
 跑通后，这套系统会完成下面这条链路：
 
 1. `tool/douyinLive-windows-amd64.exe` 抓取抖音直播间消息
-2. `client.py` 连接本地 WebSocket 服务并转发事件
+2. `backend/` 内置 collector 连接本地 WebSocket 服务并标准化事件
 3. `backend/` 接收事件，写入 SQLite / 可选 Redis / 可选 Chroma
 4. 在线 `Qwen` 生成提词建议，失败时自动回退到规则
 5. `frontend/` 实时显示提词内容、模型状态、消息流
@@ -98,7 +98,6 @@ cd ..
 
 - 后端
 - 前端
-- 采集客户端
 
 如果你想分开启动：
 
@@ -112,12 +111,6 @@ cd ..
 
 ```powershell
 .\start_frontend.ps1
-```
-
-启动采集客户端：
-
-```powershell
-python client.py
 ```
 
 ## 第五步：打开页面
@@ -188,7 +181,7 @@ SQLite 默认文件：
 如果你想先看原始消息结构，运行：
 
 ```powershell
-python debug_client.py
+python deprecated/debug_client.py
 ```
 
 它会：
@@ -211,7 +204,7 @@ python debug_client.py
 - `tool/douyinLive-windows-amd64.exe` 是否已启动
 - `.env` 里的 `ROOM_ID` 是否正确
 - 直播间是否真的开播
-- `client.py` 是否已运行
+- 后端是否已重启到最新版本
 
 ### 2. 顶部显示 `fallback`
 
@@ -241,8 +234,9 @@ python debug_client.py
 
 先看：
 
-- `python client.py` 是否已运行
-- `BACKEND_EVENT_URL` 是否是 `http://127.0.0.1:8010/api/events`
+- `tool/douyinLive-windows-amd64.exe` 是否已运行
+- 后端日志里是否已经连接到 `ws://127.0.0.1:1088/ws/{room_id}`
+- 当前房间是否真的开播并有消息
 
 ## 当前版本定位
 

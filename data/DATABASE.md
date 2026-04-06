@@ -17,7 +17,7 @@
 消息进入数据库的流程是：
 
 1. `tool/douyinLive-windows-amd64.exe` 抓取抖音直播消息
-2. `client.py` 标准化事件后转发给后端
+2. `backend/services/collector.py` 标准化事件并交给后端
 3. `backend/app.py` 收到 `/api/events`
 4. `LongTermStore.persist_event(...)` 写入事件和用户画像
 5. 如果生成了提词建议，`LongTermStore.persist_suggestion(...)` 写入建议

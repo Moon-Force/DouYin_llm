@@ -1,9 +1,21 @@
+"""后端配置模块。
+
+配置优先从环境变量和 `.env` 读取，默认值尽量保证本地开箱可跑。
+"""
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 
 def load_dotenv(dotenv_path=".env"):
+    """读取项目根目录下的 `.env` 文件。
+
+    这里只实现项目实际需要的最小功能：
+    - 支持 `KEY=VALUE`
+    - 支持注释和空行
+    """
+
     path = Path(dotenv_path)
     if not path.exists():
         return
@@ -26,6 +38,8 @@ load_dotenv()
 
 @dataclass
 class Settings:
+    """后端运行时配置集合。"""
+
     app_host: str = os.getenv("APP_HOST", "127.0.0.1")
     app_port: int = int(os.getenv("APP_PORT", "8010"))
     room_id: str = os.getenv("ROOM_ID", "32137571630")
@@ -47,11 +61,15 @@ class Settings:
     llm_timeout_seconds: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "6.0"))
 
     def ensure_dirs(self):
+        """创建运行期需要的本地数据目录。"""
+
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
 
     def resolved_llm_base_url(self):
+        """解析最终实际使用的模型服务地址。"""
+
         if self.llm_base_url:
             return self.llm_base_url.rstrip("/")
 
@@ -61,6 +79,8 @@ class Settings:
         return "https://api.openai.com/v1"
 
     def resolved_llm_model(self):
+        """解析最终实际使用的模型名。"""
+
         if self.llm_model:
             return self.llm_model
 

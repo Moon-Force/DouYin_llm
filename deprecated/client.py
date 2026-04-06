@@ -1,3 +1,10 @@
+"""Deprecated legacy collector client.
+
+This script is no longer part of the main startup path.
+The backend now includes its own collector in `backend/services/collector.py`.
+Kept only for historical reference and fallback debugging.
+"""
+
 import json
 import threading
 import time

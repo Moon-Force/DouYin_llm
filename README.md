@@ -1,24 +1,23 @@
 # Live Prompter Stack
 
-这个仓库现在包含三层：
+这个仓库现在包含两条路径：
 
 1. `tool/` 里的 `douyinLive-windows-amd64.exe`
    负责连接抖音直播间并在本地暴露 WebSocket 服务。
-2. 根目录 `client.py`
-   负责从本地 WebSocket 读取直播消息、做标准化，并转发到业务后端。
-3. `backend/` + `frontend/`
+2. `backend/` + `frontend/`
    负责实时提词、会话记忆、长期存储和极简提词器界面。
+3. `deprecated/`
+   保留旧版 `client.py` / `debug_client.py` / `config.py`，仅作历史兼容和排障参考。
 
 ## 目录说明
 
 | 路径 | 说明 |
 |------|------|
-| `config.py` | 采集层配置，包含直播间号、本地 ws 地址、后端转发地址 |
-| `client.py` | 采集客户端，读取抖音消息并转发到 FastAPI |
-| `debug_client.py` | 调试客户端，打印原始 JSON 并写入日志 |
+| `deprecated/` | 已废弃的旧采集脚本和旧配置，仅供参考 |
 | `backend/app.py` | FastAPI 后端入口，提供 REST、SSE、WebSocket |
 | `backend/memory/` | 短期记忆、长期存储、向量检索 |
 | `backend/services/agent.py` | 轻量级直播提词 Agent |
+| `backend/services/collector.py` | 当前启用的内置采集器，直接连接 douyinLive |
 | `frontend/` | Vue3 + Tailwind 极简提词器 |
 | `tool/` | 预编译 douyinLive 服务端 |
 
@@ -27,8 +26,7 @@
 ```text
 douyinLive.exe
   -> ws://127.0.0.1:1088/ws/{room_id}
-  -> client.py 标准化消息
-  -> POST /api/events
+  -> backend/services/collector.py 标准化消息
   -> FastAPI 写 Redis/SQLite/Chroma
   -> 生成建议
   -> SSE/WebSocket 推给 Vue3 提词器
@@ -100,13 +98,7 @@ pip install -r requirements.txt
 uvicorn backend.app:app --reload
 ```
 
-### 4. 启动采集客户端
-
-```bash
-python client.py
-```
-
-### 5. 启动前端
+### 4. 启动前端
 
 ```bash
 cd frontend
@@ -114,7 +106,7 @@ npm install
 npm run dev
 ```
 
-### 5.5 推荐的一键启动方式
+### 5. 推荐的一键启动方式
 
 先复制配置：
 
@@ -138,12 +130,14 @@ copy .env.example .env
 ### 6. 调试原始消息
 
 ```bash
-python debug_client.py
+python deprecated/debug_client.py
 ```
 
 ## 配置
 
-编辑 `config.py`：
+当前主链路配置以根目录 `.env` 和 `tool/config.yaml` 为准。
+
+旧版客户端配置已经迁到 `deprecated/config.py`，仅供历史参考：
 
 ```python
 ROOM_ID = "你的直播间号"

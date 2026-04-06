@@ -1,8 +1,16 @@
+"""Deprecated raw websocket debug client.
+
+This script is optional and not required for normal project startup.
+Use it only when you need to inspect raw messages from `douyinLive`.
+"""
+
 import websocket
 import json
 import sys
 import os
 from datetime import datetime
+
+os.environ["PYTHONIOENCODING"] = "utf-8"
 
 try:
     from config import ROOM_ID, HOST, PORT, LOG_DIR
@@ -29,12 +37,19 @@ class Logger:
         self.terminal = sys.stdout
 
     def write(self, message):
-        self.terminal.write(message)
+        try:
+            self.terminal.write(message)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            safe_msg = message.encode('utf-8', errors='replace').decode('utf-8')
+            self.terminal.write(safe_msg)
         with open(self.log_file, "a", encoding="utf-8") as f:
             f.write(message)
 
     def flush(self):
-        self.terminal.flush()
+        try:
+            self.terminal.flush()
+        except Exception:
+            pass
 
 
 def on_message(ws, message):

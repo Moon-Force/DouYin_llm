@@ -2,33 +2,142 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --color-ink: #111111;
-  --color-panel: #191919;
-  --color-panel-soft: #232323;
-  --color-paper: #f5f1e8;
-  --color-muted: #9f998d;
-  --color-accent: #d7ff64;
-  --color-accent-soft: #b6d94d;
-  --font-display: "IBM Plex Sans", "Noto Sans SC", sans-serif;
-  font-family: var(--font-display);
-  background:
+:root,
+:root[data-theme="dark"] {
+  --color-ink: 17 17 17;
+  --color-panel: 25 25 25;
+  --color-panel-soft: 35 35 35;
+  --color-paper: 245 241 232;
+  --color-muted: 159 153 141;
+  --color-accent: 215 255 100;
+  --color-accent-soft: 182 217 77;
+  --color-line: 255 255 255;
+  --shadow-elev: 0 22px 60px rgba(0, 0, 0, 0.28);
+  --page-background:
     radial-gradient(circle at top left, rgba(215, 255, 100, 0.12), transparent 24%),
     linear-gradient(180deg, #141414, #0d0d0d 52%, #111111);
-  color: var(--color-paper);
+  --grain-line: rgba(255, 255, 255, 0.025);
+  --selection-bg: rgba(59, 130, 246, 0.48);
+  --selection-text: #f8fbff;
+  --tele-shell-bg: linear-gradient(180deg, #181b15 0%, #10120f 100%);
+  --tele-shell-border: rgba(130, 152, 82, 0.4);
+  --tele-shell-shadow: 0 30px 84px rgba(0, 0, 0, 0.34);
+  --tele-panel-bg: rgba(255, 255, 255, 0.05);
+  --tele-panel-border: rgba(255, 255, 255, 0.12);
+  --tele-reply-bg: rgba(215, 255, 100, 0.08);
+  --tele-reply-border: rgba(215, 255, 100, 0.22);
+  --tele-text: #f6f2e9;
+  --tele-muted: #bbb3a5;
+  --tele-accent: #c7ea63;
+  --tele-badge-bg: #d7ff64;
+  --tele-badge-text: #111111;
 }
 
-body {
-  min-height: 100vh;
+:root[data-theme="light"] {
+  --color-ink: 24 24 24;
+  --color-panel: 255 255 255;
+  --color-panel-soft: 246 240 231;
+  --color-paper: 24 24 24;
+  --color-muted: 86 79 69;
+  --color-accent: 84 118 22;
+  --color-accent-soft: 102 136 33;
+  --color-line: 72 58 40;
+  --shadow-elev: 0 18px 44px rgba(94, 78, 54, 0.12);
+  --page-background:
+    radial-gradient(circle at top left, rgba(84, 118, 22, 0.12), transparent 26%),
+    linear-gradient(180deg, #fffcf6, #f4ede2 52%, #ece2d4);
+  --grain-line: rgba(24, 24, 24, 0.045);
+  --selection-bg: rgba(59, 130, 246, 0.38);
+  --selection-text: #ffffff;
+  --tele-shell-bg: linear-gradient(180deg, #5d544a 0%, #494137 100%);
+  --tele-shell-border: rgba(126, 111, 92, 0.62);
+  --tele-shell-shadow: 0 26px 74px rgba(86, 72, 55, 0.22);
+  --tele-panel-bg: rgba(255, 255, 255, 0.08);
+  --tele-panel-border: rgba(255, 255, 255, 0.14);
+  --tele-reply-bg: rgba(255, 244, 214, 0.1);
+  --tele-reply-border: rgba(255, 232, 173, 0.24);
+  --tele-text: #faf7f0;
+  --tele-muted: #d7cfbf;
+  --tele-accent: #f0d88a;
+  --tele-badge-bg: #f4e3ad;
+  --tele-badge-text: #3b3126;
 }
 
+:root {
+  --font-display: "IBM Plex Sans", "Noto Sans SC", sans-serif;
+  font-family: var(--font-display);
+  color: rgb(var(--color-paper));
+  background: var(--page-background);
+}
+
+html,
+body,
 #app {
   min-height: 100vh;
 }
 
+body {
+  background: var(--page-background);
+  color: rgb(var(--color-paper));
+  transition:
+    background 220ms ease,
+    color 220ms ease;
+}
+
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+input::selection,
+textarea::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
+
 .grain {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(var(--grain-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grain-line) 1px, transparent 1px);
   background-size: 20px 20px;
+}
+
+.teleprompter-shell {
+  background: var(--tele-shell-bg);
+  border: 1px solid var(--tele-shell-border);
+  box-shadow: var(--tele-shell-shadow);
+}
+
+.teleprompter-badge {
+  background: var(--tele-badge-bg);
+  color: var(--tele-badge-text);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.teleprompter-panel {
+  background: var(--tele-panel-bg);
+  border: 1px solid var(--tele-panel-border);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.teleprompter-reply {
+  background: var(--tele-reply-bg);
+  border: 1px solid var(--tele-reply-border);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+}
+
+.teleprompter-text {
+  color: var(--tele-text);
+}
+
+.teleprompter-headline {
+  color: var(--tele-text);
+}
+
+.teleprompter-muted {
+  color: var(--tele-muted);
+}
+
+.teleprompter-accent {
+  color: var(--tele-accent);
 }
