@@ -1,10 +1,7 @@
-"""抖音直播消息采集器。
+"""Douyin live message collector.
 
-这个模块负责：
-- 连接本地 `douyinLive` 暴露的 WebSocket
-- 解析原始消息
-- 转成统一的 `LiveEvent`
-- 把事件提交给后端主循环处理
+This module connects to the local `douyinLive` websocket, normalizes raw
+messages into `LiveEvent`, and submits them back into the FastAPI event loop.
 """
 
 import asyncio
@@ -22,7 +19,6 @@ from backend.schemas.live import LiveEvent
 
 logger = logging.getLogger(__name__)
 
-# 原始抖音消息类型到系统统一事件类型的映射。
 METHOD_EVENT_TYPE_MAP = {
     "WebcastChatMessage": "comment",
     "WebcastGiftMessage": "gift",
@@ -32,14 +28,19 @@ METHOD_EVENT_TYPE_MAP = {
 }
 
 
+def safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 class DouyinCollector:
     def __init__(
         self,
         settings: Settings,
         event_handler: Callable[[LiveEvent], Awaitable[None]],
     ):
-        """初始化采集器，但此时还不会真正发起连接。"""
-
         self.settings = settings
         self.event_handler = event_handler
         self.loop: asyncio.AbstractEventLoop | None = None
@@ -52,16 +53,12 @@ class DouyinCollector:
 
     @property
     def url(self) -> str:
-        """根据当前配置动态生成采集目标 WebSocket 地址。"""
-
         return (
             f"ws://{self.settings.collector_host}:"
             f"{self.settings.collector_port}/ws/{self.settings.room_id}"
         )
 
     def start(self, loop: asyncio.AbstractEventLoop) -> bool:
-        """启动采集线程。"""
-
         if not self.settings.collector_enabled:
             logger.info("Douyin collector disabled by configuration")
             return False
@@ -81,11 +78,6 @@ class DouyinCollector:
         return True
 
     def switch_room(self, room_id: str) -> bool:
-        """切换采集房间。
-
-        做法是先停掉旧连接，再更新 `settings.room_id`，最后按新房间重启。
-        """
-
         target_room_id = room_id.strip()
         if not target_room_id:
             raise ValueError("room_id cannot be empty")
@@ -105,8 +97,6 @@ class DouyinCollector:
         return True
 
     def stop(self) -> None:
-        """停止采集线程和保活线程，并关闭当前 WebSocket。"""
-
         self.stop_event.set()
         self.running = False
         if self.ping_stop_event:
@@ -125,11 +115,6 @@ class DouyinCollector:
             self.ping_thread.join(timeout=1)
 
     def _run(self) -> None:
-        """采集线程主体。
-
-        当连接断开时会按配置自动重连，除非外部显式要求停止。
-        """
-
         while not self.stop_event.is_set():
             self.ws = websocket.WebSocketApp(
                 self.url,
@@ -153,15 +138,11 @@ class DouyinCollector:
             time.sleep(delay)
 
     def _on_open(self, ws) -> None:
-        """WebSocket 连接建立后的回调。"""
-
         logger.info("Douyin collector connected")
         self.running = True
         self._start_ping_loop()
 
     def _on_message(self, ws, message: str) -> None:
-        """收到原始消息后的回调。"""
-
         if message == "pong":
             return
 
@@ -178,16 +159,12 @@ class DouyinCollector:
         self._submit_event(event)
 
     def _on_error(self, ws, error) -> None:
-        """WebSocket 错误回调。"""
-
         if self.stop_event.is_set():
             return
 
         logger.warning("Douyin collector websocket error: %s", error)
 
     def _on_close(self, ws, close_status_code, close_msg) -> None:
-        """WebSocket 关闭回调。"""
-
         self.running = False
         if self.ping_stop_event:
             self.ping_stop_event.set()
@@ -203,8 +180,6 @@ class DouyinCollector:
         )
 
     def _start_ping_loop(self) -> None:
-        """启动一个独立线程定时发送 ping，维持连接活性。"""
-
         ping_stop_event = threading.Event()
         self.ping_stop_event = ping_stop_event
 
@@ -223,8 +198,6 @@ class DouyinCollector:
         self.ping_thread.start()
 
     def _submit_event(self, event: LiveEvent) -> None:
-        """把采集线程里的事件安全地投递回 FastAPI 主事件循环。"""
-
         if not self.loop:
             logger.warning("Dropping Douyin event because backend loop is unavailable")
             return
@@ -234,29 +207,47 @@ class DouyinCollector:
 
     @staticmethod
     def _log_handler_result(future) -> None:
-        """统一记录异步事件处理结果中的异常。"""
-
         try:
             future.result()
         except Exception:
             logger.exception("Douyin event handling failed")
 
-    def normalize_event(self, data: dict) -> LiveEvent | None:
-        """把抖音原始消息标准化成系统内部统一事件格式。"""
+    @staticmethod
+    def _extract_gift_count(data: dict) -> int:
+        counts = [
+            safe_int(data.get("repeatCount")),
+            safe_int(data.get("comboCount")),
+            safe_int(data.get("groupCount")),
+        ]
+        positive_counts = [count for count in counts if count > 0]
+        return max(positive_counts, default=1)
 
+    def normalize_event(self, data: dict) -> LiveEvent | None:
         common = data.get("common", {})
         method = common.get("method", "unknown")
         user = data.get("user", {})
+        gift = data.get("gift", {})
         event_type = METHOD_EVENT_TYPE_MAP.get(method, "system")
+
+        source_room_id = str(common.get("roomId") or "").strip()
+        user_id = str(user.get("id") or "").strip()
+        short_id = str(user.get("shortId") or user.get("displayId") or "").strip()
+        sec_uid = str(user.get("secUid") or "").strip()
 
         content = data.get("content", "")
         metadata = {
             "method": method,
             "livename": data.get("livename", ""),
+            "source_room_id": source_room_id,
         }
 
         if method == "WebcastGiftMessage":
-            metadata["gift_name"] = data.get("gift", {}).get("name", "")
+            metadata["gift_name"] = gift.get("name", "")
+            metadata["gift_id"] = str(gift.get("id") or data.get("giftId") or "").strip()
+            metadata["gift_count"] = self._extract_gift_count(data)
+            metadata["gift_diamond_count"] = safe_int(gift.get("diamondCount"))
+            metadata["combo_count"] = safe_int(data.get("comboCount"))
+            metadata["group_count"] = safe_int(data.get("groupCount"))
         elif method == "WebcastLikeMessage":
             metadata["action"] = "like"
         elif method == "WebcastMemberMessage":
@@ -264,20 +255,23 @@ class DouyinCollector:
         elif method == "WebcastSocialMessage":
             metadata["action"] = "follow"
 
-        if not content and "gift_name" in metadata:
+        if not content and metadata.get("gift_name"):
             content = metadata["gift_name"]
 
         try:
             return LiveEvent(
                 event_id=common.get("msgId") or f"local-{int(time.time() * 1000)}",
                 room_id=self.settings.room_id,
+                source_room_id=source_room_id or self.settings.room_id,
                 platform="douyin",
                 event_type=event_type,
                 method=method,
                 livename=data.get("livename", ""),
                 ts=int(common.get("createTime") or time.time() * 1000),
                 user={
-                    "id": user.get("id") or user.get("secUid") or "",
+                    "id": user_id,
+                    "short_id": short_id,
+                    "sec_uid": sec_uid,
                     "nickname": user.get("nickname", ""),
                 },
                 content=content,

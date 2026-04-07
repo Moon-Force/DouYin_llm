@@ -63,7 +63,7 @@ class LivePromptAgent:
         """
 
         similar = self.vector_memory.similar(event.content, limit=3)
-        profile = self.long_term_store.get_user_profile(event.room_id, event.user.nickname)
+        profile = self.long_term_store.get_user_profile(event.room_id, event.user)
         return {
             "recent_events": [item.model_dump() for item in recent_events[:8]],
             "similar_history": similar,

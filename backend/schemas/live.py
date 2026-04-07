@@ -1,8 +1,4 @@
-"""后端共享数据模型。
-
-这些 Pydantic 模型定义了系统内部统一使用的数据结构，
-贯穿采集、存储、检索、Agent 和前端接口。
-"""
+"""Backend shared data models."""
 
 from typing import Any
 
@@ -10,17 +6,33 @@ from pydantic import BaseModel, Field
 
 
 class Actor(BaseModel):
-    """事件里的最小用户身份信息。"""
+    """Minimal user identity stored on each live event."""
 
     id: str = ""
+    short_id: str = ""
+    sec_uid: str = ""
     nickname: str = "未知用户"
+
+    @property
+    def viewer_id(self) -> str:
+        if self.id:
+            return f"id:{self.id}"
+        if self.sec_uid:
+            return f"sec:{self.sec_uid}"
+        if self.short_id:
+            return f"short:{self.short_id}"
+
+        nickname = self.nickname.strip()
+        return f"nick:{nickname}" if nickname else ""
 
 
 class LiveEvent(BaseModel):
-    """采集层标准化后的直播事件。"""
+    """Normalized live event used across collection, storage and APIs."""
 
     event_id: str
     room_id: str
+    source_room_id: str = ""
+    session_id: str = ""
     platform: str = "douyin"
     event_type: str
     method: str = "unknown"
@@ -33,7 +45,7 @@ class LiveEvent(BaseModel):
 
 
 class Suggestion(BaseModel):
-    """由事件触发生成的一条提词建议。"""
+    """Prompt suggestion generated from a live event."""
 
     suggestion_id: str
     room_id: str
@@ -50,7 +62,7 @@ class Suggestion(BaseModel):
 
 
 class SessionStats(BaseModel):
-    """前端顶部状态条使用的聚合统计。"""
+    """Lightweight room stats shown in the frontend."""
 
     room_id: str
     total_events: int = 0
@@ -62,7 +74,7 @@ class SessionStats(BaseModel):
 
 
 class ModelStatus(BaseModel):
-    """模型当前状态与最近一次生成结果。"""
+    """Current model backend status."""
 
     mode: str = "heuristic"
     model: str = "heuristic"
@@ -73,7 +85,7 @@ class ModelStatus(BaseModel):
 
 
 class SessionSnapshot(BaseModel):
-    """前端初始化页面时使用的房间快照。"""
+    """Bootstrap payload returned to the frontend."""
 
     room_id: str
     recent_events: list[LiveEvent] = Field(default_factory=list)
