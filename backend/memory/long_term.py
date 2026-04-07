@@ -5,7 +5,7 @@ import sqlite3
 import time
 import uuid
 
-from backend.schemas.live import Actor, LiveEvent, SessionSnapshot, SessionStats, Suggestion
+from backend.schemas.live import Actor, LiveEvent, SessionSnapshot, SessionStats, Suggestion, ViewerMemory
 
 
 def current_millis():
@@ -145,6 +145,20 @@ class LongTermStore:
                     created_at INTEGER NOT NULL,
                     updated_at INTEGER NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS viewer_memories (
+                    memory_id TEXT PRIMARY KEY,
+                    room_id TEXT NOT NULL,
+                    viewer_id TEXT NOT NULL,
+                    source_event_id TEXT,
+                    memory_text TEXT NOT NULL,
+                    memory_type TEXT NOT NULL,
+                    confidence REAL NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    last_recalled_at INTEGER,
+                    recall_count INTEGER NOT NULL DEFAULT 0
+                );
                 """
             )
             self._ensure_event_columns(connection)
@@ -191,6 +205,7 @@ class LongTermStore:
             CREATE INDEX IF NOT EXISTS idx_viewer_gifts_room_viewer_last_sent ON viewer_gifts(room_id, viewer_id, last_sent_at DESC);
             CREATE INDEX IF NOT EXISTS idx_live_sessions_room_status_last_event ON live_sessions(room_id, status, last_event_at DESC);
             CREATE INDEX IF NOT EXISTS idx_viewer_notes_room_viewer_updated ON viewer_notes(room_id, viewer_id, updated_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_viewer_memories_room_viewer_updated ON viewer_memories(room_id, viewer_id, updated_at DESC);
             """
         )
 
@@ -639,6 +654,130 @@ class LongTermStore:
             ).fetchone()
         return dict(row) if row else {}
 
+    def _viewer_memory_from_row(self, row):
+        if not row:
+            return None
+        return ViewerMemory(
+            memory_id=row["memory_id"],
+            room_id=row["room_id"],
+            viewer_id=row["viewer_id"],
+            source_event_id=row["source_event_id"] or "",
+            memory_text=row["memory_text"],
+            memory_type=row["memory_type"] or "fact",
+            confidence=row["confidence"] or 0.0,
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            last_recalled_at=row["last_recalled_at"],
+            recall_count=row["recall_count"] or 0,
+        )
+
+    def list_all_viewer_memories(self, limit=5000):
+        limit = max(1, min(int(limit), 20000))
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                       confidence, created_at, updated_at, last_recalled_at, recall_count
+                FROM viewer_memories ORDER BY updated_at DESC LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [self._viewer_memory_from_row(row) for row in rows if row]
+
+    def list_viewer_memories(self, room_id, viewer_id, limit=20):
+        if not viewer_id:
+            return []
+        limit = max(1, min(int(limit), 200))
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                       confidence, created_at, updated_at, last_recalled_at, recall_count
+                FROM viewer_memories WHERE room_id = ? AND viewer_id = ?
+                ORDER BY updated_at DESC LIMIT ?
+                """,
+                (room_id, viewer_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_viewer_memory(self, memory_id):
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                       confidence, created_at, updated_at, last_recalled_at, recall_count
+                FROM viewer_memories WHERE memory_id = ?
+                """,
+                (memory_id,),
+            ).fetchone()
+        return self._viewer_memory_from_row(row)
+
+    def save_viewer_memory(self, room_id, viewer_id, memory_text, source_event_id="", memory_type="fact", confidence=0.0):
+        room_id = safe_text(room_id)
+        viewer_id = safe_text(viewer_id)
+        memory_text = safe_text(memory_text)
+        source_event_id = safe_text(source_event_id)
+        memory_type = safe_text(memory_type) or "fact"
+        if not room_id or not viewer_id or not memory_text:
+            return None
+
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        confidence = max(0.0, min(confidence, 1.0))
+        timestamp = current_millis()
+
+        with self._connect() as connection:
+            existing = connection.execute(
+                """
+                SELECT memory_id, created_at, last_recalled_at, recall_count
+                FROM viewer_memories
+                WHERE room_id = ? AND viewer_id = ? AND source_event_id = ? AND memory_text = ?
+                LIMIT 1
+                """,
+                (room_id, viewer_id, source_event_id, memory_text),
+            ).fetchone()
+            memory_id = existing["memory_id"] if existing else str(uuid.uuid4())
+            created_at = existing["created_at"] if existing else timestamp
+            last_recalled_at = existing["last_recalled_at"] if existing else None
+            recall_count = existing["recall_count"] if existing else 0
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO viewer_memories (
+                    memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                    confidence, created_at, updated_at, last_recalled_at, recall_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    memory_id,
+                    room_id,
+                    viewer_id,
+                    source_event_id,
+                    memory_text,
+                    memory_type,
+                    confidence,
+                    created_at,
+                    timestamp,
+                    last_recalled_at,
+                    recall_count,
+                ),
+            )
+        return self.get_viewer_memory(memory_id)
+
+    def touch_viewer_memories(self, memory_ids, recalled_at=None):
+        normalized_ids = [safe_text(memory_id) for memory_id in memory_ids if safe_text(memory_id)]
+        if not normalized_ids:
+            return 0
+        recalled_at = safe_int(recalled_at, current_millis())
+        placeholders = ", ".join("?" for _ in normalized_ids)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                f"UPDATE viewer_memories SET recall_count = recall_count + 1, last_recalled_at = ? WHERE memory_id IN ({placeholders})",
+                (recalled_at, *normalized_ids),
+            )
+        return cursor.rowcount
+
     def save_viewer_note(self, room_id, viewer_id, content, author="主播", is_pinned=False, note_id=""):
         note_id = safe_text(note_id) or str(uuid.uuid4())
         timestamp = current_millis()
@@ -731,6 +870,7 @@ class LongTermStore:
         profile["recent_comments"] = self.viewer_event_history(room_id, resolved_viewer_id, event_type="comment", limit=5)
         profile["gift_history"] = self.viewer_gift_history(room_id, resolved_viewer_id, limit=10)
         profile["recent_sessions"] = self.viewer_session_history(room_id, resolved_viewer_id, limit=3)
+        profile["memories"] = self.list_viewer_memories(room_id, resolved_viewer_id, limit=10)
         return profile
 
     def get_viewer_detail(self, room_id, viewer_id="", nickname=""):
@@ -745,5 +885,6 @@ class LongTermStore:
         profile["recent_gift_events"] = self.viewer_event_history(room_id, resolved_viewer_id, event_type="gift", limit=20)
         profile["gift_history"] = self.viewer_gift_history(room_id, resolved_viewer_id, limit=20)
         profile["recent_sessions"] = self.viewer_session_history(room_id, resolved_viewer_id, limit=10)
+        profile["memories"] = self.list_viewer_memories(room_id, resolved_viewer_id, limit=20)
         profile["notes"] = self.list_viewer_notes(room_id, resolved_viewer_id, limit=20)
         return profile

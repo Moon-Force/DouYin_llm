@@ -1,9 +1,4 @@
-"""提词建议生成器。
-
-生成策略分两层：
-- 优先走在线 OpenAI 兼容接口
-- 失败时自动回退到本地 heuristic 规则
-"""
+﻿"""Generate live prompt suggestions from events and viewer context."""
 
 import json
 import logging
@@ -22,8 +17,6 @@ logger = logging.getLogger(__name__)
 
 class LivePromptAgent:
     def __init__(self, settings, vector_memory, long_term_store):
-        """初始化提词 Agent，并准备一份可供前端查看的状态信息。"""
-
         self.settings = settings
         self.vector_memory = vector_memory
         self.long_term_store = long_term_store
@@ -37,13 +30,9 @@ class LivePromptAgent:
         }
 
     def current_status(self):
-        """返回当前模型状态快照。"""
-
         return dict(self._status)
 
     def _mark_status(self, result, error=""):
-        """更新当前模型运行状态。"""
-
         self._status = {
             "mode": self.settings.llm_mode,
             "model": self.settings.resolved_llm_model() if self.settings.llm_mode != "heuristic" else "heuristic",
@@ -53,31 +42,54 @@ class LivePromptAgent:
             "updated_at": int(time.time() * 1000),
         }
 
+    @staticmethod
+    def _dedupe_preserve_order(values):
+        seen = set()
+        ordered = []
+        for value in values:
+            text = str(value or "").strip()
+            if not text or text in seen:
+                continue
+            seen.add(text)
+            ordered.append(text)
+        return ordered
+
     def build_context(self, event, recent_events):
-        """为建议生成构造上下文。
-
-        当前上下文包含：
-        - 最近事件窗口
-        - 相似历史片段
-        - 用户画像
-        """
-
-        similar = self.vector_memory.similar(event.content, limit=3)
+        viewer_memories = self.vector_memory.similar_memories(
+            event.content,
+            room_id=event.room_id,
+            viewer_id=event.user.viewer_id,
+            limit=3,
+        )
+        current_document = f"{event.user.nickname} {event.content}".strip()
+        similar = [
+            item
+            for item in self.vector_memory.similar(event.content, room_id=event.room_id, limit=5)
+            if item != current_document
+        ][:3]
         profile = self.long_term_store.get_user_profile(event.room_id, event.user)
         return {
             "recent_events": [item.model_dump() for item in recent_events[:8]],
             "similar_history": similar,
             "user_profile": profile,
+            "viewer_memories": viewer_memories,
+            "viewer_memory_texts": [item["memory_text"] for item in viewer_memories],
         }
 
     def maybe_generate(self, event, recent_events):
-        """根据事件类型决定是否需要生成提词建议。"""
-
         if event.event_type not in {"comment", "gift", "follow"}:
             return None
 
         context = self.build_context(event, recent_events)
         payload = self._generate_payload(event, context)
+
+        memory_ids = [item["memory_id"] for item in context["viewer_memories"] if item.get("memory_id")]
+        if memory_ids:
+            self.long_term_store.touch_viewer_memories(memory_ids)
+
+        references = self._dedupe_preserve_order(
+            context["viewer_memory_texts"] + context["similar_history"]
+        )
         return Suggestion(
             suggestion_id=str(uuid.uuid4()),
             room_id=event.room_id,
@@ -88,14 +100,12 @@ class LivePromptAgent:
             tone=payload["tone"],
             reason=payload["reason"],
             confidence=payload["confidence"],
-            references=context["similar_history"],
+            references=references,
             source_events=[event.event_id],
             created_at=int(time.time() * 1000),
         )
 
     def _generate_payload(self, event, context):
-        """选择模型模式或规则模式来生成建议主体。"""
-
         if self.settings.llm_mode != "heuristic":
             result = self._generate_with_openai_compatible(event, context)
             if result:
@@ -110,15 +120,21 @@ class LivePromptAgent:
             )
 
         self._mark_status("heuristic")
-        return self._generate_heuristic(event, context, source="heuristic_fallback" if self.settings.llm_mode != "heuristic" else "heuristic")
+        fallback_source = "heuristic_fallback" if self.settings.llm_mode != "heuristic" else "heuristic"
+        return self._generate_heuristic(event, context, source=fallback_source)
+
+    def _memory_follow_up(self, event, memory_text):
+        snippet = str(memory_text or "").strip()
+        if len(snippet) > 36:
+            snippet = f"{snippet[:36]}..."
+
+        if "拉面" in memory_text and "面" in event.content:
+            return f"可以接一句：你上次说{snippet}，今晚是不是去那家？"
+
+        return f"可以顺着他上次提到的“{snippet}”接一句，确认是不是同一件事。"
 
     def _generate_heuristic(self, event, context, source="heuristic"):
-        """本地规则兜底策略。
-
-        目标不是绝对智能，而是在模型不可用时仍能稳定给出可口播的短建议。
-        """
-
-        nickname = event.user.nickname
+        nickname = event.user.nickname or "这位观众"
         if event.event_type == "gift":
             gift_name = event.metadata.get("gift_name", event.content or "礼物")
             return {
@@ -145,9 +161,9 @@ class LivePromptAgent:
             return {
                 "source": source,
                 "priority": "high",
-                "reply_text": "这类问题优先直接给结论，再补购买方式和限制条件。",
+                "reply_text": "先直接回答价格，再补下单方式和优惠信息。",
                 "tone": "明确直接",
-                "reason": "评论显式询问转化信息，适合马上回答价格或购买路径。",
+                "reason": "这是明显的转化型问题，先给结论再补路径更稳。",
                 "confidence": 0.88,
             }
 
@@ -155,41 +171,50 @@ class LivePromptAgent:
             return {
                 "source": source,
                 "priority": "medium",
-                "reply_text": "先接住目标，再给一个可执行的小步骤，别一上来把压力拉满。",
+                "reply_text": "先接住他的目标，再给一个能马上执行的小建议。",
                 "tone": "温和鼓励",
-                "reason": "评论带有体重或自我目标表达，适合给低压力建议。",
+                "reason": "涉及身材或目标类评论，适合低压力承接。",
                 "confidence": 0.8,
+            }
+
+        if context["viewer_memory_texts"]:
+            memory_text = context["viewer_memory_texts"][0]
+            return {
+                "source": source,
+                "priority": "high",
+                "reply_text": self._memory_follow_up(event, memory_text),
+                "tone": "延续对话",
+                "reason": "命中了同一观众的历史语义记忆，适合顺着旧话题继续聊。",
+                "confidence": 0.86,
             }
 
         if context["similar_history"]:
             return {
                 "source": source,
                 "priority": "medium",
-                "reply_text": "这类话题以前有过高互动，可以先复用熟悉的回应节奏，再补一句追问。",
+                "reply_text": "这类话题以前互动不错，可以沿用熟悉的回应节奏再追问一句。",
                 "tone": "延续语境",
-                "reason": "向量检索命中了相似互动，适合沿用已验证的回答路径。",
+                "reason": "命中了相似历史互动，可以复用验证过的话术路径。",
                 "confidence": 0.76,
             }
 
         return {
             "source": source,
             "priority": "low",
-            "reply_text": f"先复述{nickname}的关键信息，再抛一个短追问，把对话继续拉住。",
+            "reply_text": f"先复述{nickname}的关键信息，再抛一个短追问把对话接住。",
             "tone": "自然接话",
             "reason": "普通评论优先追求自然承接和继续互动。",
             "confidence": 0.68,
         }
 
     def _generate_with_openai_compatible(self, event, context):
-        """调用 OpenAI 兼容接口生成建议。"""
-
         prompt = {
             "event": event.model_dump(),
             "context": context,
             "instruction": (
-                "你是直播提词器助手。请只输出一个 JSON 对象，不要输出解释、前后缀或 markdown。"
+                "你是直播提词助手。请只输出一个 JSON 对象，不要输出解释、前后缀或 markdown。"
                 "JSON 必须包含 priority, reply_text, tone, reason, confidence。"
-                "reply_text 必须简短、口语化、适合主播直接念。"
+                "如果命中了同一观众的历史记忆，优先给主播一条能自然延续旧话题的中文短句。"
             ),
         }
         headers = {"Content-Type": "application/json"}
@@ -329,8 +354,6 @@ class LivePromptAgent:
         return normalized
 
     def _parse_model_json(self, content):
-        """尽量从模型返回内容里提取出一个 JSON 对象。"""
-
         candidates = [content.strip()]
         fenced = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", content, flags=re.S)
         candidates.extend(fenced)
@@ -351,8 +374,6 @@ class LivePromptAgent:
         return None
 
     def _normalize_model_payload(self, parsed):
-        """校验并规范化模型返回字段。"""
-
         required = {"priority", "reply_text", "tone", "reason", "confidence"}
         if not required.issubset(parsed):
             return None
@@ -381,7 +402,6 @@ class LivePromptAgent:
             return None
 
         confidence = max(0.0, min(1.0, confidence))
-
         return {
             "source": "model",
             "priority": priority,

@@ -1,4 +1,4 @@
-"""Backend shared data models."""
+﻿"""Backend shared data models."""
 
 from typing import Any
 
@@ -59,6 +59,22 @@ class Suggestion(BaseModel):
     source_events: list[str] = Field(default_factory=list)
     references: list[str] = Field(default_factory=list)
     created_at: int
+
+
+class ViewerMemory(BaseModel):
+    """Semantic memory attached to a specific viewer."""
+
+    memory_id: str
+    room_id: str
+    viewer_id: str
+    source_event_id: str = ""
+    memory_text: str
+    memory_type: str = "fact"
+    confidence: float = 0.0
+    created_at: int
+    updated_at: int
+    last_recalled_at: int | None = None
+    recall_count: int = 0
 
 
 class SessionStats(BaseModel):

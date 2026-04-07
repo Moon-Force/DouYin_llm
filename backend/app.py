@@ -1,4 +1,4 @@
-"""Backend application entrypoint."""
+﻿"""Backend application entrypoint."""
 
 import asyncio
 import json
@@ -18,6 +18,7 @@ from backend.schemas.live import LiveEvent, ModelStatus
 from backend.services.agent import LivePromptAgent
 from backend.services.broker import EventBroker
 from backend.services.collector import DouyinCollector
+from backend.services.memory_extractor import ViewerMemoryExtractor
 
 settings.ensure_dirs()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -26,7 +27,10 @@ broker = EventBroker()
 session_memory = SessionMemory(settings.redis_url, settings.session_ttl_seconds)
 long_term_store = LongTermStore(settings.database_path)
 vector_memory = VectorMemory(settings.chroma_dir)
+for memory in long_term_store.list_all_viewer_memories(limit=10000):
+    vector_memory.add_memory(memory)
 agent = LivePromptAgent(settings, vector_memory, long_term_store)
+memory_extractor = ViewerMemoryExtractor()
 
 
 class RoomSwitchRequest(BaseModel):
@@ -72,6 +76,18 @@ async def process_event(event: LiveEvent):
         long_term_store.persist_suggestion(suggestion)
         await broker.publish(event_envelope("suggestion", suggestion.model_dump()))
 
+    for candidate in memory_extractor.extract(event):
+        memory = long_term_store.save_viewer_memory(
+            room_id=event.room_id,
+            viewer_id=event.user.viewer_id,
+            memory_text=candidate["memory_text"],
+            source_event_id=event.event_id,
+            memory_type=candidate["memory_type"],
+            confidence=candidate["confidence"],
+        )
+        if memory:
+            vector_memory.add_memory(memory)
+
     stats = session_memory.stats(event.room_id)
     await broker.publish(event_envelope("stats", stats.model_dump()))
     await broker.publish(event_envelope("model_status", ModelStatus(**agent.current_status()).model_dump()))
@@ -103,7 +119,11 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "room_id": settings.room_id, "active_session": long_term_store.get_active_session(settings.room_id)}
+    return {
+        "status": "ok",
+        "room_id": settings.room_id,
+        "active_session": long_term_store.get_active_session(settings.room_id),
+    }
 
 
 @app.get("/api/bootstrap")
@@ -129,7 +149,12 @@ async def switch_room(payload: RoomSwitchRequest):
 @app.post("/api/events")
 async def ingest_event(event: LiveEvent):
     suggestion = await process_event(event)
-    return {"accepted": True, "event_id": event.event_id, "session_id": event.session_id, "suggestion": suggestion.model_dump() if suggestion else None}
+    return {
+        "accepted": True,
+        "event_id": event.event_id,
+        "session_id": event.session_id,
+        "suggestion": suggestion.model_dump() if suggestion else None,
+    }
 
 
 @app.get("/api/viewer")
@@ -139,6 +164,15 @@ async def viewer_detail(room_id: str | None = None, viewer_id: str | None = None
     if not detail:
         raise HTTPException(status_code=404, detail="viewer not found")
     return detail
+
+
+@app.get("/api/viewer/memories")
+async def viewer_memories(room_id: str | None = None, viewer_id: str | None = None, limit: int = 20):
+    target_room_id = (room_id or settings.room_id).strip()
+    target_viewer_id = (viewer_id or "").strip()
+    if not target_viewer_id:
+        raise HTTPException(status_code=400, detail="viewer_id is required")
+    return {"items": long_term_store.list_viewer_memories(target_room_id, target_viewer_id, limit=limit)}
 
 
 @app.get("/api/viewer/notes")
@@ -161,7 +195,14 @@ async def save_viewer_note(payload: ViewerNoteUpsertRequest):
         raise HTTPException(status_code=400, detail="viewer_id is required")
     if not content:
         raise HTTPException(status_code=400, detail="content is required")
-    return long_term_store.save_viewer_note(room_id, viewer_id, content, author=payload.author.strip() or "主播", is_pinned=payload.is_pinned, note_id=payload.note_id or "")
+    return long_term_store.save_viewer_note(
+        room_id,
+        viewer_id,
+        content,
+        author=payload.author.strip() or "主播",
+        is_pinned=payload.is_pinned,
+        note_id=payload.note_id or "",
+    )
 
 
 @app.delete("/api/viewer/notes/{note_id}")
