@@ -42,7 +42,7 @@ class Settings:
 
     app_host: str = os.getenv("APP_HOST", "127.0.0.1")
     app_port: int = int(os.getenv("APP_PORT", "8010"))
-    room_id: str = os.getenv("ROOM_ID", "32137571630")
+    room_id: str = os.getenv("ROOM_ID", "")
     collector_enabled: bool = os.getenv("COLLECTOR_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
     collector_host: str = os.getenv("COLLECTOR_HOST", "127.0.0.1")
     collector_port: int = int(os.getenv("COLLECTOR_PORT", "1088"))

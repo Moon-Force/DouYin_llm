@@ -68,12 +68,12 @@ function applyTheme(theme) {
 }
 
 export const useLiveStore = defineStore("live", () => {
-  const roomId = ref("32137571630");
+  const roomId = ref("");
   const roomDraft = ref("");
   const theme = ref(loadTheme());
   const isSwitchingRoom = ref(false);
   const roomError = ref("");
-  const connectionState = ref("connecting");
+  const connectionState = ref("idle");
   const eventFilters = ref(EVENT_FILTERS);
   const selectedEventTypes = ref(loadSelectedEventTypes());
   const modelStatus = ref({
@@ -84,7 +84,7 @@ export const useLiveStore = defineStore("live", () => {
     last_error: "",
     updated_at: 0,
   });
-  const stats = ref(createEmptyStats(roomId.value));
+  const stats = ref(createEmptyStats(""));
   const events = ref([]);
   const suggestions = ref([]);
   let eventSource;
@@ -127,11 +127,14 @@ export const useLiveStore = defineStore("live", () => {
   }
 
   function hydrateSnapshot(payload) {
-    roomId.value = payload.room_id;
-    stats.value = payload.stats || createEmptyStats(payload.room_id);
+    roomId.value = `${payload.room_id ?? ""}`;
+    stats.value = payload.stats || createEmptyStats(roomId.value);
     modelStatus.value = payload.model_status || modelStatus.value;
     events.value = payload.recent_events || [];
     suggestions.value = payload.recent_suggestions || [];
+    if (!roomId.value) {
+      connectionState.value = "idle";
+    }
   }
 
   function closeStream() {
@@ -156,8 +159,11 @@ export const useLiveStore = defineStore("live", () => {
   }
 
   async function bootstrap(targetRoomId = roomId.value) {
-    const query = new URLSearchParams({ room_id: targetRoomId });
-    const response = await fetch(`/api/bootstrap?${query.toString()}`);
+    const normalizedRoomId = `${targetRoomId ?? ""}`.trim();
+    const url = normalizedRoomId
+      ? `/api/bootstrap?${new URLSearchParams({ room_id: normalizedRoomId }).toString()}`
+      : "/api/bootstrap";
+    const response = await fetch(url);
     const payload = await response.json();
     hydrateSnapshot(payload);
   }
@@ -172,8 +178,13 @@ export const useLiveStore = defineStore("live", () => {
 
   function connect(targetRoomId = roomId.value) {
     closeStream();
+    const normalizedRoomId = `${targetRoomId ?? ""}`.trim();
+    if (!normalizedRoomId) {
+      connectionState.value = "idle";
+      return;
+    }
 
-    const query = new URLSearchParams({ room_id: targetRoomId });
+    const query = new URLSearchParams({ room_id: normalizedRoomId });
     eventSource = new EventSource(`/api/events/stream?${query.toString()}`);
 
     connectionState.value = "connecting";
@@ -239,7 +250,7 @@ export const useLiveStore = defineStore("live", () => {
       const payload = await response.json();
       hydrateSnapshot(payload);
       roomDraft.value = "";
-      connect(payload.room_id);
+      connect(payload.room_id || targetRoomId);
     } catch (error) {
       roomError.value = error instanceof Error ? error.message : "切换房间失败";
       await bootstrap(roomId.value);

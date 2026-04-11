@@ -40,6 +40,8 @@ class LongTermStore:
 
     def _connect(self):
         connection = sqlite3.connect(self.database_path)
+        # Some Windows-mounted drives fail writes under SQLite's default DELETE journal mode.
+        connection.execute("PRAGMA journal_mode=TRUNCATE").fetchone()
         connection.row_factory = sqlite3.Row
         return connection
 

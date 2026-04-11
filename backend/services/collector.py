@@ -59,6 +59,8 @@ class DouyinCollector:
         )
 
     def start(self, loop: asyncio.AbstractEventLoop) -> bool:
+        self.loop = loop
+
         if not self.settings.collector_enabled:
             logger.info("Douyin collector disabled by configuration")
             return False
@@ -70,7 +72,6 @@ class DouyinCollector:
         if self.thread and self.thread.is_alive():
             return True
 
-        self.loop = loop
         self.stop_event.clear()
         self.thread = threading.Thread(target=self._run, name="douyin-collector", daemon=True)
         self.thread.start()
@@ -126,7 +127,7 @@ class DouyinCollector:
 
             try:
                 logger.info("Connecting to Douyin websocket at %s", self.url)
-                self.ws.run_forever()
+                self.ws.run_forever(ping_interval=self.settings.collector_ping_interval_seconds)
             except Exception:
                 logger.exception("Douyin collector crashed")
 
@@ -140,7 +141,6 @@ class DouyinCollector:
     def _on_open(self, ws) -> None:
         logger.info("Douyin collector connected")
         self.running = True
-        self._start_ping_loop()
 
     def _on_message(self, ws, message: str) -> None:
         if message == "pong":
@@ -178,24 +178,6 @@ class DouyinCollector:
             close_status_code,
             close_msg,
         )
-
-    def _start_ping_loop(self) -> None:
-        ping_stop_event = threading.Event()
-        self.ping_stop_event = ping_stop_event
-
-        def ping() -> None:
-            while self.running and not self.stop_event.is_set() and not ping_stop_event.is_set():
-                try:
-                    if self.ws and self.ws.sock and self.ws.sock.connected:
-                        self.ws.send("ping")
-                    time.sleep(self.settings.collector_ping_interval_seconds)
-                except Exception:
-                    if not self.stop_event.is_set():
-                        logger.exception("Douyin collector ping failed")
-                    break
-
-        self.ping_thread = threading.Thread(target=ping, name="douyin-collector-ping", daemon=True)
-        self.ping_thread.start()
 
     def _submit_event(self, event: LiveEvent) -> None:
         if not self.loop:

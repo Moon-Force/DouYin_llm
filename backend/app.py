@@ -51,6 +51,7 @@ def event_envelope(kind, data):
 
 
 def snapshot_with_status(room_id):
+    room_id = str(room_id or "").strip()
     snapshot = session_memory.snapshot(room_id)
     if not snapshot.recent_events:
         snapshot.recent_events = long_term_store.recent_events(room_id, limit=30)
@@ -103,7 +104,8 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        long_term_store.close_active_session(settings.room_id)
+        if settings.room_id:
+            long_term_store.close_active_session(settings.room_id)
         collector.stop()
 
 
@@ -122,13 +124,13 @@ async def health():
     return {
         "status": "ok",
         "room_id": settings.room_id,
-        "active_session": long_term_store.get_active_session(settings.room_id),
+        "active_session": long_term_store.get_active_session(settings.room_id) if settings.room_id else {},
     }
 
 
 @app.get("/api/bootstrap")
 async def bootstrap(room_id: str | None = None):
-    target_room_id = room_id or settings.room_id
+    target_room_id = (room_id or settings.room_id).strip()
     return snapshot_with_status(target_room_id).model_dump()
 
 
@@ -222,6 +224,8 @@ async def list_sessions(room_id: str | None = None, status: str | None = None, l
 @app.get("/api/sessions/current")
 async def current_session(room_id: str | None = None):
     target_room_id = (room_id or settings.room_id).strip()
+    if not target_room_id:
+        return {}
     return long_term_store.get_active_session(target_room_id)
 
 

@@ -88,7 +88,7 @@ defineEmits(["update-room-draft", "switch-room", "toggle-theme"]);
 
     <div>
       <p class="text-[11px] uppercase tracking-[0.3em] text-muted">Room</p>
-      <p class="mt-2 text-lg font-medium text-paper">{{ roomId }}</p>
+      <p class="mt-2 text-lg font-medium text-paper">{{ roomId || "未选择房间" }}</p>
 
       <div class="mt-3 flex flex-col gap-2 sm:flex-row">
         <input
