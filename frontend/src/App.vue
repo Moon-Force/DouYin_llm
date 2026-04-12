@@ -1,10 +1,11 @@
 <script setup>
-import { onMounted } from "vue";
+import { onBeforeUnmount, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 
 import EventFeed from "./components/EventFeed.vue";
 import StatusStrip from "./components/StatusStrip.vue";
 import TeleprompterCard from "./components/TeleprompterCard.vue";
+import ViewerWorkbench from "./components/ViewerWorkbench.vue";
 import { useLiveStore } from "./stores/live";
 
 const liveStore = useLiveStore();
@@ -24,11 +25,35 @@ const {
   selectedEventTypes,
   stats,
   theme,
+  isViewerWorkbenchOpen,
+  viewerWorkbench,
+  viewerNoteDraft,
+  viewerNotePinned,
+  isSavingViewerNote,
+  editingViewerNoteId,
 } = storeToRefs(liveStore);
 
+const handleBeforeUnload = () => {
+  liveStore.closeStream();
+};
+
 onMounted(async () => {
-  await liveStore.bootstrap();
-  liveStore.connect();
+  try {
+    await liveStore.bootstrap();
+    liveStore.connect();
+    if (typeof window !== "undefined") {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    }
+  } catch (error) {
+    console.error("Live bootstrap failed", error);
+  }
+});
+
+onBeforeUnmount(() => {
+  liveStore.closeStream();
+  if (typeof window !== "undefined") {
+    window.removeEventListener("beforeunload", handleBeforeUnload);
+  }
 });
 </script>
 
@@ -59,7 +84,25 @@ onMounted(async () => {
         @toggle-filter="liveStore.toggleEventType"
         @select-all-filters="liveStore.selectAllEventTypes"
         @clear-events="liveStore.clearEvents"
+        @select-viewer="liveStore.openViewerWorkbench"
       />
     </section>
   </main>
+
+  <ViewerWorkbench
+    :open="isViewerWorkbenchOpen"
+    :viewer="viewerWorkbench.viewer"
+    :loading="viewerWorkbench.loading"
+    :error="viewerWorkbench.error"
+    :note-draft="viewerNoteDraft"
+    :note-pinned="viewerNotePinned"
+    :saving="isSavingViewerNote"
+    :editing-note-id="editingViewerNoteId"
+    @close="liveStore.closeViewerWorkbench"
+    @update-note-draft="liveStore.setViewerNoteDraft"
+    @toggle-note-pinned="liveStore.toggleViewerNotePinned"
+    @save-note="liveStore.saveActiveViewerNote"
+    @edit-note="liveStore.beginEditingViewerNote"
+    @delete-note="liveStore.deleteViewerNote"
+  />
 </template>

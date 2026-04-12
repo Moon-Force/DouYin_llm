@@ -18,23 +18,16 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["toggle-filter", "select-all-filters", "clear-events"]);
+const emit = defineEmits([
+  "toggle-filter",
+  "select-all-filters",
+  "clear-events",
+  "select-viewer",
+]);
 
 function badge(eventType) {
-  switch (eventType) {
-    case "comment":
-      return "弹幕";
-    case "gift":
-      return "礼物";
-    case "follow":
-      return "关注";
-    case "member":
-      return "进场";
-    case "like":
-      return "点赞";
-    default:
-      return "系统";
-  }
+  const match = props.eventFilters.find((filter) => filter.value === eventType);
+  return match?.label ?? "系统";
 }
 
 function isSelected(eventType) {
@@ -80,8 +73,26 @@ function eventCardStyle(eventType) {
       return {
         borderColor: "rgb(var(--color-line) / 0.12)",
         backgroundColor: "rgb(var(--color-panel-soft) / 0.72)",
-      };
+    };
   }
+}
+
+function selectViewer(event) {
+  if (!event?.room_id) {
+    return;
+  }
+
+  const viewerId = event.user?.viewer_id;
+  const nickname = event.user?.nickname;
+  if (!viewerId && !nickname) {
+    return;
+  }
+
+  emit("select-viewer", {
+    roomId: event.room_id,
+    viewerId: viewerId || "",
+    nickname: nickname || "",
+  });
 }
 </script>
 
@@ -156,9 +167,13 @@ function eventCardStyle(eventType) {
           <div class="mt-3 grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
             <div class="rounded-2xl border border-line/14 bg-panel/92 px-3 py-3 shadow-sm">
               <p class="text-xs uppercase tracking-[0.18em] text-accent-soft">用户</p>
-              <p class="mt-2 text-sm font-medium leading-6 text-paper">
-                {{ event.user.nickname || "未知用户" }}
-              </p>
+              <button
+                type="button"
+                class="mt-2 text-left text-sm font-medium leading-6 text-paper transition hover:text-accent"
+                @click="selectViewer(event)"
+              >
+                {{ event.user?.nickname || "未知用户" }}
+              </button>
             </div>
 
             <div class="rounded-2xl border border-line/14 bg-panel/92 px-3 py-3 shadow-sm">

@@ -56,7 +56,11 @@ function loadTheme() {
     return "dark";
   }
 
-  return window.localStorage.getItem(THEME_STORAGE_KEY) === "light" ? "light" : "dark";
+  try {
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
 }
 
 function applyTheme(theme) {
@@ -87,7 +91,19 @@ export const useLiveStore = defineStore("live", () => {
   const stats = ref(createEmptyStats(""));
   const events = ref([]);
   const suggestions = ref([]);
+  const isViewerWorkbenchOpen = ref(false);
+  const viewerWorkbench = ref({
+    viewer: null,
+    loading: false,
+    error: "",
+  });
+  const viewerNoteDraft = ref("");
+  const viewerNotePinned = ref(false);
+  const editingViewerNoteId = ref("");
+  const isSavingViewerNote = ref(false);
   let eventSource;
+  let viewerWorkbenchRequestId = 0;
+  let hotCleanupRegistered = false;
 
   const activeSuggestion = computed(() => suggestions.value[0] || null);
   const activeSourceEvent = computed(() => {
@@ -115,7 +131,11 @@ export const useLiveStore = defineStore("live", () => {
       return;
     }
 
-    window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selectedEventTypes.value));
+    try {
+      window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selectedEventTypes.value));
+    } catch {
+      // Ignore storage write failures so filtering still works in restricted environments.
+    }
   }
 
   function persistTheme() {
@@ -123,7 +143,11 @@ export const useLiveStore = defineStore("live", () => {
       return;
     }
 
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme.value);
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme.value);
+    } catch {
+      // Ignore storage write failures so theme toggling still works in restricted environments.
+    }
   }
 
   function hydrateSnapshot(payload) {
@@ -142,6 +166,122 @@ export const useLiveStore = defineStore("live", () => {
       eventSource.close();
       eventSource = undefined;
     }
+  }
+
+  function isViewerRequestStale(requestId) {
+    return requestId !== viewerWorkbenchRequestId;
+  }
+
+  function getViewerErrorMessage(error, fallback) {
+    return error instanceof Error ? error.message : fallback;
+  }
+
+  async function getResponseError(response, fallback) {
+    try {
+      const payload = await response.json();
+      if (payload?.detail) {
+        return String(payload.detail);
+      }
+    } catch {
+      // Ignore JSON parsing failures and fall back to status text.
+    }
+
+    return response.statusText || fallback;
+  }
+
+  async function loadViewerDetails(payload, requestId, options = {}) {
+    const {
+      clearError = true,
+      resetEditor = false,
+      resetViewer = true,
+      showLoading = true,
+    } = options;
+
+    if (isViewerRequestStale(requestId)) {
+      return null;
+    }
+
+    if (showLoading) {
+      viewerWorkbench.value.loading = true;
+    }
+
+    if (clearError) {
+      viewerWorkbench.value.error = "";
+    }
+
+    if (resetViewer) {
+      viewerWorkbench.value.viewer = null;
+    }
+
+    if (resetEditor) {
+      resetViewerNoteEditor();
+    }
+
+    const query = new URLSearchParams({
+      room_id: payload.roomId,
+      viewer_id: payload.viewerId,
+      nickname: payload.nickname ?? "",
+    });
+
+    try {
+      if (isViewerRequestStale(requestId)) {
+        return null;
+      }
+
+      const response = await fetch(`/api/viewer?${query.toString()}`);
+
+      if (isViewerRequestStale(requestId)) {
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(await getResponseError(response, "Failed to load viewer"));
+      }
+
+      const viewer = await response.json();
+
+      if (isViewerRequestStale(requestId)) {
+        return null;
+      }
+
+      viewerWorkbench.value.viewer = viewer;
+      return viewer;
+    } catch (error) {
+      if (isViewerRequestStale(requestId)) {
+        return null;
+      }
+
+      viewerWorkbench.value.error = getViewerErrorMessage(error, "Failed to load viewer");
+      return null;
+    } finally {
+      if (!isViewerRequestStale(requestId)) {
+        viewerWorkbench.value.loading = false;
+      }
+    }
+  }
+
+  async function refreshViewerWorkbench() {
+    if (!isViewerWorkbenchOpen.value || !viewerWorkbench.value.viewer) {
+      return;
+    }
+
+    const currentViewer = viewerWorkbench.value.viewer;
+    const requestId = ++viewerWorkbenchRequestId;
+
+    await loadViewerDetails(
+      {
+        roomId: currentViewer.room_id,
+        viewerId: currentViewer.viewer_id,
+        nickname: currentViewer.nickname ?? "",
+      },
+      requestId,
+      {
+        clearError: true,
+        resetEditor: false,
+        resetViewer: false,
+        showLoading: false,
+      },
+    );
   }
 
   function setRoomDraft(value) {
@@ -164,6 +304,9 @@ export const useLiveStore = defineStore("live", () => {
       ? `/api/bootstrap?${new URLSearchParams({ room_id: normalizedRoomId }).toString()}`
       : "/api/bootstrap";
     const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(response.statusText || "Failed to bootstrap live state");
+    }
     const payload = await response.json();
     hydrateSnapshot(payload);
   }
@@ -174,6 +317,19 @@ export const useLiveStore = defineStore("live", () => {
 
   function ingestSuggestion(suggestion) {
     suggestions.value = [suggestion, ...suggestions.value].slice(0, MAX_SUGGESTIONS);
+  }
+
+  function parseSseData(rawData, label) {
+    if (typeof rawData !== "string") {
+      return null;
+    }
+
+    try {
+      return JSON.parse(rawData);
+    } catch (error) {
+      console.error(`Failed to parse ${label || "SSE"} payload`, error);
+      return null;
+    }
   }
 
   function connect(targetRoomId = roomId.value) {
@@ -199,19 +355,31 @@ export const useLiveStore = defineStore("live", () => {
     };
 
     eventSource.addEventListener("event", (message) => {
-      ingestEvent(JSON.parse(message.data));
+      const payload = parseSseData(message.data, "event");
+      if (payload) {
+        ingestEvent(payload);
+      }
     });
 
     eventSource.addEventListener("suggestion", (message) => {
-      ingestSuggestion(JSON.parse(message.data));
+      const payload = parseSseData(message.data, "suggestion");
+      if (payload) {
+        ingestSuggestion(payload);
+      }
     });
 
     eventSource.addEventListener("stats", (message) => {
-      stats.value = JSON.parse(message.data);
+      const payload = parseSseData(message.data, "stats");
+      if (payload) {
+        stats.value = payload;
+      }
     });
 
     eventSource.addEventListener("model_status", (message) => {
-      modelStatus.value = JSON.parse(message.data);
+      const payload = parseSseData(message.data, "model_status");
+      if (payload) {
+        modelStatus.value = payload;
+      }
     });
   }
 
@@ -248,6 +416,7 @@ export const useLiveStore = defineStore("live", () => {
       }
 
       const payload = await response.json();
+      closeViewerWorkbench();
       hydrateSnapshot(payload);
       roomDraft.value = "";
       connect(payload.room_id || targetRoomId);
@@ -287,6 +456,193 @@ export const useLiveStore = defineStore("live", () => {
     events.value = [];
   }
 
+  async function openViewerWorkbench({ roomId, viewerId, nickname }) {
+    isViewerWorkbenchOpen.value = true;
+    const requestId = ++viewerWorkbenchRequestId;
+
+    await loadViewerDetails(
+      { roomId, viewerId, nickname },
+      requestId,
+      { clearError: true, resetEditor: true, resetViewer: true, showLoading: true },
+    );
+  }
+
+  async function saveViewerNote(payload) {
+    const body = {
+      room_id: payload.roomId,
+      viewer_id: payload.viewerId,
+      content: payload.content,
+      is_pinned: payload.isPinned ?? false,
+    };
+
+    if (payload.noteId) {
+      body.note_id = payload.noteId;
+    }
+
+    const response = await fetch("/api/viewer/notes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await getResponseError(response, "Failed to save viewer note");
+      throw new Error(errorText);
+    }
+
+    return response.json();
+  }
+
+  function resetViewerNoteEditor() {
+    viewerNoteDraft.value = "";
+    viewerNotePinned.value = false;
+    editingViewerNoteId.value = "";
+  }
+
+  function resetViewerWorkbenchState() {
+    viewerWorkbench.value.viewer = null;
+    viewerWorkbench.value.loading = false;
+    viewerWorkbench.value.error = "";
+    resetViewerNoteEditor();
+  }
+
+  function closeViewerWorkbench() {
+    isViewerWorkbenchOpen.value = false;
+    viewerWorkbenchRequestId += 1;
+    resetViewerWorkbenchState();
+  }
+
+  function setViewerNoteDraft(value) {
+    viewerNoteDraft.value = `${value ?? ""}`;
+  }
+
+  function toggleViewerNotePinned() {
+    if (isSavingViewerNote.value) {
+      return;
+    }
+    viewerNotePinned.value = !viewerNotePinned.value;
+  }
+
+  function beginEditingViewerNote(note) {
+    if (isSavingViewerNote.value) {
+      return;
+    }
+
+    if (!note) {
+      resetViewerNoteEditor();
+      return;
+    }
+
+    viewerNoteDraft.value = note.content || "";
+    viewerNotePinned.value = Boolean(note.is_pinned);
+    editingViewerNoteId.value = note.note_id || "";
+  }
+
+  async function saveActiveViewerNote() {
+    if (!viewerWorkbench.value.viewer || isSavingViewerNote.value) {
+      return;
+    }
+
+    const currentViewer = viewerWorkbench.value.viewer;
+    if (!currentViewer.viewer_id) {
+      viewerWorkbench.value.error = "Viewer id is required to save notes";
+      return;
+    }
+    if (!viewerNoteDraft.value.trim()) {
+      viewerWorkbench.value.error = "Note content is required";
+      return;
+    }
+    const requestId = viewerWorkbenchRequestId;
+    isSavingViewerNote.value = true;
+    viewerWorkbench.value.error = "";
+
+    try {
+      await saveViewerNote({
+        roomId: currentViewer.room_id,
+        viewerId: currentViewer.viewer_id,
+        nickname: currentViewer.nickname ?? "",
+        content: viewerNoteDraft.value,
+        isPinned: viewerNotePinned.value,
+        noteId: editingViewerNoteId.value || undefined,
+      });
+      if (
+        isViewerRequestStale(requestId) ||
+        !viewerWorkbench.value.viewer ||
+        viewerWorkbench.value.viewer.viewer_id !== currentViewer.viewer_id
+      ) {
+        return;
+      }
+      resetViewerNoteEditor();
+      await refreshViewerWorkbench();
+    } catch (error) {
+      if (!isViewerRequestStale(requestId)) {
+        viewerWorkbench.value.error = getViewerErrorMessage(error, "Failed to save viewer note");
+      }
+    } finally {
+      isSavingViewerNote.value = false;
+    }
+  }
+
+  async function deleteViewerNoteRequest(noteId) {
+    const response = await fetch(`/api/viewer/notes/${noteId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      const errorText = await getResponseError(response, "Failed to delete viewer note");
+      throw new Error(errorText);
+    }
+  }
+
+  async function deleteViewerNote(noteId) {
+    if (!noteId || !viewerWorkbench.value.viewer || isSavingViewerNote.value) {
+      return;
+    }
+
+    const currentViewer = viewerWorkbench.value.viewer;
+    if (!currentViewer.viewer_id) {
+      viewerWorkbench.value.error = "Viewer id is required to delete notes";
+      return;
+    }
+    const requestId = viewerWorkbenchRequestId;
+    isSavingViewerNote.value = true;
+    viewerWorkbench.value.error = "";
+
+    try {
+      await deleteViewerNoteRequest(noteId);
+      if (
+        isViewerRequestStale(requestId) ||
+        !viewerWorkbench.value.viewer ||
+        viewerWorkbench.value.viewer.viewer_id !== currentViewer.viewer_id
+      ) {
+        return;
+      }
+      if (editingViewerNoteId.value === noteId) {
+        resetViewerNoteEditor();
+      }
+      await refreshViewerWorkbench();
+    } catch (error) {
+      if (!isViewerRequestStale(requestId)) {
+        viewerWorkbench.value.error = getViewerErrorMessage(error, "Failed to delete viewer note");
+      }
+    } finally {
+      isSavingViewerNote.value = false;
+    }
+  }
+
+  if (
+    typeof import.meta !== "undefined" &&
+    import.meta.hot &&
+    !hotCleanupRegistered
+  ) {
+    hotCleanupRegistered = true;
+    import.meta.hot.dispose(() => {
+      closeStream();
+    });
+  }
+
   applyTheme(theme.value);
 
   return {
@@ -316,5 +672,20 @@ export const useLiveStore = defineStore("live", () => {
     toggleEventType,
     selectAllEventTypes,
     clearEvents,
+    isViewerWorkbenchOpen,
+    viewerWorkbench,
+    openViewerWorkbench,
+    saveViewerNote,
+    closeViewerWorkbench,
+    closeStream,
+    viewerNoteDraft,
+    viewerNotePinned,
+    editingViewerNoteId,
+    isSavingViewerNote,
+    setViewerNoteDraft,
+    toggleViewerNotePinned,
+    beginEditingViewerNote,
+    saveActiveViewerNote,
+    deleteViewerNote,
   };
 });
