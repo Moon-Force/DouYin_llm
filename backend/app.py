@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend.config import settings
+from backend.memory.embedding_service import EmbeddingService
 from backend.memory.long_term import LongTermStore
 from backend.memory.session_memory import SessionMemory
 from backend.memory.vector_store import VectorMemory
@@ -26,7 +27,8 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(messag
 broker = EventBroker()
 session_memory = SessionMemory(settings.redis_url, settings.session_ttl_seconds)
 long_term_store = LongTermStore(settings.database_path)
-vector_memory = VectorMemory(settings.chroma_dir)
+embedding_service = EmbeddingService(settings)
+vector_memory = VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
 for memory in long_term_store.list_all_viewer_memories(limit=10000):
     vector_memory.add_memory(memory)
 agent = LivePromptAgent(settings, vector_memory, long_term_store)

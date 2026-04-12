@@ -4,6 +4,7 @@
 """
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -60,6 +61,13 @@ class Settings:
     llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.4"))
     llm_timeout_seconds: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "6.0"))
     llm_max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "120"))
+    embedding_mode: str = os.getenv("EMBEDDING_MODE", "cloud").strip().lower()
+    embedding_model: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    embedding_base_url: str = os.getenv("EMBEDDING_BASE_URL", "https://api.openai.com/v1")
+    embedding_api_key: str = os.getenv("EMBEDDING_API_KEY", "") or os.getenv("LLM_API_KEY", "") or os.getenv("DASHSCOPE_API_KEY", "")
+    embedding_timeout_seconds: float = float(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "10.0"))
+    local_embedding_device: str = os.getenv("LOCAL_EMBEDDING_DEVICE", "cpu")
+    local_embedding_batch_size: int = int(os.getenv("LOCAL_EMBEDDING_BATCH_SIZE", "32"))
 
     def ensure_dirs(self):
         """创建运行期需要的本地数据目录。"""
@@ -89,6 +97,11 @@ class Settings:
             return "qwen-plus-latest"
 
         return "gpt-4.1-mini"
+
+    def embedding_signature(self):
+        mode = re.sub(r"[^a-z0-9]+", "_", self.embedding_mode.strip().lower()).strip("_") or "unknown"
+        model = re.sub(r"[^a-z0-9]+", "_", self.embedding_model.strip().lower()).strip("_") or "default"
+        return f"{mode}_{model}"
 
 
 settings = Settings()

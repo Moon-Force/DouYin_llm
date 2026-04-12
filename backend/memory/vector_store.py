@@ -1,6 +1,7 @@
 ﻿"""Vector-backed recall helpers for event history and viewer memories."""
 
 import hashlib
+import logging
 import math
 import re
 
@@ -10,6 +11,9 @@ try:
     import chromadb
 except ImportError:  # pragma: no cover - optional dependency
     chromadb = None
+
+
+logger = logging.getLogger(__name__)
 
 
 def tokenize_text(text):
@@ -53,17 +57,28 @@ class HashEmbeddingFunction:
 
 
 class VectorMemory:
-    def __init__(self, storage_path):
+    def __init__(self, storage_path, settings=None, embedding_service=None):
         self._event_items = []
         self._memory_items = []
         self.collection = None
         self.memory_collection = None
-        self.embedding = HashEmbeddingFunction()
+        self.embedding = embedding_service or HashEmbeddingFunction()
+        self._collection_suffix = settings.embedding_signature() if settings else "hash_default"
 
         if chromadb:
             client = chromadb.PersistentClient(path=str(storage_path))
-            self.collection = client.get_or_create_collection("live_history")
-            self.memory_collection = client.get_or_create_collection("viewer_memories")
+            self.collection = client.get_or_create_collection(f"live_history_{self._collection_suffix}")
+            self.memory_collection = client.get_or_create_collection(f"viewer_memories_{self._collection_suffix}")
+            logger.info(
+                "VectorMemory initialized with Chroma collections: events=%s memories=%s",
+                f"live_history_{self._collection_suffix}",
+                f"viewer_memories_{self._collection_suffix}",
+            )
+        else:
+            logger.warning(
+                "Chroma is unavailable; VectorMemory will use in-process fallback indexes only (suffix=%s)",
+                self._collection_suffix,
+            )
 
     @staticmethod
     def _score_tokens(query_tokens, target_tokens, query_text, target_text):
