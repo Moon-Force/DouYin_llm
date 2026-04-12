@@ -59,6 +59,7 @@ class Settings:
     llm_api_key: str = os.getenv("LLM_API_KEY", "") or os.getenv("DASHSCOPE_API_KEY", "")
     llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.4"))
     llm_timeout_seconds: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "6.0"))
+    llm_max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "120"))
 
     def ensure_dirs(self):
         """创建运行期需要的本地数据目录。"""

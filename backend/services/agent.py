@@ -59,29 +59,39 @@ class LivePromptAgent:
             event.content,
             room_id=event.room_id,
             viewer_id=event.user.viewer_id,
-            limit=3,
+            limit=2,
         )
         current_document = f"{event.user.nickname} {event.content}".strip()
         similar = [
             item
-            for item in self.vector_memory.similar(event.content, room_id=event.room_id, limit=5)
+            for item in self.vector_memory.similar(event.content, room_id=event.room_id, limit=4)
             if item != current_document
-        ][:3]
-        profile = self.long_term_store.get_user_profile(event.room_id, event.user)
+        ][:2]
+        profile = self._compact_user_profile(self.long_term_store.get_user_profile(event.room_id, event.user))
         return {
-            "recent_events": [item.model_dump() for item in recent_events[:8]],
+            "recent_events": [self._compact_recent_event(item) for item in recent_events[:3]],
             "similar_history": similar,
             "user_profile": profile,
             "viewer_memories": viewer_memories,
-            "viewer_memory_texts": [item["memory_text"] for item in viewer_memories],
+            "viewer_memory_texts": [item["memory_text"] for item in viewer_memories[:2]],
         }
 
     def maybe_generate(self, event, recent_events):
         if event.event_type not in {"comment", "gift", "follow"}:
             return None
 
-        context = self.build_context(event, recent_events)
-        payload = self._generate_payload(event, context)
+        context = {
+            "recent_events": [],
+            "similar_history": [],
+            "user_profile": {},
+            "viewer_memories": [],
+            "viewer_memory_texts": [],
+        }
+        if self._should_short_circuit_with_heuristic(event):
+            payload = self._generate_heuristic(event, context, source="heuristic")
+        else:
+            context = self.build_context(event, recent_events)
+            payload = self._generate_payload(event, context)
 
         memory_ids = [item["memory_id"] for item in context["viewer_memories"] if item.get("memory_id")]
         if memory_ids:
@@ -104,6 +114,62 @@ class LivePromptAgent:
             source_events=[event.event_id],
             created_at=int(time.time() * 1000),
         )
+
+    @staticmethod
+    def _compact_recent_event(event):
+        return {
+            "event_type": event.event_type,
+            "nickname": event.user.nickname,
+            "content": event.content or event.metadata.get("gift_name", ""),
+        }
+
+    @staticmethod
+    def _compact_user_profile(profile):
+        if not profile:
+            return {}
+
+        compact = {}
+        for key in (
+            "nickname",
+            "comment_count",
+            "gift_event_count",
+            "total_gift_count",
+            "last_comment",
+            "last_gift_name",
+        ):
+            value = profile.get(key)
+            if value not in (None, "", [], {}):
+                compact[key] = value
+        return compact
+
+    @staticmethod
+    def _should_short_circuit_with_heuristic(event):
+        if event.event_type in {"gift", "follow"}:
+            return True
+
+        content = str(event.content or "").strip()
+        return any(keyword in content for keyword in ("价格", "多少钱", "链接", "怎么买", "减", "瘦", "胖", "体重", "健身"))
+
+    def _build_prompt_payload(self, event, context):
+        return {
+            "event": {
+                "event_type": event.event_type,
+                "nickname": event.user.nickname,
+                "content": event.content,
+                "gift_name": event.metadata.get("gift_name", ""),
+            },
+            "context": {
+                "recent_events": context["recent_events"],
+                "similar_history": context["similar_history"],
+                "user_profile": context["user_profile"],
+                "viewer_memories": context["viewer_memory_texts"],
+            },
+            "instruction": (
+                "你是直播提词助手。请只输出一个 JSON 对象，不要输出解释、前后缀或 markdown。"
+                "JSON 必须包含 priority, reply_text, tone, reason, confidence。"
+                "如果命中了同一观众的历史记忆，优先给主播一条能自然延续旧话题的中文短句。"
+            ),
+        }
 
     def _generate_payload(self, event, context):
         if self.settings.llm_mode != "heuristic":
@@ -208,15 +274,7 @@ class LivePromptAgent:
         }
 
     def _generate_with_openai_compatible(self, event, context):
-        prompt = {
-            "event": event.model_dump(),
-            "context": context,
-            "instruction": (
-                "你是直播提词助手。请只输出一个 JSON 对象，不要输出解释、前后缀或 markdown。"
-                "JSON 必须包含 priority, reply_text, tone, reason, confidence。"
-                "如果命中了同一观众的历史记忆，优先给主播一条能自然延续旧话题的中文短句。"
-            ),
-        }
+        prompt = self._build_prompt_payload(event, context)
         headers = {"Content-Type": "application/json"}
         if self.settings.llm_api_key:
             headers["Authorization"] = f"Bearer {self.settings.llm_api_key}"
@@ -227,6 +285,7 @@ class LivePromptAgent:
                 {
                     "model": self.settings.resolved_llm_model(),
                     "temperature": self.settings.llm_temperature,
+                    "max_tokens": self.settings.llm_max_tokens,
                     "messages": [
                         {
                             "role": "system",
