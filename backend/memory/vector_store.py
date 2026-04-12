@@ -60,6 +60,7 @@ class VectorMemory:
     def __init__(self, storage_path, settings=None, embedding_service=None):
         self._event_items = []
         self._memory_items = []
+        self._client = None
         self.collection = None
         self.memory_collection = None
         self.embedding = embedding_service or HashEmbeddingFunction()
@@ -67,6 +68,7 @@ class VectorMemory:
 
         if chromadb:
             client = chromadb.PersistentClient(path=str(storage_path))
+            self._client = client
             self.collection = client.get_or_create_collection(f"live_history_{self._collection_suffix}")
             self.memory_collection = client.get_or_create_collection(f"viewer_memories_{self._collection_suffix}")
             logger.info(
