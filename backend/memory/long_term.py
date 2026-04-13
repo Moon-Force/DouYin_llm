@@ -33,13 +33,21 @@ def viewer_id_from_identity(user_id="", sec_uid="", short_id="", nickname=""):
     return ""
 
 
+class ClosingConnection(sqlite3.Connection):
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            return super().__exit__(exc_type, exc_val, exc_tb)
+        finally:
+            self.close()
+
+
 class LongTermStore:
     def __init__(self, database_path):
         self.database_path = str(database_path)
         self._setup()
 
     def _connect(self):
-        connection = sqlite3.connect(self.database_path)
+        connection = sqlite3.connect(self.database_path, factory=ClosingConnection)
         # Some Windows-mounted drives fail writes under SQLite's default DELETE journal mode.
         connection.execute("PRAGMA journal_mode=TRUNCATE").fetchone()
         connection.row_factory = sqlite3.Row
@@ -48,6 +56,9 @@ class LongTermStore:
     def _table_columns(self, connection, table_name):
         rows = connection.execute(f"PRAGMA table_info({table_name})").fetchall()
         return {row[1] for row in rows}
+
+    def close(self):
+        return None
 
     def _setup(self):
         with self._connect() as connection:
@@ -160,6 +171,12 @@ class LongTermStore:
                     updated_at INTEGER NOT NULL,
                     last_recalled_at INTEGER,
                     recall_count INTEGER NOT NULL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    setting_key TEXT PRIMARY KEY,
+                    setting_value TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL
                 );
                 """
             )
@@ -800,6 +817,63 @@ class LongTermStore:
         with self._connect() as connection:
             cursor = connection.execute("DELETE FROM viewer_notes WHERE note_id = ?", (note_id,))
         return cursor.rowcount > 0
+
+    def get_setting(self, key):
+        key = safe_text(key)
+        if not key:
+            return ""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT setting_value FROM app_settings WHERE setting_key = ?",
+                (key,),
+            ).fetchone()
+        return row["setting_value"] if row else ""
+
+    def set_setting(self, key, value):
+        key = safe_text(key)
+        if not key:
+            return False
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO app_settings (setting_key, setting_value, updated_at)
+                VALUES (?, ?, ?)
+                """,
+                (key, str(value or ""), current_millis()),
+            )
+        return True
+
+    def delete_setting(self, key):
+        key = safe_text(key)
+        if not key:
+            return False
+        with self._connect() as connection:
+            cursor = connection.execute("DELETE FROM app_settings WHERE setting_key = ?", (key,))
+        return cursor.rowcount > 0
+
+    def get_llm_settings(self, default_model, default_system_prompt):
+        model_override = self.get_setting("llm_model_override")
+        prompt_override = self.get_setting("system_prompt_override")
+        model = model_override or safe_text(default_model)
+        system_prompt = prompt_override if safe_text(prompt_override) else str(default_system_prompt or "")
+        return {
+            "model": model,
+            "system_prompt": system_prompt,
+            "default_model": safe_text(default_model),
+            "default_system_prompt": str(default_system_prompt or ""),
+        }
+
+    def save_llm_settings(self, model, system_prompt):
+        normalized_model = safe_text(model)
+        if not normalized_model:
+            raise ValueError("model is required")
+        self.set_setting("llm_model_override", normalized_model)
+        normalized_prompt = str(system_prompt or "")
+        if normalized_prompt.strip():
+            self.set_setting("system_prompt_override", normalized_prompt)
+        else:
+            self.delete_setting("system_prompt_override")
+        return self.get_llm_settings(normalized_model, normalized_prompt)
 
     def list_live_sessions(self, room_id="", status="", limit=20):
         conditions = []

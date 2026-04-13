@@ -114,7 +114,14 @@ class LivePromptAgentTests(unittest.TestCase):
         self.assertEqual(suggestion.priority, "high")
 
     def test_generate_with_openai_compatible_includes_max_tokens(self):
-        agent = LivePromptAgent(make_settings(), MagicMock(), MagicMock())
+        long_term_store = MagicMock()
+        long_term_store.get_llm_settings.return_value = {
+            "model": "qwen3.5-flash",
+            "system_prompt": "system prompt",
+            "default_model": "qwen3.5-flash",
+            "default_system_prompt": "system prompt",
+        }
+        agent = LivePromptAgent(make_settings(), MagicMock(), long_term_store)
         event = make_event()
         context = {
             "recent_events": [{"event_type": "comment", "nickname": "阿明", "content": "多少钱"}],

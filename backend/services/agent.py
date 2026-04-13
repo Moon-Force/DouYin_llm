@@ -14,6 +14,11 @@ from backend.schemas.live import Suggestion
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_SYSTEM_PROMPT = (
+    "你是直播间实时提词器，擅长中文短句口播。"
+    "输出必须是合法 JSON，不要使用 markdown 代码块。"
+)
+
 
 class LivePromptAgent:
     def __init__(self, settings, vector_memory, long_term_store):
@@ -30,12 +35,33 @@ class LivePromptAgent:
         }
 
     def current_status(self):
-        return dict(self._status)
+        status = dict(self._status)
+        status["model"] = self.current_model()
+        return status
+
+    def current_model(self):
+        return self.current_llm_settings()["model"]
+
+    def current_system_prompt(self):
+        return self.current_llm_settings()["system_prompt"]
+
+    def current_llm_settings(self):
+        if not self.long_term_store:
+            return {
+                "model": self.settings.resolved_llm_model(),
+                "system_prompt": DEFAULT_SYSTEM_PROMPT,
+                "default_model": self.settings.resolved_llm_model(),
+                "default_system_prompt": DEFAULT_SYSTEM_PROMPT,
+            }
+        return self.long_term_store.get_llm_settings(
+            self.settings.resolved_llm_model(),
+            DEFAULT_SYSTEM_PROMPT,
+        )
 
     def _mark_status(self, result, error=""):
         self._status = {
             "mode": self.settings.llm_mode,
-            "model": self.settings.resolved_llm_model() if self.settings.llm_mode != "heuristic" else "heuristic",
+            "model": self.current_model() if self.settings.llm_mode != "heuristic" else "heuristic",
             "backend": self.settings.resolved_llm_base_url() if self.settings.llm_mode != "heuristic" else "local",
             "last_result": result,
             "last_error": error,
@@ -274,6 +300,7 @@ class LivePromptAgent:
         }
 
     def _generate_with_openai_compatible(self, event, context):
+        llm_settings = self.current_llm_settings()
         prompt = self._build_prompt_payload(event, context)
         headers = {"Content-Type": "application/json"}
         if self.settings.llm_api_key:
@@ -283,16 +310,13 @@ class LivePromptAgent:
             f"{self.settings.resolved_llm_base_url()}/chat/completions",
             data=json.dumps(
                 {
-                    "model": self.settings.resolved_llm_model(),
+                    "model": llm_settings["model"],
                     "temperature": self.settings.llm_temperature,
                     "max_tokens": self.settings.llm_max_tokens,
                     "messages": [
                         {
                             "role": "system",
-                            "content": (
-                                "你是直播间实时提词器，擅长中文短句口播。"
-                                "输出必须是合法 JSON，不要使用 markdown 代码块。"
-                            ),
+                            "content": llm_settings["system_prompt"],
                         },
                         {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
                     ],

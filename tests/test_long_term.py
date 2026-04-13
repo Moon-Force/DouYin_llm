@@ -14,7 +14,12 @@ class LongTermStoreConnectTests(unittest.TestCase):
         with patch("backend.memory.long_term.sqlite3.connect", return_value=connection) as connect_mock:
             result = store._connect()
 
-        connect_mock.assert_called_once_with("data/test.db")
+        connect_mock.assert_called_once()
+        self.assertEqual(connect_mock.call_args.args[0], "data/test.db")
+        self.assertEqual(
+            connect_mock.call_args.kwargs["factory"].__name__,
+            "ClosingConnection",
+        )
         connection.execute.assert_any_call("PRAGMA journal_mode=TRUNCATE")
         self.assertIs(result, connection)
         self.assertEqual(connection.row_factory, unittest.mock.ANY)

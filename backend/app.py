@@ -48,6 +48,11 @@ class ViewerNoteUpsertRequest(BaseModel):
     note_id: str | None = None
 
 
+class LlmSettingsUpdateRequest(BaseModel):
+    model: str
+    system_prompt: str = ""
+
+
 def event_envelope(kind, data):
     return {"type": kind, "data": data}
 
@@ -214,6 +219,19 @@ async def delete_viewer_note(note_id: str):
     if not long_term_store.delete_viewer_note(note_id):
         raise HTTPException(status_code=404, detail="note not found")
     return {"deleted": True, "note_id": note_id}
+
+
+@app.get("/api/settings/llm")
+async def get_llm_settings():
+    return agent.current_llm_settings()
+
+
+@app.put("/api/settings/llm")
+async def save_llm_settings(payload: LlmSettingsUpdateRequest):
+    model = payload.model.strip()
+    if not model:
+        raise HTTPException(status_code=400, detail="model is required")
+    return long_term_store.save_llm_settings(model, payload.system_prompt or "")
 
 
 @app.get("/api/sessions")

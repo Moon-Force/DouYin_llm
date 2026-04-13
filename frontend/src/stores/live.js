@@ -88,6 +88,19 @@ export const useLiveStore = defineStore("live", () => {
     last_error: "",
     updated_at: 0,
   });
+  const llmSettings = ref({
+    model: "",
+    systemPrompt: "",
+    defaultModel: "",
+    defaultSystemPrompt: "",
+  });
+  const llmSettingsDraft = ref({
+    model: "",
+    systemPrompt: "",
+  });
+  const isLlmSettingsOpen = ref(false);
+  const isSavingLlmSettings = ref(false);
+  const llmSettingsError = ref("");
   const stats = ref(createEmptyStats(""));
   const events = ref([]);
   const suggestions = ref([]);
@@ -296,6 +309,113 @@ export const useLiveStore = defineStore("live", () => {
 
   function toggleTheme() {
     setTheme(theme.value === "dark" ? "light" : "dark");
+  }
+
+  function syncLlmSettingsDraft(payload) {
+    llmSettingsDraft.value = {
+      model: payload.model || "",
+      systemPrompt: payload.systemPrompt || "",
+    };
+  }
+
+  function applyLlmSettings(payload) {
+    llmSettings.value = {
+      model: payload.model || "",
+      systemPrompt: payload.systemPrompt || "",
+      defaultModel: payload.defaultModel || "",
+      defaultSystemPrompt: payload.defaultSystemPrompt || "",
+    };
+    syncLlmSettingsDraft(llmSettings.value);
+    if (llmSettings.value.model) {
+      modelStatus.value = {
+        ...modelStatus.value,
+        model: llmSettings.value.model,
+      };
+    }
+  }
+
+  async function loadLlmSettings() {
+    llmSettingsError.value = "";
+    const response = await fetch("/api/settings/llm");
+    if (!response.ok) {
+      throw new Error("Failed to load LLM settings");
+    }
+    const payload = await response.json();
+    applyLlmSettings({
+      model: payload.model,
+      systemPrompt: payload.system_prompt,
+      defaultModel: payload.default_model,
+      defaultSystemPrompt: payload.default_system_prompt,
+    });
+    return llmSettings.value;
+  }
+
+  async function openLlmSettings() {
+    isLlmSettingsOpen.value = true;
+    llmSettingsError.value = "";
+    try {
+      await loadLlmSettings();
+    } catch (error) {
+      llmSettingsError.value = error instanceof Error ? error.message : "Failed to load LLM settings";
+    }
+  }
+
+  function closeLlmSettings() {
+    isLlmSettingsOpen.value = false;
+    llmSettingsError.value = "";
+  }
+
+  function updateLlmModelDraft(value) {
+    llmSettingsDraft.value = {
+      ...llmSettingsDraft.value,
+      model: `${value ?? ""}`,
+    };
+  }
+
+  function updateSystemPromptDraft(value) {
+    llmSettingsDraft.value = {
+      ...llmSettingsDraft.value,
+      systemPrompt: `${value ?? ""}`,
+    };
+  }
+
+  async function saveLlmSettings() {
+    isSavingLlmSettings.value = true;
+    llmSettingsError.value = "";
+    try {
+      const response = await fetch("/api/settings/llm", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: llmSettingsDraft.value.model,
+          system_prompt: llmSettingsDraft.value.systemPrompt,
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || "Failed to save LLM settings");
+      }
+      const payload = await response.json();
+      applyLlmSettings({
+        model: payload.model,
+        systemPrompt: payload.system_prompt,
+        defaultModel: payload.default_model,
+        defaultSystemPrompt: payload.default_system_prompt,
+      });
+    } catch (error) {
+      llmSettingsError.value = error instanceof Error ? error.message : "Failed to save LLM settings";
+    } finally {
+      isSavingLlmSettings.value = false;
+    }
+  }
+
+  async function resetLlmSettings() {
+    llmSettingsDraft.value = {
+      model: llmSettings.value.defaultModel,
+      systemPrompt: llmSettings.value.defaultSystemPrompt,
+    };
   }
 
   async function bootstrap(targetRoomId = roomId.value) {
@@ -656,6 +776,11 @@ export const useLiveStore = defineStore("live", () => {
     selectedEventTypes,
     eventFilters,
     modelStatus,
+    llmSettings,
+    llmSettingsDraft,
+    isLlmSettingsOpen,
+    isSavingLlmSettings,
+    llmSettingsError,
     stats,
     areAllEventTypesSelected,
     events,
@@ -668,6 +793,13 @@ export const useLiveStore = defineStore("live", () => {
     setRoomDraft,
     setTheme,
     toggleTheme,
+    loadLlmSettings,
+    openLlmSettings,
+    closeLlmSettings,
+    updateLlmModelDraft,
+    updateSystemPromptDraft,
+    saveLlmSettings,
+    resetLlmSettings,
     switchRoom,
     toggleEventType,
     selectAllEventTypes,

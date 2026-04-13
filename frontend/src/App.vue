@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted } from "vue";
 import { storeToRefs } from "pinia";
 
 import EventFeed from "./components/EventFeed.vue";
+import LlmSettingsPanel from "./components/LlmSettingsPanel.vue";
 import StatusStrip from "./components/StatusStrip.vue";
 import TeleprompterCard from "./components/TeleprompterCard.vue";
 import ViewerWorkbench from "./components/ViewerWorkbench.vue";
@@ -31,6 +32,11 @@ const {
   viewerNotePinned,
   isSavingViewerNote,
   editingViewerNoteId,
+  llmSettings,
+  llmSettingsDraft,
+  isLlmSettingsOpen,
+  isSavingLlmSettings,
+  llmSettingsError,
 } = storeToRefs(liveStore);
 
 const handleBeforeUnload = () => {
@@ -72,6 +78,7 @@ onBeforeUnmount(() => {
       @update-room-draft="liveStore.setRoomDraft"
       @switch-room="liveStore.switchRoom"
       @toggle-theme="liveStore.toggleTheme"
+      @open-llm-settings="liveStore.openLlmSettings"
     />
 
     <section class="grid min-h-0 flex-1 gap-6 xl:grid-cols-[1.75fr_0.85fr]">
@@ -104,5 +111,18 @@ onBeforeUnmount(() => {
     @save-note="liveStore.saveActiveViewerNote"
     @edit-note="liveStore.beginEditingViewerNote"
     @delete-note="liveStore.deleteViewerNote"
+  />
+
+  <LlmSettingsPanel
+    :open="isLlmSettingsOpen"
+    :draft="llmSettingsDraft"
+    :defaults="llmSettings"
+    :saving="isSavingLlmSettings"
+    :error="llmSettingsError"
+    @close="liveStore.closeLlmSettings"
+    @update-model="liveStore.updateLlmModelDraft"
+    @update-system-prompt="liveStore.updateSystemPromptDraft"
+    @save="liveStore.saveLlmSettings"
+    @reset="liveStore.resetLlmSettings"
   />
 </template>

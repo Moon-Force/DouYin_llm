@@ -38,7 +38,7 @@ defineProps({
   },
 });
 
-defineEmits(["update-room-draft", "switch-room", "toggle-theme"]);
+defineEmits(["update-room-draft", "switch-room", "toggle-theme", "open-llm-settings"]);
 </script>
 
 <template>
@@ -133,6 +133,13 @@ defineEmits(["update-room-draft", "switch-room", "toggle-theme"]);
       <p class="mt-1 text-xs text-muted">
         {{ modelStatus.last_error || modelStatus.mode }}
       </p>
+      <button
+        type="button"
+        class="mt-3 rounded-full border border-line/16 bg-panel px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted transition hover:border-accent hover:text-accent"
+        @click="$emit('open-llm-settings')"
+      >
+        Settings
+      </button>
     </div>
 
     <div>
