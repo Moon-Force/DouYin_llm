@@ -58,6 +58,7 @@ class HashEmbeddingFunction:
 
 class VectorMemory:
     def __init__(self, storage_path, settings=None, embedding_service=None):
+        self.settings = settings
         self._event_items = []
         self._memory_items = []
         self._client = None
@@ -83,6 +84,55 @@ class VectorMemory:
             )
 
     @staticmethod
+    def _distance_to_score(distance):
+        if distance is None:
+            return 0.0
+        return 1.0 / (1.0 + float(distance))
+
+    def _event_min_score(self):
+        return getattr(self.settings, "semantic_event_min_score", 0.0) if self.settings else 0.0
+
+    def _memory_min_score(self):
+        return getattr(self.settings, "semantic_memory_min_score", 0.0) if self.settings else 0.0
+
+    def _event_query_limit(self, limit):
+        base = getattr(self.settings, "semantic_event_query_limit", limit) if self.settings else limit
+        return max(int(limit), int(base))
+
+    def _memory_query_limit(self, limit):
+        base = getattr(self.settings, "semantic_memory_query_limit", limit) if self.settings else limit
+        return max(int(limit), int(base))
+
+    def _final_k(self, limit):
+        base = getattr(self.settings, "semantic_final_k", limit) if self.settings else limit
+        return min(int(limit), int(base))
+
+    @staticmethod
+    def _event_rank_key(item, query_text):
+        text = str(item.get("text") or "")
+        metadata = item.get("metadata") or {}
+        contains_query = 1 if query_text and query_text in text else 0
+        event_type_boost = 1 if metadata.get("event_type") == "comment" else 0
+        ts = int(metadata.get("ts") or 0)
+        return (item.get("score", 0.0), contains_query, event_type_boost, ts)
+
+    @staticmethod
+    def _memory_rank_key(item, query_text):
+        text = str(item.get("memory_text") or "")
+        metadata = item.get("metadata") or {}
+        contains_query = 1 if query_text and query_text in text else 0
+        confidence = float(metadata.get("confidence") or 0.0)
+        recall_count = int(metadata.get("recall_count") or 0)
+        updated_at = int(metadata.get("updated_at") or 0)
+        reranked_score = (
+            float(item.get("score", 0.0))
+            + (0.1 * confidence)
+            + (0.02 * contains_query)
+            + (0.01 * min(recall_count, 10))
+        )
+        return (reranked_score, updated_at)
+
+    @staticmethod
     def _score_tokens(query_tokens, target_tokens, query_text, target_text):
         if not query_tokens or not target_tokens:
             return 0.0
@@ -101,7 +151,12 @@ class VectorMemory:
             return
 
         document = f"{event.user.nickname} {event.content}".strip()
-        metadata = {"room_id": event.room_id, "event_type": event.event_type}
+        metadata = {
+            "room_id": event.room_id,
+            "event_type": event.event_type,
+            "nickname": event.user.nickname,
+            "ts": event.ts,
+        }
         self._event_items = [item for item in self._event_items if item["id"] != event.event_id]
         self._event_items.append({"id": event.event_id, "document": document, "metadata": metadata})
         self._event_items = self._event_items[-1000:]
@@ -118,17 +173,38 @@ class VectorMemory:
         query_text = str(text or "").strip()
         if not query_text:
             return []
+        query_limit = self._event_query_limit(limit)
+        min_score = self._event_min_score()
+        final_k = self._final_k(limit)
 
         if self.collection:
             try:
                 query_kwargs = {
                     "query_embeddings": [self.embedding.embed_text(query_text)],
-                    "n_results": limit,
+                    "n_results": query_limit,
                 }
                 if room_id:
                     query_kwargs["where"] = {"room_id": room_id}
                 result = self.collection.query(**query_kwargs)
-                return result.get("documents", [[]])[0]
+                ids = result.get("ids", [[]])[0]
+                documents = result.get("documents", [[]])[0]
+                metadatas = result.get("metadatas", [[]])[0]
+                distances = result.get("distances", [[]])[0]
+                items = []
+                for index, item_id in enumerate(ids):
+                    score = self._distance_to_score(distances[index] if index < len(distances) else None)
+                    if score < min_score:
+                        continue
+                    items.append(
+                        {
+                            "id": item_id,
+                            "text": documents[index] if index < len(documents) else "",
+                            "score": score,
+                            "metadata": metadatas[index] if index < len(metadatas) else {},
+                        }
+                    )
+                items.sort(key=lambda item: self._event_rank_key(item, query_text), reverse=True)
+                return items[:final_k]
             except Exception:
                 pass
 
@@ -140,11 +216,18 @@ class VectorMemory:
             target_text = item["document"]
             target_tokens = set(tokenize_text(target_text))
             score = self._score_tokens(query_tokens, target_tokens, query_text, target_text)
-            if score > 0:
-                scored.append((score, target_text))
+            if score >= min_score:
+                scored.append(
+                    {
+                        "id": item["id"],
+                        "text": target_text,
+                        "score": score,
+                        "metadata": item["metadata"],
+                    }
+                )
 
-        scored.sort(key=lambda entry: entry[0], reverse=True)
-        return [document for _, document in scored[:limit]]
+        scored.sort(key=lambda item: self._event_rank_key(item, query_text), reverse=True)
+        return scored[:final_k]
 
     def add_memory(self, memory: ViewerMemory):
         if not memory.memory_text or not memory.viewer_id:
@@ -155,6 +238,9 @@ class VectorMemory:
             "viewer_id": memory.viewer_id,
             "memory_type": memory.memory_type,
             "source_event_id": memory.source_event_id,
+            "confidence": memory.confidence,
+            "updated_at": memory.updated_at,
+            "recall_count": memory.recall_count,
         }
         self._memory_items = [item for item in self._memory_items if item["id"] != memory.memory_id]
         self._memory_items.append({"id": memory.memory_id, "document": memory.memory_text, "metadata": metadata})
@@ -174,12 +260,15 @@ class VectorMemory:
         viewer_id = str(viewer_id or "").strip()
         if not query_text or not room_id or not viewer_id:
             return []
+        query_limit = self._memory_query_limit(limit)
+        min_score = self._memory_min_score()
+        final_k = self._final_k(limit)
 
         if self.memory_collection:
             try:
                 result = self.memory_collection.query(
                     query_embeddings=[self.embedding.embed_text(query_text)],
-                    n_results=limit,
+                    n_results=query_limit,
                     where={"$and": [{"room_id": room_id}, {"viewer_id": viewer_id}]},
                 )
                 ids = result.get("ids", [[]])[0]
@@ -188,8 +277,9 @@ class VectorMemory:
                 distances = result.get("distances", [[]])[0]
                 items = []
                 for index, memory_id in enumerate(ids):
-                    distance = distances[index] if index < len(distances) else None
-                    score = 1.0 / (1.0 + float(distance)) if distance is not None else 0.0
+                    score = self._distance_to_score(distances[index] if index < len(distances) else None)
+                    if score < min_score:
+                        continue
                     items.append(
                         {
                             "memory_id": memory_id,
@@ -198,7 +288,8 @@ class VectorMemory:
                             "metadata": metadatas[index] if index < len(metadatas) else {},
                         }
                     )
-                return items
+                items.sort(key=lambda item: self._memory_rank_key(item, query_text), reverse=True)
+                return items[:final_k]
             except Exception:
                 pass
 
@@ -211,7 +302,7 @@ class VectorMemory:
             target_text = item["document"]
             target_tokens = set(tokenize_text(target_text))
             score = self._score_tokens(query_tokens, target_tokens, query_text, target_text)
-            if score > 0:
+            if score >= min_score:
                 scored.append(
                     {
                         "memory_id": item["id"],
@@ -221,5 +312,5 @@ class VectorMemory:
                     }
                 )
 
-        scored.sort(key=lambda entry: entry["score"], reverse=True)
-        return scored[:limit]
+        scored.sort(key=lambda item: self._memory_rank_key(item, query_text), reverse=True)
+        return scored[:final_k]

@@ -46,7 +46,11 @@ class LivePromptAgentTests(unittest.TestCase):
             {"memory_id": "m2", "memory_text": "来自杭州", "score": 0.8, "metadata": {}},
             {"memory_id": "m3", "memory_text": "养了一只猫", "score": 0.7, "metadata": {}},
         ]
-        vector_memory.similar.return_value = ["历史话术A", "历史话术B", "历史话术C"]
+        vector_memory.similar.return_value = [
+            {"id": "e1", "text": "历史话术A", "score": 0.9, "metadata": {}},
+            {"id": "e2", "text": "历史话术B", "score": 0.8, "metadata": {}},
+            {"id": "e3", "text": "历史话术C", "score": 0.7, "metadata": {}},
+        ]
 
         long_term_store = MagicMock()
         long_term_store.get_user_profile.return_value = {
@@ -63,9 +67,7 @@ class LivePromptAgentTests(unittest.TestCase):
         }
 
         agent = LivePromptAgent(make_settings(), vector_memory, long_term_store)
-        recent_events = [
-            make_event(content=f"最近评论{i}", nickname=f"用户{i}") for i in range(5)
-        ]
+        recent_events = [make_event(content=f"最近评论{i}", nickname=f"用户{i}") for i in range(5)]
 
         context = agent.build_context(make_event(content="我喜欢拉面"), recent_events)
 

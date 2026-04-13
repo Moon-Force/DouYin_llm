@@ -65,12 +65,12 @@ class LivePromptAgent:
         similar = [
             item
             for item in self.vector_memory.similar(event.content, room_id=event.room_id, limit=4)
-            if item != current_document
+            if item.get("text") != current_document
         ][:2]
         profile = self._compact_user_profile(self.long_term_store.get_user_profile(event.room_id, event.user))
         return {
             "recent_events": [self._compact_recent_event(item) for item in recent_events[:3]],
-            "similar_history": similar,
+            "similar_history": [item["text"] for item in similar],
             "user_profile": profile,
             "viewer_memories": viewer_memories,
             "viewer_memory_texts": [item["memory_text"] for item in viewer_memories[:2]],
