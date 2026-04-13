@@ -20,6 +20,7 @@ const {
   isSwitchingRoom,
   modelStatus,
   nextThemeLabel,
+  locale,
   roomId,
   roomDraft,
   roomError,
@@ -66,6 +67,7 @@ onBeforeUnmount(() => {
 <template>
   <main class="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-6 px-4 py-5 md:px-6 xl:px-10">
     <StatusStrip
+      :locale="locale"
       :room-id="roomId"
       :room-draft="roomDraft"
       :theme="theme"
@@ -78,12 +80,18 @@ onBeforeUnmount(() => {
       @update-room-draft="liveStore.setRoomDraft"
       @switch-room="liveStore.switchRoom"
       @toggle-theme="liveStore.toggleTheme"
+      @toggle-locale="liveStore.toggleLocale"
       @open-llm-settings="liveStore.openLlmSettings"
     />
 
     <section class="grid min-h-0 flex-1 gap-6 xl:grid-cols-[1.75fr_0.85fr]">
-      <TeleprompterCard :suggestion="activeSuggestion" :source-event="activeSourceEvent" />
+      <TeleprompterCard
+        :locale="locale"
+        :suggestion="activeSuggestion"
+        :source-event="activeSourceEvent"
+      />
       <EventFeed
+        :locale="locale"
         :events="filteredEvents"
         :event-filters="eventFilters"
         :selected-event-types="selectedEventTypes"
@@ -97,6 +105,7 @@ onBeforeUnmount(() => {
   </main>
 
   <ViewerWorkbench
+    :locale="locale"
     :open="isViewerWorkbenchOpen"
     :viewer="viewerWorkbench.viewer"
     :loading="viewerWorkbench.loading"
@@ -114,6 +123,7 @@ onBeforeUnmount(() => {
   />
 
   <LlmSettingsPanel
+    :locale="locale"
     :open="isLlmSettingsOpen"
     :draft="llmSettingsDraft"
     :defaults="llmSettings"

@@ -1,5 +1,11 @@
 <script setup>
+import { translate } from "../i18n.js";
+
 const props = defineProps({
+  locale: {
+    type: String,
+    required: true,
+  },
   events: {
     type: Array,
     required: true,
@@ -25,9 +31,13 @@ const emit = defineEmits([
   "select-viewer",
 ]);
 
+function t(key, params) {
+  return translate(props.locale, key, params);
+}
+
 function badge(eventType) {
   const match = props.eventFilters.find((filter) => filter.value === eventType);
-  return match?.label ?? "系统";
+  return match?.label ?? t("feed.eventType.system");
 }
 
 function isSelected(eventType) {
@@ -39,7 +49,7 @@ function isLockedSelected(eventType) {
 }
 
 function primaryContent(event) {
-  return event.content || event.metadata?.gift_name || event.method;
+  return event.content || event.metadata?.gift_name || event.method || t("common.noData");
 }
 
 function eventCardStyle(eventType) {
@@ -73,7 +83,7 @@ function eventCardStyle(eventType) {
       return {
         borderColor: "rgb(var(--color-line) / 0.12)",
         backgroundColor: "rgb(var(--color-panel-soft) / 0.72)",
-    };
+      };
   }
 }
 
@@ -101,7 +111,7 @@ function selectViewer(event) {
     class="flex min-h-0 flex-col rounded-[28px] border border-line/14 bg-panel-soft/88 p-6 shadow-[var(--shadow-elev)]"
   >
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <p class="text-[11px] uppercase tracking-[0.3em] text-muted">Live Feed</p>
+      <p class="text-[11px] uppercase tracking-[0.3em] text-muted">{{ t("feed.title") }}</p>
       <div class="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -109,7 +119,7 @@ function selectViewer(event) {
           :disabled="events.length === 0"
           @click="emit('clear-events')"
         >
-          Clear
+          {{ t("feed.clear") }}
         </button>
         <button
           type="button"
@@ -122,7 +132,7 @@ function selectViewer(event) {
           :disabled="areAllEventTypesSelected"
           @click="emit('select-all-filters')"
         >
-          Show All
+          {{ t("feed.showAll") }}
         </button>
       </div>
     </div>
@@ -146,7 +156,7 @@ function selectViewer(event) {
     </div>
 
     <p class="mt-3 text-xs text-muted">
-      Showing {{ selectedEventTypes.length }} / {{ eventFilters.length }} event types
+      {{ t("feed.showing", { selected: selectedEventTypes.length, total: eventFilters.length }) }}
     </p>
 
     <div class="mt-5 max-h-[60vh] overflow-y-auto pr-2 xl:max-h-[calc(100vh-260px)]">
@@ -157,7 +167,9 @@ function selectViewer(event) {
           class="rounded-2xl border p-4"
           :style="eventCardStyle(event.event_type)"
         >
-          <div class="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.2em] text-muted">
+          <div
+            class="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.2em] text-muted"
+          >
             <span class="rounded-full border border-line/16 bg-panel px-2 py-1 shadow-sm">
               {{ badge(event.event_type) }}
             </span>
@@ -166,18 +178,22 @@ function selectViewer(event) {
 
           <div class="mt-3 grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
             <div class="rounded-2xl border border-line/14 bg-panel/92 px-3 py-3 shadow-sm">
-              <p class="text-xs uppercase tracking-[0.18em] text-accent-soft">用户</p>
+              <p class="text-xs uppercase tracking-[0.18em] text-accent-soft">
+                {{ t("feed.user") }}
+              </p>
               <button
                 type="button"
                 class="mt-2 text-left text-sm font-medium leading-6 text-paper transition hover:text-accent"
                 @click="selectViewer(event)"
               >
-                {{ event.user?.nickname || "未知用户" }}
+                {{ event.user?.nickname || t("common.unknownUser") }}
               </button>
             </div>
 
             <div class="rounded-2xl border border-line/14 bg-panel/92 px-3 py-3 shadow-sm">
-              <p class="text-xs uppercase tracking-[0.18em] text-muted">内容</p>
+              <p class="text-xs uppercase tracking-[0.18em] text-muted">
+                {{ t("feed.content") }}
+              </p>
               <p class="mt-2 text-sm leading-6 text-paper/90">
                 {{ primaryContent(event) }}
               </p>
@@ -189,7 +205,7 @@ function selectViewer(event) {
           v-if="events.length === 0"
           class="rounded-2xl border border-line/14 bg-panel/92 p-4 text-sm text-muted shadow-sm"
         >
-          当前筛选下没有消息。
+          {{ t("feed.empty") }}
         </p>
       </div>
     </div>

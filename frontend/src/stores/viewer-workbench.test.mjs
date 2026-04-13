@@ -187,7 +187,7 @@ assert.equal(
 requests = [];
 store.setViewerNoteDraft("   ");
 await store.saveActiveViewerNote();
-assert.equal(store.viewerWorkbench.error, "Note content is required");
+assert.equal(store.viewerWorkbench.error, "errors.viewerNoteRequired");
 assert.equal(requests.length, 0);
 
 setFetch(async (url, options) => {
@@ -441,4 +441,4 @@ await store.openViewerWorkbench({
 store.setViewerNoteDraft("should not save");
 await store.saveActiveViewerNote();
 
-assert.equal(store.viewerWorkbench.error, "Viewer id is required to save notes");
+assert.equal(store.viewerWorkbench.error, "errors.viewerIdRequiredToSaveNotes");

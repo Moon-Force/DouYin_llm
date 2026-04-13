@@ -15,6 +15,7 @@ let eventSourceCount = 0;
 global.fetch = async (url) => {
   fetchUrl = url;
   return {
+    ok: true,
     async json() {
       return {
         room_id: "",

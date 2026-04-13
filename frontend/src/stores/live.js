@@ -1,16 +1,17 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
+import { translate } from "../i18n.js";
 
 const MAX_EVENTS = 30;
 const MAX_SUGGESTIONS = 12;
 
 const EVENT_FILTERS = [
-  { value: "comment", label: "弹幕" },
-  { value: "gift", label: "礼物" },
-  { value: "follow", label: "关注" },
-  { value: "member", label: "进场" },
-  { value: "like", label: "点赞" },
-  { value: "system", label: "系统" },
+  { value: "comment", labelKey: "feed.eventType.comment" },
+  { value: "gift", labelKey: "feed.eventType.gift" },
+  { value: "follow", labelKey: "feed.eventType.follow" },
+  { value: "member", labelKey: "feed.eventType.member" },
+  { value: "like", labelKey: "feed.eventType.like" },
+  { value: "system", labelKey: "feed.eventType.system" },
 ];
 
 const DEFAULT_VISIBLE_EVENT_TYPES = EVENT_FILTERS.map((filter) => filter.value);
@@ -72,13 +73,19 @@ function applyTheme(theme) {
 }
 
 export const useLiveStore = defineStore("live", () => {
+  const locale = ref("zh");
   const roomId = ref("");
   const roomDraft = ref("");
   const theme = ref(loadTheme());
   const isSwitchingRoom = ref(false);
   const roomError = ref("");
   const connectionState = ref("idle");
-  const eventFilters = ref(EVENT_FILTERS);
+  const eventFilters = computed(() =>
+    EVENT_FILTERS.map((filter) => ({
+      ...filter,
+      label: translate(locale.value, filter.labelKey),
+    })),
+  );
   const selectedEventTypes = ref(loadSelectedEventTypes());
   const modelStatus = ref({
     mode: "heuristic",
@@ -131,7 +138,9 @@ export const useLiveStore = defineStore("live", () => {
 
     return events.value.find((event) => sourceEventIds.has(event.event_id)) || null;
   });
-  const nextThemeLabel = computed(() => (theme.value === "dark" ? "切换白色" : "切换黑色"));
+  const nextThemeLabel = computed(() =>
+    translate(locale.value, theme.value === "dark" ? "theme.switchToLight" : "theme.switchToDark"),
+  );
   const areAllEventTypesSelected = computed(
     () => selectedEventTypes.value.length === EVENT_FILTERS.length,
   );
@@ -248,7 +257,7 @@ export const useLiveStore = defineStore("live", () => {
       }
 
       if (!response.ok) {
-        throw new Error(await getResponseError(response, "Failed to load viewer"));
+        throw new Error(await getResponseError(response, "errors.viewerLoadFailed"));
       }
 
       const viewer = await response.json();
@@ -264,7 +273,7 @@ export const useLiveStore = defineStore("live", () => {
         return null;
       }
 
-      viewerWorkbench.value.error = getViewerErrorMessage(error, "Failed to load viewer");
+      viewerWorkbench.value.error = getViewerErrorMessage(error, "errors.viewerLoadFailed");
       return null;
     } finally {
       if (!isViewerRequestStale(requestId)) {
@@ -311,6 +320,14 @@ export const useLiveStore = defineStore("live", () => {
     setTheme(theme.value === "dark" ? "light" : "dark");
   }
 
+  function setLocale(nextLocale) {
+    locale.value = nextLocale === "en" ? "en" : "zh";
+  }
+
+  function toggleLocale() {
+    setLocale(locale.value === "zh" ? "en" : "zh");
+  }
+
   function syncLlmSettingsDraft(payload) {
     llmSettingsDraft.value = {
       model: payload.model || "",
@@ -338,7 +355,7 @@ export const useLiveStore = defineStore("live", () => {
     llmSettingsError.value = "";
     const response = await fetch("/api/settings/llm");
     if (!response.ok) {
-      throw new Error("Failed to load LLM settings");
+      throw new Error("errors.llmSettingsLoadFailed");
     }
     const payload = await response.json();
     applyLlmSettings({
@@ -356,7 +373,8 @@ export const useLiveStore = defineStore("live", () => {
     try {
       await loadLlmSettings();
     } catch (error) {
-      llmSettingsError.value = error instanceof Error ? error.message : "Failed to load LLM settings";
+      llmSettingsError.value =
+        error instanceof Error ? error.message : "errors.llmSettingsLoadFailed";
     }
   }
 
@@ -395,7 +413,7 @@ export const useLiveStore = defineStore("live", () => {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.detail || "Failed to save LLM settings");
+        throw new Error(payload.detail || "errors.llmSettingsSaveFailed");
       }
       const payload = await response.json();
       applyLlmSettings({
@@ -405,7 +423,8 @@ export const useLiveStore = defineStore("live", () => {
         defaultSystemPrompt: payload.default_system_prompt,
       });
     } catch (error) {
-      llmSettingsError.value = error instanceof Error ? error.message : "Failed to save LLM settings";
+      llmSettingsError.value =
+        error instanceof Error ? error.message : "errors.llmSettingsSaveFailed";
     } finally {
       isSavingLlmSettings.value = false;
     }
@@ -506,7 +525,7 @@ export const useLiveStore = defineStore("live", () => {
   async function switchRoom(nextRoomId = roomDraft.value) {
     const targetRoomId = `${nextRoomId ?? ""}`.trim();
     if (!targetRoomId) {
-      roomError.value = "请输入房间号";
+      roomError.value = "errors.roomRequired";
       return;
     }
 
@@ -532,7 +551,7 @@ export const useLiveStore = defineStore("live", () => {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.detail || "切换房间失败");
+        throw new Error(payload.detail || "errors.roomSwitchFailed");
       }
 
       const payload = await response.json();
@@ -541,7 +560,7 @@ export const useLiveStore = defineStore("live", () => {
       roomDraft.value = "";
       connect(payload.room_id || targetRoomId);
     } catch (error) {
-      roomError.value = error instanceof Error ? error.message : "切换房间失败";
+      roomError.value = error instanceof Error ? error.message : "errors.roomSwitchFailed";
       await bootstrap(roomId.value);
       connect(roomId.value);
     } finally {
@@ -608,7 +627,7 @@ export const useLiveStore = defineStore("live", () => {
     });
 
     if (!response.ok) {
-      const errorText = await getResponseError(response, "Failed to save viewer note");
+      const errorText = await getResponseError(response, "errors.viewerNoteSaveFailed");
       throw new Error(errorText);
     }
 
@@ -667,11 +686,11 @@ export const useLiveStore = defineStore("live", () => {
 
     const currentViewer = viewerWorkbench.value.viewer;
     if (!currentViewer.viewer_id) {
-      viewerWorkbench.value.error = "Viewer id is required to save notes";
+      viewerWorkbench.value.error = "errors.viewerIdRequiredToSaveNotes";
       return;
     }
     if (!viewerNoteDraft.value.trim()) {
-      viewerWorkbench.value.error = "Note content is required";
+      viewerWorkbench.value.error = "errors.viewerNoteRequired";
       return;
     }
     const requestId = viewerWorkbenchRequestId;
@@ -698,7 +717,7 @@ export const useLiveStore = defineStore("live", () => {
       await refreshViewerWorkbench();
     } catch (error) {
       if (!isViewerRequestStale(requestId)) {
-        viewerWorkbench.value.error = getViewerErrorMessage(error, "Failed to save viewer note");
+        viewerWorkbench.value.error = getViewerErrorMessage(error, "errors.viewerNoteSaveFailed");
       }
     } finally {
       isSavingViewerNote.value = false;
@@ -711,7 +730,7 @@ export const useLiveStore = defineStore("live", () => {
     });
 
     if (!response.ok) {
-      const errorText = await getResponseError(response, "Failed to delete viewer note");
+      const errorText = await getResponseError(response, "errors.viewerNoteDeleteFailed");
       throw new Error(errorText);
     }
   }
@@ -723,7 +742,7 @@ export const useLiveStore = defineStore("live", () => {
 
     const currentViewer = viewerWorkbench.value.viewer;
     if (!currentViewer.viewer_id) {
-      viewerWorkbench.value.error = "Viewer id is required to delete notes";
+      viewerWorkbench.value.error = "errors.viewerIdRequiredToDeleteNotes";
       return;
     }
     const requestId = viewerWorkbenchRequestId;
@@ -745,7 +764,7 @@ export const useLiveStore = defineStore("live", () => {
       await refreshViewerWorkbench();
     } catch (error) {
       if (!isViewerRequestStale(requestId)) {
-        viewerWorkbench.value.error = getViewerErrorMessage(error, "Failed to delete viewer note");
+        viewerWorkbench.value.error = getViewerErrorMessage(error, "errors.viewerNoteDeleteFailed");
       }
     } finally {
       isSavingViewerNote.value = false;
@@ -767,6 +786,7 @@ export const useLiveStore = defineStore("live", () => {
 
   return {
     roomId,
+    locale,
     roomDraft,
     theme,
     nextThemeLabel,
@@ -791,6 +811,8 @@ export const useLiveStore = defineStore("live", () => {
     bootstrap,
     connect,
     setRoomDraft,
+    setLocale,
+    toggleLocale,
     setTheme,
     toggleTheme,
     loadLlmSettings,
