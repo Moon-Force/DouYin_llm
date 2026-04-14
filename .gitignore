@@ -16,3 +16,7 @@ logs/*.out.log
 logs/*.err.log
 logs/*.png
 logs/douyinlive_*.log
+
+# Frontend logs
+frontend/*.err.log
+frontend/*.out.log
