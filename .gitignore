@@ -20,3 +20,6 @@ logs/douyinlive_*.log
 # Frontend logs
 frontend/*.err.log
 frontend/*.out.log
+
+# IDE configs
+.vscode/
