@@ -22,6 +22,15 @@ class EmbeddingService:
         self._local_model = None
         self._fallback_logged = False
 
+    def _strict_mode_enabled(self) -> bool:
+        return bool(getattr(self.settings, "embedding_strict", False))
+
+    def _raise_strict_mode_error(self, exc: Exception):
+        raise RuntimeError(
+            f"Embedding strict mode blocked fallback: mode={self.settings.embedding_mode} "
+            f"model={self.settings.embedding_model} error={exc}"
+        ) from exc
+
     def embed_text(self, text: str) -> list[float]:
         return self.embed_texts([text])[0]
 
@@ -36,6 +45,14 @@ class EmbeddingService:
             if self.settings.embedding_mode == "cloud":
                 return self._embed_cloud(normalized)
         except Exception as exc:
+            if self._strict_mode_enabled():
+                logger.error(
+                    "Embedding backend failed and strict mode blocked fallback: mode=%s model=%s error=%s",
+                    self.settings.embedding_mode,
+                    self.settings.embedding_model,
+                    exc,
+                )
+                self._raise_strict_mode_error(exc)
             if not self._fallback_logged:
                 logger.warning(
                     "Embedding backend failed; falling back to hash embeddings: mode=%s model=%s error=%s",

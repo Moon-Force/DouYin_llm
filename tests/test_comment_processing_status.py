@@ -103,6 +103,29 @@ class CommentProcessingStatusTests(unittest.TestCase):
             app_module.vector_memory = original_vector_memory
             app_module.broker = original_broker
 
+    def test_health_reports_embedding_strict_and_semantic_backend_status(self):
+        original_settings = app_module.settings
+        original_long_term_store = app_module.long_term_store
+        original_vector_memory = app_module.vector_memory
+        try:
+            app_module.settings = SimpleNamespace(room_id="room-1", embedding_strict=True)
+            app_module.long_term_store = MagicMock()
+            app_module.long_term_store.get_active_session.return_value = {"room_id": "room-1"}
+            app_module.vector_memory = MagicMock()
+            app_module.vector_memory.semantic_backend_ready.return_value = False
+            app_module.vector_memory.semantic_backend_reason.return_value = "Chroma is unavailable"
+
+            payload = asyncio.run(app_module.health())
+
+            self.assertEqual(payload["status"], "ok")
+            self.assertTrue(payload["embedding_strict"])
+            self.assertFalse(payload["semantic_backend_ready"])
+            self.assertEqual(payload["semantic_backend_reason"], "Chroma is unavailable")
+        finally:
+            app_module.settings = original_settings
+            app_module.long_term_store = original_long_term_store
+            app_module.vector_memory = original_vector_memory
+
 
 if __name__ == "__main__":
     unittest.main()

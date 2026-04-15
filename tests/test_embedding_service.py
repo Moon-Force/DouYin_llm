@@ -15,6 +15,7 @@ def make_settings(**overrides):
         "embedding_timeout_seconds": 10.0,
         "local_embedding_device": "cpu",
         "local_embedding_batch_size": 8,
+        "embedding_strict": False,
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -68,7 +69,7 @@ class EmbeddingServiceTests(unittest.TestCase):
 
         self.assertEqual(vector, [0.4, 0.5, 0.6])
 
-    def test_falls_back_to_hash_embedding_when_cloud_call_fails(self):
+    def test_non_strict_mode_falls_back_to_hash_embedding_when_cloud_call_fails(self):
         service = EmbeddingService(make_settings(), fallback_dimensions=8)
 
         with patch("backend.memory.embedding_service.urllib.request.urlopen", side_effect=OSError("network down")):
@@ -76,6 +77,26 @@ class EmbeddingServiceTests(unittest.TestCase):
 
         self.assertEqual(len(vector), 8)
         self.assertTrue(any(value != 0.0 for value in vector))
+
+    def test_strict_mode_raises_when_cloud_embedding_fails(self):
+        service = EmbeddingService(make_settings(embedding_strict=True), fallback_dimensions=8)
+
+        with patch("backend.memory.embedding_service.urllib.request.urlopen", side_effect=OSError("network down")):
+            with self.assertRaisesRegex(RuntimeError, "strict mode"):
+                service.embed_text("fallback text")
+
+    def test_strict_mode_raises_when_local_dependency_is_missing(self):
+        service = EmbeddingService(
+            make_settings(
+                embedding_mode="local",
+                embedding_model="bge-small-zh-v1.5",
+                embedding_strict=True,
+            )
+        )
+
+        with patch("backend.memory.embedding_service.SentenceTransformer", None):
+            with self.assertRaisesRegex(RuntimeError, "strict mode"):
+                service.embed_text("喜欢拉面")
 
 
 if __name__ == "__main__":

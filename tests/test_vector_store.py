@@ -6,9 +6,10 @@ from unittest.mock import patch
 from backend.memory.vector_store import VectorMemory
 
 
-def make_settings(signature="cloud_text_embedding_3_small"):
+def make_settings(signature="cloud_text_embedding_3_small", strict=False):
     return SimpleNamespace(
         embedding_signature=lambda: signature,
+        embedding_strict=strict,
         semantic_memory_min_score=0.35,
         semantic_memory_query_limit=6,
         semantic_final_k=3,
@@ -62,6 +63,52 @@ class VectorMemoryTests(unittest.TestCase):
         result = store.similar_memories("likes eating noodles", "room-1", "viewer-1", limit=2)
 
         self.assertEqual(result[0]["memory_id"], "m1")
+
+    def test_non_strict_mode_falls_back_to_token_matching_when_query_fails(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.side_effect = RuntimeError("chroma down")
+
+        store = VectorMemory("data/chroma", settings=make_settings(strict=False), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+        store._memory_items = [
+            {
+                "id": "m1",
+                "document": "likes ramen",
+                "metadata": {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.9,
+                    "updated_at": 200,
+                    "recall_count": 1,
+                },
+            }
+        ]
+
+        result = store.similar_memories("likes ramen", "room-1", "viewer-1", limit=1)
+
+        self.assertEqual(result[0]["memory_id"], "m1")
+
+    def test_strict_mode_raises_when_query_fails(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.side_effect = RuntimeError("chroma down")
+
+        store = VectorMemory("data/chroma", settings=make_settings(strict=True), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        with self.assertRaisesRegex(RuntimeError, "strict mode"):
+            store.similar_memories("likes ramen", "room-1", "viewer-1", limit=1)
+
+    def test_strict_mode_marks_backend_not_ready_when_chroma_is_missing(self):
+        with patch("backend.memory.vector_store.chromadb", None):
+            store = VectorMemory("data/chroma", settings=make_settings(strict=True), embedding_service=MagicMock())
+
+        self.assertFalse(store.semantic_backend_ready())
+        self.assertIn("Chroma", store.semantic_backend_reason())
 
 
 if __name__ == "__main__":

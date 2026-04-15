@@ -62,6 +62,7 @@ class Settings:
     llm_timeout_seconds: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "6.0"))
     llm_max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "120"))
     embedding_mode: str = os.getenv("EMBEDDING_MODE", "cloud").strip().lower()
+    embedding_strict: bool = os.getenv("EMBEDDING_STRICT", "false").lower() in {"1", "true", "yes", "on"}
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
     embedding_base_url: str = os.getenv("EMBEDDING_BASE_URL", "https://api.openai.com/v1")
     embedding_api_key: str = os.getenv("EMBEDDING_API_KEY", "") or os.getenv("LLM_API_KEY", "") or os.getenv("DASHSCOPE_API_KEY", "")

@@ -65,20 +65,43 @@ class VectorMemory:
         self.memory_collection = None
         self.embedding = embedding_service or HashEmbeddingFunction()
         self._collection_suffix = settings.embedding_signature() if settings else "hash_default"
+        self._semantic_backend_reason = ""
 
         if chromadb:
             client = chromadb.PersistentClient(path=str(storage_path))
             self._client = client
             self.memory_collection = client.get_or_create_collection(f"viewer_memories_{self._collection_suffix}")
+            self._semantic_backend_reason = ""
             logger.info(
                 "VectorMemory initialized with Chroma collection: memories=%s",
                 f"viewer_memories_{self._collection_suffix}",
             )
         else:
+            self._semantic_backend_reason = "Chroma is unavailable"
             logger.warning(
                 "Chroma is unavailable; VectorMemory will use in-process fallback indexes only (suffix=%s)",
                 self._collection_suffix,
             )
+
+    def _strict_mode_enabled(self):
+        return bool(getattr(self.settings, "embedding_strict", False))
+
+    def semantic_backend_ready(self):
+        return self.memory_collection is not None and self._client is not None
+
+    def semantic_backend_reason(self):
+        if self.semantic_backend_ready():
+            return ""
+        return self._semantic_backend_reason or "Semantic vector backend is unavailable"
+
+    def _raise_strict_mode_error(self, exc):
+        raise RuntimeError(f"Vector recall strict mode blocked fallback: {exc}") from (
+            exc if isinstance(exc, Exception) else None
+        )
+
+    def _ensure_semantic_backend(self):
+        if self._strict_mode_enabled() and not self.semantic_backend_ready():
+            self._raise_strict_mode_error(self.semantic_backend_reason())
 
     @staticmethod
     def _distance_to_score(distance):
@@ -144,6 +167,7 @@ class VectorMemory:
         self._memory_items.append({"id": memory.memory_id, "document": memory.memory_text, "metadata": metadata})
         self._memory_items = self._memory_items[-3000:]
 
+        self._ensure_semantic_backend()
         if self.memory_collection:
             self.memory_collection.upsert(
                 ids=[memory.memory_id],
@@ -158,6 +182,7 @@ class VectorMemory:
         viewer_id = str(viewer_id or "").strip()
         if not query_text or not room_id or not viewer_id:
             return []
+        self._ensure_semantic_backend()
         query_limit = self._memory_query_limit(limit)
         min_score = self._memory_min_score()
         final_k = self._final_k(limit)
@@ -188,8 +213,10 @@ class VectorMemory:
                     )
                 items.sort(key=lambda item: self._memory_rank_key(item, query_text), reverse=True)
                 return items[:final_k]
-            except Exception:
-                pass
+            except Exception as exc:
+                if self._strict_mode_enabled():
+                    logger.error("Vector recall failed and strict mode blocked fallback: %s", exc)
+                    self._raise_strict_mode_error(exc)
 
         query_tokens = set(tokenize_text(query_text))
         scored = []

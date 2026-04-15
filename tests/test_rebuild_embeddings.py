@@ -259,6 +259,63 @@ class RebuildEmbeddingsTests(unittest.TestCase):
             1,
         )
 
+    def test_strict_mode_rebuild_raises_when_embedding_generation_fails(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.db"
+            chroma_dir = Path(tmpdir) / "chroma"
+            conn = sqlite3.connect(db_path)
+            conn.executescript(
+                """
+                CREATE TABLE viewer_memories (
+                    memory_id TEXT PRIMARY KEY,
+                    room_id TEXT NOT NULL,
+                    viewer_id TEXT NOT NULL,
+                    source_event_id TEXT,
+                    memory_text TEXT NOT NULL,
+                    memory_type TEXT NOT NULL,
+                    confidence REAL NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    last_recalled_at INTEGER,
+                    recall_count INTEGER NOT NULL DEFAULT 0
+                );
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO viewer_memories (
+                    memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                    confidence, created_at, updated_at, last_recalled_at, recall_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("m1", "room-1", "viewer-1", "evt-1", "likes ramen", "preference", 0.9, 1, 2, None, 0),
+            )
+            conn.commit()
+            conn.close()
+
+            fake_store = MagicMock()
+            fake_store.database_path = db_path
+            fake_embedding = MagicMock()
+            fake_embedding.embed_texts.side_effect = RuntimeError("Embedding strict mode blocked fallback")
+            fake_collection = MagicMock()
+            fake_vector_memory = MagicMock()
+            fake_vector_memory._collection_suffix = "cloud_bge_m3"
+            fake_vector_memory.memory_collection = fake_collection
+            fake_vector_memory._client = MagicMock()
+            local_settings = make_settings()
+            local_settings.database_path = db_path
+            local_settings.chroma_dir = chroma_dir
+            local_settings.embedding_strict = True
+
+            with self.assertRaisesRegex(RuntimeError, "strict mode"):
+                rebuild_embeddings(
+                    settings=local_settings,
+                    long_term_store=fake_store,
+                    embedding_service=fake_embedding,
+                    vector_memory=fake_vector_memory,
+                    target="memories",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

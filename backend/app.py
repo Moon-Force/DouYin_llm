@@ -150,6 +150,9 @@ async def health():
         "status": "ok",
         "room_id": settings.room_id,
         "active_session": long_term_store.get_active_session(settings.room_id) if settings.room_id else {},
+        "embedding_strict": bool(getattr(settings, "embedding_strict", False)),
+        "semantic_backend_ready": bool(vector_memory.semantic_backend_ready()),
+        "semantic_backend_reason": vector_memory.semantic_backend_reason(),
     }
 
 
