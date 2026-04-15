@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 const componentPath = fileURLToPath(new URL("./StatusStrip.vue", import.meta.url));
 const statusStripSource = readFileSync(componentPath, "utf8");
+const eventFeedPath = fileURLToPath(new URL("./EventFeed.vue", import.meta.url));
+const eventFeedSource = readFileSync(eventFeedPath, "utf8");
 
 assert.match(
   statusStripSource,
@@ -15,3 +17,9 @@ assert.doesNotMatch(statusStripSource, /absolute right-5 top-5/);
 assert.doesNotMatch(statusStripSource, /xl:grid-cols-1/);
 assert.match(statusStripSource, /"\\u4E2D"/);
 assert.match(statusStripSource, /"\\u5DE5\\u5177"/);
+
+assert.match(eventFeedSource, /getCommentProcessingTimeline/);
+assert.match(eventFeedSource, /processingStepTone/);
+assert.match(eventFeedSource, /border-l border-line\/14 pl-4/);
+assert.match(eventFeedSource, /feed\.processing\.hideDetails/);
+assert.doesNotMatch(eventFeedSource, /getCommentProcessingBadges/);

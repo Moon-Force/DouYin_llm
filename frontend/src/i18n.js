@@ -84,19 +84,64 @@ export const messages = {
         system: "系统",
       },
       processing: {
-        persisted: "\u5df2\u843d\u5e93",
-        notPersisted: "\u672a\u843d\u5e93",
-        memorySaved: "\u5df2\u4fdd\u5b58\u8bb0\u5fc6",
-        noMemorySaved: "\u672a\u4ea7\u51fa\u8bb0\u5fc6",
-        memoryRecalled: "\u547d\u4e2d\u53ec\u56de",
-        noMemoryRecalled: "\u672a\u547d\u4e2d\u53ec\u56de",
-        suggestionGenerated: "\u5df2\u751f\u6210\u63d0\u8bcd",
-        noSuggestionGenerated: "\u672a\u751f\u6210\u63d0\u8bcd",
-        showDetails: "\u67e5\u770b\u8be6\u60c5",
-        hideDetails: "\u6536\u8d77\u8be6\u60c5",
+        showDetails: "\u67e5\u770b\u8f68\u8ff9",
+        hideDetails: "\u6536\u8d77\u8f68\u8ff9",
         savedMemoryIds: "\u4fdd\u5b58\u8bb0\u5fc6 ID",
         recalledMemoryIds: "\u53ec\u56de\u8bb0\u5fc6 ID",
         suggestionId: "\u63d0\u8bcd ID",
+        timeline: {
+          received: {
+            success: "\u5df2\u63a5\u6536",
+            neutral: "\u5f85\u63a5\u6536",
+          },
+          persisted: {
+            success: "\u5df2\u5165\u5e93",
+            neutral: "\u672a\u5165\u5e93",
+          },
+          memorySaved: {
+            success: "\u5df2\u5199\u8bb0\u5fc6",
+            neutral: "\u672a\u5199\u8bb0\u5fc6",
+            skipped: "\u5df2\u8df3\u8fc7",
+          },
+          memoryRecalled: {
+            success: "\u5df2\u53ec\u56de",
+            neutral: "\u672a\u53ec\u56de",
+            skipped: "\u5df2\u8df3\u8fc7",
+          },
+          suggestionGenerated: {
+            success: "\u5df2\u751f\u6210\u5efa\u8bae",
+            neutral: "\u672a\u751f\u6210\u5efa\u8bae",
+          },
+        },
+        detail: {
+          received: {
+            title: "\u6536\u5230\u8bc4\u8bba",
+            success: "\u7cfb\u7edf\u5df2\u63a5\u6536\u8be5\u8bc4\u8bba\u5e76\u8fdb\u5165\u5904\u7406\u6d41\u7a0b",
+            neutral: "\u7cfb\u7edf\u5c1a\u672a\u786e\u8ba4\u6536\u5230\u8be5\u8bc4\u8bba",
+          },
+          persisted: {
+            title: "\u8bc4\u8bba\u5165\u5e93",
+            success: "\u8bc4\u8bba\u5df2\u6210\u529f\u5199\u5165\u672c\u5730\u5b58\u50a8",
+            neutral: "\u8bc4\u8bba\u5c1a\u672a\u5199\u5165\u672c\u5730\u5b58\u50a8",
+          },
+          memorySaved: {
+            title: "\u89c2\u4f17\u8bb0\u5fc6\u5199\u5165",
+            success: "\u5df2\u4ece\u8fd9\u6761\u8bc4\u8bba\u4e2d\u4fdd\u5b58\u89c2\u4f17\u8bb0\u5fc6",
+            neutral: "\u5df2\u5c1d\u8bd5\u63d0\u53d6\u8bb0\u5fc6\uff0c\u4f46\u6ca1\u6709\u53ef\u4fdd\u5b58\u5185\u5bb9",
+            skipped: "\u672c\u6b21\u6d41\u7a0b\u8df3\u8fc7\u4e86\u8bb0\u5fc6\u5199\u5165",
+          },
+          memoryRecalled: {
+            title: "\u89c2\u4f17\u8bb0\u5fc6\u53ec\u56de",
+            success: "\u5df2\u53c2\u4e0e\u8bed\u4e49\u53ec\u56de\u5e76\u547d\u4e2d\u89c2\u4f17\u8bb0\u5fc6",
+            neutral: "\u5df2\u53c2\u4e0e\u8bed\u4e49\u53ec\u56de\uff0c\u4f46\u6ca1\u6709\u547d\u4e2d\u89c2\u4f17\u8bb0\u5fc6",
+            skipped: "\u672c\u6b21\u6d41\u7a0b\u8df3\u8fc7\u4e86\u89c2\u4f17\u8bb0\u5fc6\u53ec\u56de",
+          },
+          suggestionGenerated: {
+            title: "\u56de\u590d\u5efa\u8bae\u751f\u6210",
+            success: "\u5df2\u751f\u6210\u56de\u590d\u5efa\u8bae\uff0c\u53ef\u7ee7\u7eed\u7528\u4e8e\u63d0\u8bcd",
+            neutral: "\u672c\u6b21\u6d41\u7a0b\u6ca1\u6709\u751f\u6210\u56de\u590d\u5efa\u8bae",
+          },
+        },
       },
     },
     viewerWorkbench: {
@@ -236,19 +281,64 @@ export const messages = {
         system: "System",
       },
       processing: {
-        persisted: "Persisted",
-        notPersisted: "Not Persisted",
-        memorySaved: "Memory Saved",
-        noMemorySaved: "No Memory Saved",
-        memoryRecalled: "Recall Hit",
-        noMemoryRecalled: "No Recall Hit",
-        suggestionGenerated: "Suggestion Generated",
-        noSuggestionGenerated: "No Suggestion",
-        showDetails: "Show Details",
-        hideDetails: "Hide Details",
+        showDetails: "Show Timeline",
+        hideDetails: "Hide Timeline",
         savedMemoryIds: "Saved Memory IDs",
         recalledMemoryIds: "Recalled Memory IDs",
         suggestionId: "Suggestion ID",
+        timeline: {
+          received: {
+            success: "Received",
+            neutral: "Pending Receive",
+          },
+          persisted: {
+            success: "Stored",
+            neutral: "Not Stored",
+          },
+          memorySaved: {
+            success: "Memory Saved",
+            neutral: "No Memory Saved",
+            skipped: "Skipped",
+          },
+          memoryRecalled: {
+            success: "Recall Hit",
+            neutral: "No Recall Hit",
+            skipped: "Skipped",
+          },
+          suggestionGenerated: {
+            success: "Suggestion Ready",
+            neutral: "No Suggestion",
+          },
+        },
+        detail: {
+          received: {
+            title: "Comment Received",
+            success: "The system received this comment and started processing it.",
+            neutral: "The system has not confirmed receipt of this comment yet.",
+          },
+          persisted: {
+            title: "Stored",
+            success: "The comment was written to local storage.",
+            neutral: "The comment has not been written to local storage.",
+          },
+          memorySaved: {
+            title: "Memory Extraction",
+            success: "Viewer memory was saved from this comment.",
+            neutral: "Memory extraction ran, but nothing could be saved.",
+            skipped: "This run skipped viewer memory extraction.",
+          },
+          memoryRecalled: {
+            title: "Memory Recall",
+            success: "Semantic recall ran and matched viewer memory.",
+            neutral: "Semantic recall ran, but matched no viewer memory.",
+            skipped: "This run skipped viewer memory recall.",
+          },
+          suggestionGenerated: {
+            title: "Reply Suggestion",
+            success: "A reply suggestion was generated for prompting.",
+            neutral: "No reply suggestion was generated in this run.",
+          },
+        },
       },
     },
     viewerWorkbench: {

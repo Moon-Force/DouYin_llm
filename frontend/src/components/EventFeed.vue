@@ -2,8 +2,8 @@
 import { ref } from "vue";
 import { translate } from "../i18n.js";
 import {
-  getCommentProcessingBadges,
   getCommentProcessingDetails,
+  getCommentProcessingTimeline,
 } from "./event-feed-processing-presenter.js";
 
 const props = defineProps({
@@ -112,19 +112,54 @@ function selectViewer(event) {
   });
 }
 
-function processingBadges(event) {
-  return getCommentProcessingBadges(event).map((key) => t(key));
+function processingTimeline(event) {
+  return getCommentProcessingTimeline(event).map((item) => ({
+    ...item,
+    label: t(item.labelKey),
+  }));
 }
 
 function processingDetails(event) {
   return getCommentProcessingDetails(event).map((item) => ({
     ...item,
-    label: t(item.key),
+    title: t(item.titleKey),
+    summary: t(item.summaryKey),
+    meta: item.meta.map((metaItem) => ({
+      ...metaItem,
+      label: t(metaItem.key),
+    })),
   }));
 }
 
 function hasProcessingDetails(event) {
   return processingDetails(event).length > 0;
+}
+
+function processingStepTone(state) {
+  if (state === "success") {
+    return {
+      dot: "bg-emerald-300 shadow-[0_0_0_4px_rgba(110,231,183,0.16)]",
+      label: "text-paper",
+      line: "bg-emerald-300/40",
+      panel: "border-emerald-300/24 bg-emerald-400/10",
+    };
+  }
+
+  if (state === "skipped") {
+    return {
+      dot: "border border-line/30 bg-panel",
+      label: "text-muted",
+      line: "border-t border-dashed border-line/18 bg-transparent",
+      panel: "border-line/12 bg-panel/45",
+    };
+  }
+
+  return {
+    dot: "bg-amber-200 shadow-[0_0_0_4px_rgba(253,230,138,0.14)]",
+    label: "text-paper/84",
+    line: "bg-amber-200/30",
+    panel: "border-amber-200/20 bg-amber-300/10",
+  };
 }
 
 function isProcessingExpanded(event) {
@@ -234,20 +269,38 @@ function toggleProcessingDetails(event) {
                 {{ primaryContent(event) }}
               </p>
               <div
-                v-if="processingBadges(event).length > 0"
-                class="mt-3 flex flex-wrap items-center gap-2"
+                v-if="processingTimeline(event).length > 0"
+                class="mt-4 rounded-2xl border border-line/12 bg-panel-soft/68 px-3 py-3"
               >
-                <span
-                  v-for="badgeLabel in processingBadges(event)"
-                  :key="badgeLabel"
-                  class="rounded-full border border-line/16 bg-panel-soft/80 px-2.5 py-1 text-[11px] tracking-[0.12em] text-muted"
-                >
-                  {{ badgeLabel }}
-                </span>
+                <div class="flex flex-wrap items-start gap-y-3 sm:flex-nowrap sm:gap-y-0">
+                  <div
+                    v-for="(step, index) in processingTimeline(event)"
+                    :key="step.key"
+                    class="flex min-w-[110px] flex-1 items-center gap-2"
+                  >
+                    <div class="flex min-w-0 items-center gap-2">
+                      <span
+                        class="h-2.5 w-2.5 shrink-0 rounded-full"
+                        :class="processingStepTone(step.state).dot"
+                      />
+                      <span
+                        class="text-[11px] tracking-[0.12em]"
+                        :class="processingStepTone(step.state).label"
+                      >
+                        {{ step.label }}
+                      </span>
+                    </div>
+                    <span
+                      v-if="index < processingTimeline(event).length - 1"
+                      class="hidden h-px flex-1 sm:block"
+                      :class="processingStepTone(step.state).line"
+                    />
+                  </div>
+                </div>
                 <button
                   v-if="hasProcessingDetails(event)"
                   type="button"
-                  class="rounded-full border border-line/16 bg-panel px-2.5 py-1 text-[11px] tracking-[0.12em] text-accent transition hover:border-accent/40"
+                  class="mt-3 rounded-full border border-line/16 bg-panel px-2.5 py-1 text-[11px] tracking-[0.12em] text-accent transition hover:border-accent/40"
                   @click="toggleProcessingDetails(event)"
                 >
                   {{
@@ -257,19 +310,38 @@ function toggleProcessingDetails(event) {
                   }}
                 </button>
               </div>
-              <dl
+              <ol
                 v-if="isProcessingExpanded(event)"
-                class="mt-3 grid gap-2 rounded-2xl border border-line/14 bg-panel-soft/72 px-3 py-3 text-xs text-muted"
+                class="mt-3 space-y-3 rounded-2xl border border-line/14 bg-panel-soft/72 px-4 py-4 text-xs"
               >
-                <div
+                <li
                   v-for="detail in processingDetails(event)"
                   :key="detail.key"
-                  class="grid gap-1 sm:grid-cols-[120px_minmax(0,1fr)] sm:items-start"
+                  class="relative border-l border-line/14 pl-4"
                 >
-                  <dt class="uppercase tracking-[0.14em] text-accent-soft">{{ detail.label }}</dt>
-                  <dd class="break-all text-paper/88">{{ detail.value }}</dd>
-                </div>
-              </dl>
+                  <span
+                    class="absolute -left-[0.34rem] top-1.5 h-2.5 w-2.5 rounded-full"
+                    :class="processingStepTone(detail.state).dot"
+                  />
+                  <div
+                    class="rounded-2xl border px-3 py-3"
+                    :class="processingStepTone(detail.state).panel"
+                  >
+                    <p class="text-sm font-medium text-paper">{{ detail.title }}</p>
+                    <p class="mt-1 text-xs leading-5 text-muted">{{ detail.summary }}</p>
+                    <dl v-if="detail.meta.length > 0" class="mt-2 space-y-1">
+                      <div
+                        v-for="item in detail.meta"
+                        :key="`${detail.key}-${item.key}`"
+                        class="text-xs text-paper/88"
+                      >
+                        <dt class="inline text-muted">{{ item.label }}：</dt>
+                        <dd class="inline break-all">{{ item.value }}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </li>
+              </ol>
             </div>
           </div>
         </article>
