@@ -20,7 +20,7 @@ def make_settings(signature="cloud_bge_m3"):
 
 
 class RebuildEmbeddingsTests(unittest.TestCase):
-    def test_dry_run_reports_counts_without_writing(self):
+    def test_dry_run_reports_memory_counts_without_writing(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             conn = sqlite3.connect(db_path)
@@ -71,7 +71,7 @@ class RebuildEmbeddingsTests(unittest.TestCase):
                     confidence, created_at, updated_at, last_recalled_at, recall_count
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("m1", "room-1", "viewer-1", "evt-1", "喜欢拉面", "preference", 0.9, 1, 2, None, 0),
+                ("m1", "room-1", "viewer-1", "evt-1", "likes ramen", "preference", 0.9, 1, 2, None, 0),
             )
             conn.execute(
                 """
@@ -90,12 +90,12 @@ class RebuildEmbeddingsTests(unittest.TestCase):
                     "viewer-1",
                     "comment",
                     "WebcastChatMessage",
-                    "测试直播间",
+                    "test-room",
                     "user-1",
                     "",
                     "",
-                    "阿明",
-                    "今晚吃面吗",
+                    "A-Ming",
+                    "hello",
                     "",
                     "",
                     0,
@@ -119,13 +119,13 @@ class RebuildEmbeddingsTests(unittest.TestCase):
                 long_term_store=fake_store,
                 embedding_service=fake_embedding,
                 vector_memory=fake_vector_memory,
-                target="all",
+                target="memories",
                 dry_run=True,
             )
 
-        self.assertEqual(result["target"], "all")
+        self.assertEqual(result["target"], "memories")
         self.assertEqual(result["memories"]["count"], 1)
-        self.assertEqual(result["events"]["count"], 1)
+        self.assertNotIn("events", result)
         fake_embedding.embed_texts.assert_not_called()
         fake_vector_memory.memory_collection.upsert.assert_not_called()
         self.assertNotIn("manifest", result)
@@ -159,7 +159,7 @@ class RebuildEmbeddingsTests(unittest.TestCase):
                     confidence, created_at, updated_at, last_recalled_at, recall_count
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("m1", "room-1", "viewer-1", "evt-1", "喜欢拉面", "preference", 0.9, 1, 2, None, 0),
+                ("m1", "room-1", "viewer-1", "evt-1", "likes ramen", "preference", 0.9, 1, 2, None, 0),
             )
             conn.commit()
             conn.close()
@@ -174,7 +174,6 @@ class RebuildEmbeddingsTests(unittest.TestCase):
             fake_vector_memory = MagicMock()
             fake_vector_memory._collection_suffix = "cloud_bge_m3"
             fake_vector_memory.memory_collection = fake_collection
-            fake_vector_memory.collection = MagicMock()
             fake_vector_memory._client = fake_client
             local_settings = make_settings()
             local_settings.database_path = db_path
@@ -223,7 +222,7 @@ class RebuildEmbeddingsTests(unittest.TestCase):
                     confidence, created_at, updated_at, last_recalled_at, recall_count
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                ("m1", "room-1", "viewer-1", "evt-1", "喜欢拉面", "preference", 0.9, 1, 2, None, 0),
+                ("m1", "room-1", "viewer-1", "evt-1", "likes ramen", "preference", 0.9, 1, 2, None, 0),
             )
             conn.commit()
             conn.close()
@@ -238,7 +237,6 @@ class RebuildEmbeddingsTests(unittest.TestCase):
             fake_vector_memory = MagicMock()
             fake_vector_memory._collection_suffix = "cloud_bge_m3"
             fake_vector_memory.memory_collection = fake_collection
-            fake_vector_memory.collection = MagicMock()
             fake_vector_memory._client = fake_client
             local_settings = make_settings()
             local_settings.database_path = db_path

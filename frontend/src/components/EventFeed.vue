@@ -1,5 +1,10 @@
 <script setup>
+import { ref } from "vue";
 import { translate } from "../i18n.js";
+import {
+  getCommentProcessingBadges,
+  getCommentProcessingDetails,
+} from "./event-feed-processing-presenter.js";
 
 const props = defineProps({
   locale: {
@@ -30,6 +35,8 @@ const emit = defineEmits([
   "clear-events",
   "select-viewer",
 ]);
+
+const expandedEventIds = ref(new Set());
 
 function t(key, params) {
   return translate(props.locale, key, params);
@@ -103,6 +110,35 @@ function selectViewer(event) {
     viewerId: viewerId || "",
     nickname: nickname || "",
   });
+}
+
+function processingBadges(event) {
+  return getCommentProcessingBadges(event).map((key) => t(key));
+}
+
+function processingDetails(event) {
+  return getCommentProcessingDetails(event).map((item) => ({
+    ...item,
+    label: t(item.key),
+  }));
+}
+
+function hasProcessingDetails(event) {
+  return processingDetails(event).length > 0;
+}
+
+function isProcessingExpanded(event) {
+  return expandedEventIds.value.has(event.event_id);
+}
+
+function toggleProcessingDetails(event) {
+  const next = new Set(expandedEventIds.value);
+  if (next.has(event.event_id)) {
+    next.delete(event.event_id);
+  } else {
+    next.add(event.event_id);
+  }
+  expandedEventIds.value = next;
 }
 </script>
 
@@ -197,6 +233,43 @@ function selectViewer(event) {
               <p class="mt-2 text-sm leading-6 text-paper/90">
                 {{ primaryContent(event) }}
               </p>
+              <div
+                v-if="processingBadges(event).length > 0"
+                class="mt-3 flex flex-wrap items-center gap-2"
+              >
+                <span
+                  v-for="badgeLabel in processingBadges(event)"
+                  :key="badgeLabel"
+                  class="rounded-full border border-line/16 bg-panel-soft/80 px-2.5 py-1 text-[11px] tracking-[0.12em] text-muted"
+                >
+                  {{ badgeLabel }}
+                </span>
+                <button
+                  v-if="hasProcessingDetails(event)"
+                  type="button"
+                  class="rounded-full border border-line/16 bg-panel px-2.5 py-1 text-[11px] tracking-[0.12em] text-accent transition hover:border-accent/40"
+                  @click="toggleProcessingDetails(event)"
+                >
+                  {{
+                    isProcessingExpanded(event)
+                      ? t("feed.processing.hideDetails")
+                      : t("feed.processing.showDetails")
+                  }}
+                </button>
+              </div>
+              <dl
+                v-if="isProcessingExpanded(event)"
+                class="mt-3 grid gap-2 rounded-2xl border border-line/14 bg-panel-soft/72 px-3 py-3 text-xs text-muted"
+              >
+                <div
+                  v-for="detail in processingDetails(event)"
+                  :key="detail.key"
+                  class="grid gap-1 sm:grid-cols-[120px_minmax(0,1fr)] sm:items-start"
+                >
+                  <dt class="uppercase tracking-[0.14em] text-accent-soft">{{ detail.label }}</dt>
+                  <dd class="break-all text-paper/88">{{ detail.value }}</dd>
+                </div>
+              </dl>
             </div>
           </div>
         </article>

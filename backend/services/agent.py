@@ -25,6 +25,7 @@ class LivePromptAgent:
         self.settings = settings
         self.vector_memory = vector_memory
         self.long_term_store = long_term_store
+        self._last_generation_metadata = {}
         self._status = {
             "mode": settings.llm_mode,
             "model": settings.resolved_llm_model() if settings.llm_mode != "heuristic" else "heuristic",
@@ -58,6 +59,11 @@ class LivePromptAgent:
             DEFAULT_SYSTEM_PROMPT,
         )
 
+    def consume_last_generation_metadata(self):
+        metadata = dict(self._last_generation_metadata)
+        self._last_generation_metadata = {}
+        return metadata
+
     def _mark_status(self, result, error=""):
         self._status = {
             "mode": self.settings.llm_mode,
@@ -87,19 +93,13 @@ class LivePromptAgent:
             viewer_id=event.user.viewer_id,
             limit=2,
         )
-        current_document = f"{event.user.nickname} {event.content}".strip()
-        similar = [
-            item
-            for item in self.vector_memory.similar(event.content, room_id=event.room_id, limit=4)
-            if item.get("text") != current_document
-        ][:2]
         profile = self._compact_user_profile(self.long_term_store.get_user_profile(event.room_id, event.user))
         return {
             "recent_events": [self._compact_recent_event(item) for item in recent_events[:3]],
-            "similar_history": [item["text"] for item in similar],
             "user_profile": profile,
             "viewer_memories": viewer_memories,
             "viewer_memory_texts": [item["memory_text"] for item in viewer_memories[:2]],
+            "recalled_memory_ids": [item["memory_id"] for item in viewer_memories[:2] if item.get("memory_id")],
         }
 
     def maybe_generate(self, event, recent_events):
@@ -108,23 +108,34 @@ class LivePromptAgent:
 
         context = {
             "recent_events": [],
-            "similar_history": [],
             "user_profile": {},
             "viewer_memories": [],
             "viewer_memory_texts": [],
+            "recalled_memory_ids": [],
+        }
+        generation_metadata = {
+            "memory_recall_attempted": False,
+            "memory_recalled": False,
+            "recalled_memory_ids": [],
         }
         if self._should_short_circuit_with_heuristic(event):
             payload = self._generate_heuristic(event, context, source="heuristic")
         else:
             context = self.build_context(event, recent_events)
+            generation_metadata = {
+                "memory_recall_attempted": True,
+                "memory_recalled": bool(context["recalled_memory_ids"]),
+                "recalled_memory_ids": list(context["recalled_memory_ids"]),
+            }
             payload = self._generate_payload(event, context)
+        self._last_generation_metadata = generation_metadata
 
         memory_ids = [item["memory_id"] for item in context["viewer_memories"] if item.get("memory_id")]
         if memory_ids:
             self.long_term_store.touch_viewer_memories(memory_ids)
 
         references = self._dedupe_preserve_order(
-            context["viewer_memory_texts"] + context["similar_history"]
+            context["viewer_memory_texts"]
         )
         return Suggestion(
             suggestion_id=str(uuid.uuid4()),
@@ -186,7 +197,6 @@ class LivePromptAgent:
             },
             "context": {
                 "recent_events": context["recent_events"],
-                "similar_history": context["similar_history"],
                 "user_profile": context["user_profile"],
                 "viewer_memories": context["viewer_memory_texts"],
             },
@@ -278,16 +288,6 @@ class LivePromptAgent:
                 "tone": "延续对话",
                 "reason": "命中了同一观众的历史语义记忆，适合顺着旧话题继续聊。",
                 "confidence": 0.86,
-            }
-
-        if context["similar_history"]:
-            return {
-                "source": source,
-                "priority": "medium",
-                "reply_text": "这类话题以前互动不错，可以沿用熟悉的回应节奏再追问一句。",
-                "tone": "延续语境",
-                "reason": "命中了相似历史互动，可以复用验证过的话术路径。",
-                "confidence": 0.76,
             }
 
         return {

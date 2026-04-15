@@ -68,9 +68,7 @@ class Settings:
     embedding_timeout_seconds: float = float(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "10.0"))
     local_embedding_device: str = os.getenv("LOCAL_EMBEDDING_DEVICE", "cpu")
     local_embedding_batch_size: int = int(os.getenv("LOCAL_EMBEDDING_BATCH_SIZE", "32"))
-    semantic_event_min_score: float = float(os.getenv("SEMANTIC_EVENT_MIN_SCORE", "0.35"))
     semantic_memory_min_score: float = float(os.getenv("SEMANTIC_MEMORY_MIN_SCORE", "0.35"))
-    semantic_event_query_limit: int = int(os.getenv("SEMANTIC_EVENT_QUERY_LIMIT", "8"))
     semantic_memory_query_limit: int = int(os.getenv("SEMANTIC_MEMORY_QUERY_LIMIT", "6"))
     semantic_final_k: int = int(os.getenv("SEMANTIC_FINAL_K", "3"))
 

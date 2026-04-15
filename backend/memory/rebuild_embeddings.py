@@ -1,4 +1,4 @@
-"""Rebuild Chroma embedding indexes from SQLite source data."""
+"""Rebuild Chroma memory indexes from SQLite source data."""
 
 import argparse
 import json
@@ -68,41 +68,8 @@ def fetch_memory_rows(long_term_store, room_id="", limit=None):
     return [dict(row) for row in rows]
 
 
-def fetch_event_rows(long_term_store, room_id="", limit=None):
-    clauses = ["event_type = 'comment'", "TRIM(COALESCE(content, '')) <> ''"]
-    params = []
-    if room_id:
-        clauses.append("room_id = ?")
-        params.append(room_id)
-
-    where_clause = f"WHERE {' AND '.join(clauses)}"
-    limit_clause = " LIMIT ?" if limit else ""
-    if limit:
-        params.append(int(limit))
-
-    with open_rebuild_connection(long_term_store) as connection:
-        rows = connection.execute(
-            f"""
-            SELECT event_id, room_id, event_type, nickname, content, ts
-            FROM events
-            {where_clause}
-            ORDER BY ts DESC{limit_clause}
-            """,
-            tuple(params),
-        ).fetchall()
-    return [dict(row) for row in rows]
-
-
-def build_event_document(row):
-    return f"[event_type={row['event_type']}] nickname={row.get('nickname') or '未知用户'} content={row.get('content') or ''}".strip()
-
-
 def build_memory_collection_name(vector_memory):
     return f"viewer_memories_{vector_memory._collection_suffix}"
-
-
-def build_event_collection_name(vector_memory):
-    return f"live_history_{vector_memory._collection_suffix}"
 
 
 def manifest_path(settings):
@@ -135,12 +102,10 @@ def update_manifest(settings, result):
     manifest["updated_at"] = now
     collections = manifest.setdefault("collections", {})
 
-    for target_key in ("memories", "events"):
-        if target_key not in result:
-            continue
-        item = result[target_key]
+    if "memories" in result:
+        item = result["memories"]
         collections[item["collection"]] = {
-            "target": target_key,
+            "target": "memories",
             "embedding_mode": settings.embedding_mode,
             "embedding_model": settings.embedding_model,
             "collection_name": item["collection"],
@@ -192,56 +157,21 @@ def rebuild_memory_collection(long_term_store, embedding_service, vector_memory,
     return result
 
 
-def rebuild_event_collection(long_term_store, embedding_service, vector_memory, room_id="", limit=None, dry_run=False, drop_existing=False):
-    rows = fetch_event_rows(long_term_store, room_id=room_id, limit=limit)
-    result = {
-        "collection": build_event_collection_name(vector_memory),
-        "count": len(rows),
-    }
-    if dry_run or not rows:
-        return result
-
-    if drop_existing and getattr(vector_memory, "_client", None):
-        logger.warning(
-            "Dropping existing collection before rebuild: collection=%s signature=%s",
-            result["collection"],
-            vector_memory._collection_suffix,
-        )
-        vector_memory._client.delete_collection(result["collection"])
-        vector_memory.collection = vector_memory._client.get_or_create_collection(result["collection"])
-
-    for batch in chunked(rows, 64):
-        documents = [build_event_document(row) for row in batch]
-        embeddings = embedding_service.embed_texts(documents)
-        vector_memory.collection.upsert(
-            ids=[row["event_id"] for row in batch],
-            documents=documents,
-            metadatas=[
-                {
-                    "room_id": row["room_id"],
-                    "event_type": row["event_type"],
-                    "nickname": row.get("nickname") or "",
-                    "ts": row["ts"],
-                }
-                for row in batch
-            ],
-            embeddings=embeddings,
-        )
-    return result
-
-
 def rebuild_embeddings(
     *,
     settings=settings,
     long_term_store=None,
     embedding_service=None,
     vector_memory=None,
-    target="all",
+    target="memories",
     room_id="",
     limit=None,
     dry_run=False,
     drop_existing=False,
 ):
+    if target != "memories":
+        raise ValueError("Only memories target is supported")
+
     long_term_store = long_term_store or LongTermStore(settings.database_path)
     embedding_service = embedding_service or EmbeddingService(settings)
     vector_memory = vector_memory or VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
@@ -250,34 +180,23 @@ def rebuild_embeddings(
         vector_memory._client = None
 
     result = {"target": target}
-    if target in {"memories", "all"}:
-        result["memories"] = rebuild_memory_collection(
-            long_term_store,
-            embedding_service,
-            vector_memory,
-            room_id=room_id,
-            limit=limit,
-            dry_run=dry_run,
-            drop_existing=drop_existing,
-        )
-    if target in {"events", "all"}:
-        result["events"] = rebuild_event_collection(
-            long_term_store,
-            embedding_service,
-            vector_memory,
-            room_id=room_id,
-            limit=limit,
-            dry_run=dry_run,
-            drop_existing=drop_existing,
-        )
+    result["memories"] = rebuild_memory_collection(
+        long_term_store,
+        embedding_service,
+        vector_memory,
+        room_id=room_id,
+        limit=limit,
+        dry_run=dry_run,
+        drop_existing=drop_existing,
+    )
     if not dry_run:
         result["manifest"] = update_manifest(settings, result)
     return result
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Rebuild embedding indexes from SQLite source data.")
-    parser.add_argument("--target", choices=["memories", "events", "all"], default="all")
+    parser = argparse.ArgumentParser(description="Rebuild memory embedding indexes from SQLite source data.")
+    parser.add_argument("--target", choices=["memories"], default="memories")
     parser.add_argument("--room-id", default="")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--drop-existing", action="store_true")

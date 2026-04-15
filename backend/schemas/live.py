@@ -42,6 +42,7 @@ class LiveEvent(BaseModel):
     content: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
     raw: dict[str, Any] = Field(default_factory=dict)
+    processing_status: "CommentProcessingStatus | None" = None
 
 
 class Suggestion(BaseModel):
@@ -75,6 +76,21 @@ class ViewerMemory(BaseModel):
     updated_at: int
     last_recalled_at: int | None = None
     recall_count: int = 0
+
+
+class CommentProcessingStatus(BaseModel):
+    """Per-comment runtime processing status shown in the frontend."""
+
+    received: bool = False
+    persisted: bool = False
+    memory_extraction_attempted: bool = False
+    memory_saved: bool = False
+    saved_memory_ids: list[str] = Field(default_factory=list)
+    memory_recall_attempted: bool = False
+    memory_recalled: bool = False
+    recalled_memory_ids: list[str] = Field(default_factory=list)
+    suggestion_generated: bool = False
+    suggestion_id: str = ""
 
 
 class SessionStats(BaseModel):

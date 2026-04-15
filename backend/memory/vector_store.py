@@ -1,11 +1,11 @@
-﻿"""Vector-backed recall helpers for event history and viewer memories."""
+"""Vector-backed recall helpers for viewer memories."""
 
 import hashlib
 import logging
 import math
 import re
 
-from backend.schemas.live import LiveEvent, ViewerMemory
+from backend.schemas.live import ViewerMemory
 
 try:
     import chromadb
@@ -59,7 +59,6 @@ class HashEmbeddingFunction:
 class VectorMemory:
     def __init__(self, storage_path, settings=None, embedding_service=None):
         self.settings = settings
-        self._event_items = []
         self._memory_items = []
         self._client = None
         self.collection = None
@@ -70,11 +69,9 @@ class VectorMemory:
         if chromadb:
             client = chromadb.PersistentClient(path=str(storage_path))
             self._client = client
-            self.collection = client.get_or_create_collection(f"live_history_{self._collection_suffix}")
             self.memory_collection = client.get_or_create_collection(f"viewer_memories_{self._collection_suffix}")
             logger.info(
-                "VectorMemory initialized with Chroma collections: events=%s memories=%s",
-                f"live_history_{self._collection_suffix}",
+                "VectorMemory initialized with Chroma collection: memories=%s",
                 f"viewer_memories_{self._collection_suffix}",
             )
         else:
@@ -89,15 +86,8 @@ class VectorMemory:
             return 0.0
         return 1.0 / (1.0 + float(distance))
 
-    def _event_min_score(self):
-        return getattr(self.settings, "semantic_event_min_score", 0.0) if self.settings else 0.0
-
     def _memory_min_score(self):
         return getattr(self.settings, "semantic_memory_min_score", 0.0) if self.settings else 0.0
-
-    def _event_query_limit(self, limit):
-        base = getattr(self.settings, "semantic_event_query_limit", limit) if self.settings else limit
-        return max(int(limit), int(base))
 
     def _memory_query_limit(self, limit):
         base = getattr(self.settings, "semantic_memory_query_limit", limit) if self.settings else limit
@@ -106,15 +96,6 @@ class VectorMemory:
     def _final_k(self, limit):
         base = getattr(self.settings, "semantic_final_k", limit) if self.settings else limit
         return min(int(limit), int(base))
-
-    @staticmethod
-    def _event_rank_key(item, query_text):
-        text = str(item.get("text") or "")
-        metadata = item.get("metadata") or {}
-        contains_query = 1 if query_text and query_text in text else 0
-        event_type_boost = 1 if metadata.get("event_type") == "comment" else 0
-        ts = int(metadata.get("ts") or 0)
-        return (item.get("score", 0.0), contains_query, event_type_boost, ts)
 
     @staticmethod
     def _memory_rank_key(item, query_text):
@@ -145,89 +126,6 @@ class VectorMemory:
         if query_text and query_text in target_text:
             score += 0.35
         return score
-
-    def add_event(self, event: LiveEvent):
-        if not event.content:
-            return
-
-        document = f"{event.user.nickname} {event.content}".strip()
-        metadata = {
-            "room_id": event.room_id,
-            "event_type": event.event_type,
-            "nickname": event.user.nickname,
-            "ts": event.ts,
-        }
-        self._event_items = [item for item in self._event_items if item["id"] != event.event_id]
-        self._event_items.append({"id": event.event_id, "document": document, "metadata": metadata})
-        self._event_items = self._event_items[-1000:]
-
-        if self.collection:
-            self.collection.upsert(
-                ids=[event.event_id],
-                documents=[document],
-                metadatas=[metadata],
-                embeddings=[self.embedding.embed_text(document)],
-            )
-
-    def similar(self, text, room_id="", limit=3):
-        query_text = str(text or "").strip()
-        if not query_text:
-            return []
-        query_limit = self._event_query_limit(limit)
-        min_score = self._event_min_score()
-        final_k = self._final_k(limit)
-
-        if self.collection:
-            try:
-                query_kwargs = {
-                    "query_embeddings": [self.embedding.embed_text(query_text)],
-                    "n_results": query_limit,
-                }
-                if room_id:
-                    query_kwargs["where"] = {"room_id": room_id}
-                result = self.collection.query(**query_kwargs)
-                ids = result.get("ids", [[]])[0]
-                documents = result.get("documents", [[]])[0]
-                metadatas = result.get("metadatas", [[]])[0]
-                distances = result.get("distances", [[]])[0]
-                items = []
-                for index, item_id in enumerate(ids):
-                    score = self._distance_to_score(distances[index] if index < len(distances) else None)
-                    if score < min_score:
-                        continue
-                    items.append(
-                        {
-                            "id": item_id,
-                            "text": documents[index] if index < len(documents) else "",
-                            "score": score,
-                            "metadata": metadatas[index] if index < len(metadatas) else {},
-                        }
-                    )
-                items.sort(key=lambda item: self._event_rank_key(item, query_text), reverse=True)
-                return items[:final_k]
-            except Exception:
-                pass
-
-        query_tokens = set(tokenize_text(query_text))
-        scored = []
-        for item in self._event_items:
-            if room_id and item["metadata"].get("room_id") != room_id:
-                continue
-            target_text = item["document"]
-            target_tokens = set(tokenize_text(target_text))
-            score = self._score_tokens(query_tokens, target_tokens, query_text, target_text)
-            if score >= min_score:
-                scored.append(
-                    {
-                        "id": item["id"],
-                        "text": target_text,
-                        "score": score,
-                        "metadata": item["metadata"],
-                    }
-                )
-
-        scored.sort(key=lambda item: self._event_rank_key(item, query_text), reverse=True)
-        return scored[:final_k]
 
     def add_memory(self, memory: ViewerMemory):
         if not memory.memory_text or not memory.viewer_id:

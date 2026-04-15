@@ -20,7 +20,7 @@ def make_settings():
     )
 
 
-def make_event(event_type="comment", content="这件衣服多少钱", nickname="阿明"):
+def make_event(event_type="comment", content="how much is it", nickname="A-Ming"):
     return LiveEvent(
         event_id="evt-1",
         room_id="room-1",
@@ -29,11 +29,11 @@ def make_event(event_type="comment", content="这件衣服多少钱", nickname="
         platform="douyin",
         event_type=event_type,
         method="WebcastChatMessage" if event_type == "comment" else "WebcastGiftMessage",
-        livename="测试直播间",
+        livename="test-room",
         ts=1234567890,
         user={"id": "user-1", "nickname": nickname},
         content=content,
-        metadata={"gift_name": "小心心"} if event_type == "gift" else {},
+        metadata={"gift_name": "heart"} if event_type == "gift" else {},
         raw={"huge": "payload"},
     )
 
@@ -42,55 +42,50 @@ class LivePromptAgentTests(unittest.TestCase):
     def test_build_context_compacts_prompt_inputs(self):
         vector_memory = MagicMock()
         vector_memory.similar_memories.return_value = [
-            {"memory_id": "m1", "memory_text": "喜欢吃拉面", "score": 0.9, "metadata": {}},
-            {"memory_id": "m2", "memory_text": "来自杭州", "score": 0.8, "metadata": {}},
-            {"memory_id": "m3", "memory_text": "养了一只猫", "score": 0.7, "metadata": {}},
-        ]
-        vector_memory.similar.return_value = [
-            {"id": "e1", "text": "历史话术A", "score": 0.9, "metadata": {}},
-            {"id": "e2", "text": "历史话术B", "score": 0.8, "metadata": {}},
-            {"id": "e3", "text": "历史话术C", "score": 0.7, "metadata": {}},
+            {"memory_id": "m1", "memory_text": "likes ramen", "score": 0.9, "metadata": {}},
+            {"memory_id": "m2", "memory_text": "from hangzhou", "score": 0.8, "metadata": {}},
+            {"memory_id": "m3", "memory_text": "has a cat", "score": 0.7, "metadata": {}},
         ]
 
         long_term_store = MagicMock()
         long_term_store.get_user_profile.return_value = {
             "viewer_id": "user-1",
-            "nickname": "阿明",
+            "nickname": "A-Ming",
             "comment_count": 15,
             "gift_event_count": 3,
-            "last_comment": "主播今天穿搭不错",
-            "recent_comments": [{"content": "很长的历史评论"}],
-            "gift_history": [{"gift_name": "小心心"}],
+            "last_comment": "nice outfit today",
+            "recent_comments": [{"content": "very long old comment"}],
+            "gift_history": [{"gift_name": "heart"}],
             "recent_sessions": [{"session_id": "old"}],
-            "memories": [{"memory_text": "旧记忆"}],
-            "notes": [{"content": "手动备注"}],
+            "memories": [{"memory_text": "old memory"}],
+            "notes": [{"content": "manual note"}],
         }
 
         agent = LivePromptAgent(make_settings(), vector_memory, long_term_store)
-        recent_events = [make_event(content=f"最近评论{i}", nickname=f"用户{i}") for i in range(5)]
+        recent_events = [make_event(content=f"recent comment {i}", nickname=f"user{i}") for i in range(5)]
 
-        context = agent.build_context(make_event(content="我喜欢拉面"), recent_events)
+        context = agent.build_context(make_event(content="I like ramen"), recent_events)
 
         self.assertEqual(len(context["recent_events"]), 3)
         self.assertEqual(
             context["recent_events"][0],
-            {"event_type": "comment", "nickname": "用户0", "content": "最近评论0"},
+            {"event_type": "comment", "nickname": "user0", "content": "recent comment 0"},
         )
-        self.assertEqual(context["similar_history"], ["历史话术A", "历史话术B"])
-        self.assertEqual(context["viewer_memory_texts"], ["喜欢吃拉面", "来自杭州"])
+        self.assertEqual(context["viewer_memory_texts"], ["likes ramen", "from hangzhou"])
         self.assertEqual(
             context["user_profile"],
             {
-                "nickname": "阿明",
+                "nickname": "A-Ming",
                 "comment_count": 15,
                 "gift_event_count": 3,
-                "last_comment": "主播今天穿搭不错",
+                "last_comment": "nice outfit today",
             },
         )
+        self.assertEqual(context["recalled_memory_ids"], ["m1", "m2"])
 
     def test_maybe_generate_skips_llm_for_gift_events(self):
         agent = LivePromptAgent(make_settings(), MagicMock(), MagicMock())
-        event = make_event(event_type="gift", content="", nickname="送礼观众")
+        event = make_event(event_type="gift", content="", nickname="gift-viewer")
 
         with patch.object(agent, "build_context") as build_context_mock, patch.object(
             agent, "_generate_with_openai_compatible"
@@ -100,9 +95,9 @@ class LivePromptAgentTests(unittest.TestCase):
             return_value={
                 "source": "heuristic",
                 "priority": "high",
-                "reply_text": "感谢礼物",
-                "tone": "热情感谢",
-                "reason": "礼物消息走规则更省 token",
+                "reply_text": "thanks for the gift",
+                "tone": "warm",
+                "reason": "gift events use heuristics",
                 "confidence": 0.9,
             },
         ):
@@ -113,7 +108,7 @@ class LivePromptAgentTests(unittest.TestCase):
         self.assertEqual(suggestion.source, "heuristic")
         self.assertEqual(suggestion.priority, "high")
 
-    def test_generate_with_openai_compatible_includes_max_tokens(self):
+    def test_generate_with_openai_compatible_includes_max_tokens_and_omits_similar_history(self):
         long_term_store = MagicMock()
         long_term_store.get_llm_settings.return_value = {
             "model": "qwen3.5-flash",
@@ -124,11 +119,10 @@ class LivePromptAgentTests(unittest.TestCase):
         agent = LivePromptAgent(make_settings(), MagicMock(), long_term_store)
         event = make_event()
         context = {
-            "recent_events": [{"event_type": "comment", "nickname": "阿明", "content": "多少钱"}],
-            "similar_history": ["历史话术A"],
-            "user_profile": {"nickname": "阿明", "comment_count": 5},
+            "recent_events": [{"event_type": "comment", "nickname": "A-Ming", "content": "how much"}],
+            "user_profile": {"nickname": "A-Ming", "comment_count": 5},
             "viewer_memories": [],
-            "viewer_memory_texts": ["喜欢吃拉面"],
+            "viewer_memory_texts": ["likes ramen"],
         }
 
         response_payload = {
@@ -138,9 +132,9 @@ class LivePromptAgentTests(unittest.TestCase):
                         "content": json.dumps(
                             {
                                 "priority": "high",
-                                "reply_text": "先说价格",
-                                "tone": "直接",
-                                "reason": "用户在问价格",
+                                "reply_text": "answer price first",
+                                "tone": "direct",
+                                "reason": "user asks price",
                                 "confidence": 0.9,
                             },
                             ensure_ascii=False,
@@ -163,6 +157,8 @@ class LivePromptAgentTests(unittest.TestCase):
         def fake_urlopen(request, timeout):
             body = json.loads(request.data.decode("utf-8"))
             self.assertEqual(body["max_tokens"], 120)
+            prompt = json.loads(body["messages"][1]["content"])
+            self.assertNotIn("similar_history", prompt["context"])
             return FakeResponse()
 
         with patch("backend.services.agent.urllib.request.urlopen", side_effect=fake_urlopen):

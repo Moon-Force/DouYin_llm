@@ -15,7 +15,7 @@ from backend.memory.embedding_service import EmbeddingService
 from backend.memory.long_term import LongTermStore
 from backend.memory.session_memory import SessionMemory
 from backend.memory.vector_store import VectorMemory
-from backend.schemas.live import LiveEvent, ModelStatus
+from backend.schemas.live import CommentProcessingStatus, LiveEvent, ModelStatus
 from backend.services.agent import LivePromptAgent
 from backend.services.broker import EventBroker
 from backend.services.collector import DouyinCollector
@@ -71,18 +71,27 @@ def snapshot_with_status(room_id):
 
 
 async def process_event(event: LiveEvent):
+    processing_status = CommentProcessingStatus(received=True)
     session_memory.add_event(event)
     long_term_store.persist_event(event)
-    vector_memory.add_event(event)
-
-    await broker.publish(event_envelope("event", event.model_dump()))
+    processing_status.persisted = True
 
     recent_events = session_memory.recent_events(event.room_id, limit=15)
     suggestion = agent.maybe_generate(event, recent_events)
+    generation_metadata = agent.consume_last_generation_metadata()
+    processing_status.memory_recall_attempted = bool(generation_metadata.get("memory_recall_attempted"))
+    processing_status.recalled_memory_ids = list(generation_metadata.get("recalled_memory_ids", []))
+    processing_status.memory_recalled = bool(
+        generation_metadata.get("memory_recalled") or processing_status.recalled_memory_ids
+    )
     if suggestion:
         session_memory.add_suggestion(suggestion)
         long_term_store.persist_suggestion(suggestion)
-        await broker.publish(event_envelope("suggestion", suggestion.model_dump()))
+        processing_status.suggestion_generated = True
+        processing_status.suggestion_id = suggestion.suggestion_id
+
+    processing_status.memory_extraction_attempted = True
+    saved_memory_ids = []
 
     for candidate in memory_extractor.extract(event):
         memory = long_term_store.save_viewer_memory(
@@ -95,6 +104,15 @@ async def process_event(event: LiveEvent):
         )
         if memory:
             vector_memory.add_memory(memory)
+            saved_memory_ids.append(memory.memory_id)
+
+    processing_status.memory_saved = bool(saved_memory_ids)
+    processing_status.saved_memory_ids = saved_memory_ids
+    event.processing_status = processing_status
+
+    await broker.publish(event_envelope("event", event.model_dump()))
+    if suggestion:
+        await broker.publish(event_envelope("suggestion", suggestion.model_dump()))
 
     stats = session_memory.stats(event.room_id)
     await broker.publish(event_envelope("stats", stats.model_dump()))
