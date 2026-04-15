@@ -75,6 +75,32 @@ class LivePromptAgent:
         }
 
     @staticmethod
+    def _build_generation_metadata(
+        suggestion_status,
+        suggestion_block_reason="",
+        suggestion_block_detail="",
+        memory_recall_attempted=False,
+        memory_recalled=False,
+        recalled_memory_ids=None,
+    ):
+        return {
+            "suggestion_status": suggestion_status,
+            "suggestion_block_reason": suggestion_block_reason,
+            "suggestion_block_detail": suggestion_block_detail,
+            "memory_recall_attempted": bool(memory_recall_attempted),
+            "memory_recalled": bool(memory_recalled),
+            "recalled_memory_ids": list(recalled_memory_ids or []),
+        }
+
+    @staticmethod
+    def _is_strict_vector_recall_runtime_error(exc):
+        message = str(exc or "")
+        return (
+            "strict mode blocked fallback" in message
+            and ("Vector recall" in message or "Embedding strict mode" in message)
+        )
+
+    @staticmethod
     def _dedupe_preserve_order(values):
         seen = set()
         ordered = []
@@ -104,6 +130,21 @@ class LivePromptAgent:
 
     def maybe_generate(self, event, recent_events):
         if event.event_type not in {"comment", "gift", "follow"}:
+            self._mark_status("idle")
+            self._last_generation_metadata = self._build_generation_metadata(
+                suggestion_status="skipped",
+                suggestion_block_reason="rule_skipped",
+                suggestion_block_detail="事件类型不支持，未生成建议。",
+            )
+            return None
+
+        if event.event_type == "comment" and not str(event.content or "").strip():
+            self._mark_status("idle")
+            self._last_generation_metadata = self._build_generation_metadata(
+                suggestion_status="skipped",
+                suggestion_block_reason="no_generation_needed",
+                suggestion_block_detail="评论内容为空，未生成建议。",
+            )
             return None
 
         context = {
@@ -113,20 +154,31 @@ class LivePromptAgent:
             "viewer_memory_texts": [],
             "recalled_memory_ids": [],
         }
-        generation_metadata = {
-            "memory_recall_attempted": False,
-            "memory_recalled": False,
-            "recalled_memory_ids": [],
-        }
+        generation_metadata = self._build_generation_metadata(suggestion_status="generated")
         if self._should_short_circuit_with_heuristic(event):
             payload = self._generate_heuristic(event, context, source="heuristic")
         else:
-            context = self.build_context(event, recent_events)
-            generation_metadata = {
-                "memory_recall_attempted": True,
-                "memory_recalled": bool(context["recalled_memory_ids"]),
-                "recalled_memory_ids": list(context["recalled_memory_ids"]),
-            }
+            try:
+                context = self.build_context(event, recent_events)
+            except RuntimeError as exc:
+                if not self._is_strict_vector_recall_runtime_error(exc):
+                    raise
+                self._mark_status("error", "semantic_backend_unavailable")
+                self._last_generation_metadata = self._build_generation_metadata(
+                    suggestion_status="failed",
+                    suggestion_block_reason="semantic_backend_unavailable",
+                    suggestion_block_detail="语义召回后端不可用，未生成建议。",
+                    memory_recall_attempted=True,
+                )
+                return None
+            generation_metadata = self._build_generation_metadata(
+                suggestion_status="generated",
+                suggestion_block_reason="",
+                suggestion_block_detail="",
+                memory_recall_attempted=True,
+                memory_recalled=bool(context["recalled_memory_ids"]),
+                recalled_memory_ids=context["recalled_memory_ids"],
+            )
             payload = self._generate_payload(event, context)
         self._last_generation_metadata = generation_metadata
 

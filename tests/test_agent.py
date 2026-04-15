@@ -166,6 +166,146 @@ class LivePromptAgentTests(unittest.TestCase):
 
         self.assertEqual(payload["source"], "model")
 
+    def test_maybe_generate_returns_none_and_sets_metadata_for_blank_comment(self):
+        agent = LivePromptAgent(make_settings(), MagicMock(), MagicMock())
+        event = make_event(event_type="comment", content="   ")
+
+        result = agent.maybe_generate(event, [])
+
+        self.assertIsNone(result)
+        metadata = agent.consume_last_generation_metadata()
+        self.assertEqual(metadata["suggestion_status"], "skipped")
+        self.assertEqual(metadata["suggestion_block_reason"], "no_generation_needed")
+        self.assertEqual(metadata["suggestion_block_detail"], "评论内容为空，未生成建议。")
+        self.assertFalse(metadata["memory_recall_attempted"])
+        self.assertEqual(metadata["recalled_memory_ids"], [])
+
+    def test_maybe_generate_handles_semantic_backend_runtime_error_in_strict_mode(self):
+        vector_memory = MagicMock()
+        vector_memory.similar_memories.side_effect = RuntimeError(
+            "Vector recall strict mode blocked fallback: semantic backend unavailable"
+        )
+        agent = LivePromptAgent(make_settings(), vector_memory, MagicMock())
+        event = make_event(event_type="comment", content="hello there")
+
+        result = agent.maybe_generate(event, [])
+
+        self.assertIsNone(result)
+        metadata = agent.consume_last_generation_metadata()
+        self.assertEqual(metadata["suggestion_status"], "failed")
+        self.assertEqual(metadata["suggestion_block_reason"], "semantic_backend_unavailable")
+        self.assertEqual(metadata["suggestion_block_detail"], "语义召回后端不可用，未生成建议。")
+        self.assertTrue(metadata["memory_recall_attempted"])
+        self.assertFalse(metadata["memory_recalled"])
+        status = agent.current_status()
+        self.assertEqual(status["last_result"], "error")
+        self.assertEqual(status["last_error"], "semantic_backend_unavailable")
+
+    def test_maybe_generate_does_not_mislabel_non_strict_runtime_error(self):
+        vector_memory = MagicMock()
+        vector_memory.similar_memories.side_effect = RuntimeError("unexpected runtime failure")
+        agent = LivePromptAgent(make_settings(), vector_memory, MagicMock())
+        event = make_event(event_type="comment", content="hello there")
+
+        with self.assertRaises(RuntimeError):
+            agent.maybe_generate(event, [])
+
+    def test_maybe_generate_sets_rule_skipped_metadata_for_unsupported_event(self):
+        agent = LivePromptAgent(make_settings(), MagicMock(), MagicMock())
+        event = make_event(event_type="enter", content="")
+
+        result = agent.maybe_generate(event, [])
+
+        self.assertIsNone(result)
+        metadata = agent.consume_last_generation_metadata()
+        self.assertEqual(metadata["suggestion_status"], "skipped")
+        self.assertEqual(metadata["suggestion_block_reason"], "rule_skipped")
+        self.assertEqual(metadata["suggestion_block_detail"], "事件类型不支持，未生成建议。")
+        self.assertFalse(metadata["memory_recall_attempted"])
+        self.assertFalse(metadata["memory_recalled"])
+        self.assertEqual(metadata["recalled_memory_ids"], [])
+
+    def test_maybe_generate_sets_generated_metadata_on_success_with_recall_shape(self):
+        vector_memory = MagicMock()
+        vector_memory.similar_memories.return_value = [
+            {"memory_id": "m-1", "memory_text": "likes noodles", "score": 0.9, "metadata": {}}
+        ]
+        long_term_store = MagicMock()
+        long_term_store.get_user_profile.return_value = {}
+        agent = LivePromptAgent(make_settings(), vector_memory, long_term_store)
+        event = make_event(event_type="comment", content="just chatting")
+
+        with patch.object(
+            agent,
+            "_generate_payload",
+            return_value={
+                "source": "model",
+                "priority": "medium",
+                "reply_text": "continue naturally",
+                "tone": "natural",
+                "reason": "context available",
+                "confidence": 0.8,
+            },
+        ):
+            result = agent.maybe_generate(event, [])
+
+        self.assertIsNotNone(result)
+        metadata = agent.consume_last_generation_metadata()
+        self.assertEqual(metadata["suggestion_status"], "generated")
+        self.assertEqual(metadata["suggestion_block_reason"], "")
+        self.assertEqual(metadata["suggestion_block_detail"], "")
+        self.assertTrue(metadata["memory_recall_attempted"])
+        self.assertTrue(metadata["memory_recalled"])
+        self.assertEqual(metadata["recalled_memory_ids"], ["m-1"])
+
+    def test_maybe_generate_skip_paths_reset_status_after_non_skip_or_error(self):
+        vector_memory = MagicMock()
+        vector_memory.similar_memories.side_effect = RuntimeError(
+            "Vector recall strict mode blocked fallback: semantic backend unavailable"
+        )
+        agent = LivePromptAgent(make_settings(), vector_memory, MagicMock())
+
+        failed_event = make_event(event_type="comment", content="hello")
+        agent.maybe_generate(failed_event, [])
+        failed_status = agent.current_status()
+        self.assertEqual(failed_status["last_result"], "error")
+        self.assertEqual(failed_status["last_error"], "semantic_backend_unavailable")
+
+        skipped_event = make_event(event_type="comment", content="   ")
+        skip_result = agent.maybe_generate(skipped_event, [])
+        self.assertIsNone(skip_result)
+        skip_status = agent.current_status()
+        self.assertEqual(skip_status["last_result"], "idle")
+        self.assertEqual(skip_status["last_error"], "")
+
+        success_vector_memory = MagicMock()
+        success_vector_memory.similar_memories.return_value = []
+        success_long_term_store = MagicMock()
+        success_long_term_store.get_user_profile.return_value = {}
+        success_like_agent = LivePromptAgent(make_settings(), success_vector_memory, success_long_term_store)
+        with patch.object(success_like_agent, "_should_short_circuit_with_heuristic", return_value=False), patch.object(
+            success_like_agent,
+            "_generate_with_openai_compatible",
+            return_value={
+                "source": "model",
+                "priority": "medium",
+                "reply_text": "ok",
+                "tone": "natural",
+                "reason": "ok",
+                "confidence": 0.8,
+            },
+        ):
+            success_like_agent.maybe_generate(make_event(event_type="comment", content="normal"), [])
+        pre_skip_status = success_like_agent.current_status()
+        self.assertEqual(pre_skip_status["last_result"], "ok")
+
+        unsupported_event = make_event(event_type="enter", content="")
+        unsupported_result = success_like_agent.maybe_generate(unsupported_event, [])
+        self.assertIsNone(unsupported_result)
+        post_skip_status = success_like_agent.current_status()
+        self.assertEqual(post_skip_status["last_result"], "idle")
+        self.assertEqual(post_skip_status["last_error"], "")
+
 
 if __name__ == "__main__":
     unittest.main()
