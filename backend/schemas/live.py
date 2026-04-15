@@ -91,6 +91,9 @@ class CommentProcessingStatus(BaseModel):
     recalled_memory_ids: list[str] = Field(default_factory=list)
     suggestion_generated: bool = False
     suggestion_id: str = ""
+    suggestion_status: str = ""
+    suggestion_block_reason: str = ""
+    suggestion_block_detail: str = ""
 
 
 class SessionStats(BaseModel):

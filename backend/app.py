@@ -79,6 +79,9 @@ async def process_event(event: LiveEvent):
     recent_events = session_memory.recent_events(event.room_id, limit=15)
     suggestion = agent.maybe_generate(event, recent_events)
     generation_metadata = agent.consume_last_generation_metadata()
+    processing_status.suggestion_status = str(generation_metadata.get("suggestion_status") or "")
+    processing_status.suggestion_block_reason = str(generation_metadata.get("suggestion_block_reason") or "")
+    processing_status.suggestion_block_detail = str(generation_metadata.get("suggestion_block_detail") or "")
     processing_status.memory_recall_attempted = bool(generation_metadata.get("memory_recall_attempted"))
     processing_status.recalled_memory_ids = list(generation_metadata.get("recalled_memory_ids", []))
     processing_status.memory_recalled = bool(
@@ -89,6 +92,11 @@ async def process_event(event: LiveEvent):
         long_term_store.persist_suggestion(suggestion)
         processing_status.suggestion_generated = True
         processing_status.suggestion_id = suggestion.suggestion_id
+        if not processing_status.suggestion_status:
+            processing_status.suggestion_status = "generated"
+    else:
+        processing_status.suggestion_generated = False
+        processing_status.suggestion_id = ""
 
     processing_status.memory_extraction_attempted = True
     saved_memory_ids = []
