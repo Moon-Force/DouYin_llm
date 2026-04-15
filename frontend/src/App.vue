@@ -19,6 +19,7 @@ const {
   filteredEvents,
   isSwitchingRoom,
   modelStatus,
+  semanticHealth,
   nextThemeLabel,
   locale,
   roomId,
@@ -76,6 +77,7 @@ onBeforeUnmount(() => {
       :room-error="roomError"
       :connection-state="connectionState"
       :model-status="modelStatus"
+      :semantic-health="semanticHealth"
       :stats="stats"
       @update-room-draft="liveStore.setRoomDraft"
       @switch-room="liveStore.switchRoom"

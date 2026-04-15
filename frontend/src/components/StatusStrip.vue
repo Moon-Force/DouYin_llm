@@ -41,6 +41,10 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  semanticHealth: {
+    type: Object,
+    required: true,
+  },
   stats: {
     type: Object,
     required: true,
@@ -77,6 +81,12 @@ const modelResultLabel = computed(() =>
 const modelModeLabel = computed(() =>
   translateEnum("status.modelMode", props.modelStatus.mode),
 );
+const semanticStatusLabel = computed(() =>
+  t(props.semanticHealth.ready ? "status.semantic.ready" : "status.semantic.unavailable"),
+);
+const semanticReasonLabel = computed(() =>
+  props.semanticHealth.reason || t("common.noData"),
+);
 const localeToggleLabel = computed(() =>
   props.locale === "zh" ? t("locale.switchToEnglish") : t("locale.switchToChinese"),
 );
@@ -86,6 +96,11 @@ const switchRoomLabel = computed(() =>
   props.isSwitchingRoom ? t("status.switching") : t("status.switchRoom"),
 );
 const modelDetailLabel = computed(() => props.modelStatus.last_error || modelModeLabel.value);
+const semanticCardClass = computed(() =>
+  props.semanticHealth.ready
+    ? "border-emerald-400/20 bg-emerald-500/10"
+    : "border-amber-300/30 bg-amber-500/12",
+);
 
 const connectionBadgeClass = computed(() => {
   switch (connectionBadge.value.tone) {
@@ -196,7 +211,7 @@ const themeButtonClass = computed(() =>
         </div>
       </section>
 
-      <section class="grid gap-3 md:grid-cols-3">
+      <section class="grid gap-3 md:grid-cols-4">
         <article class="rounded-[22px] border border-line/12 bg-panel-soft/60 p-4">
           <p class="text-[11px] uppercase tracking-[0.28em] text-muted">
             {{ t("common.comments") }}
@@ -237,6 +252,25 @@ const themeButtonClass = computed(() =>
           >
             {{ t("common.settings") }}
           </button>
+        </article>
+
+        <article class="rounded-[22px] border p-4" :class="semanticCardClass">
+          <p class="text-[11px] uppercase tracking-[0.28em] text-muted">
+            {{ t("status.semantic.title") }}
+          </p>
+          <p class="mt-4 text-sm font-semibold text-paper">
+            {{ semanticStatusLabel }}
+          </p>
+          <p
+            v-if="semanticHealth.embeddingStrict"
+            class="mt-2 text-xs font-medium text-accent"
+          >
+            {{ t("status.semantic.strictEnabled") }}
+          </p>
+          <p class="mt-2 break-words text-xs leading-5 text-muted">
+            <span class="font-medium text-paper/85">{{ t("status.semantic.reason") }}：</span>
+            {{ semanticReasonLabel }}
+          </p>
         </article>
 
         <article class="rounded-[22px] border border-line/12 bg-panel-soft/60 p-4">

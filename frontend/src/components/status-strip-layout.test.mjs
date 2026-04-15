@@ -11,12 +11,15 @@ assert.match(
   statusStripSource,
   /xl:grid-cols-\[minmax\(0,1\.4fr\)_minmax\(320px,1fr\)\]/,
 );
-assert.match(statusStripSource, /md:grid-cols-3/);
+assert.match(statusStripSource, /md:grid-cols-4/);
 assert.match(statusStripSource, /getConnectionBadgePresentation/);
 assert.doesNotMatch(statusStripSource, /absolute right-5 top-5/);
 assert.doesNotMatch(statusStripSource, /xl:grid-cols-1/);
 assert.match(statusStripSource, /"\\u4E2D"/);
 assert.match(statusStripSource, /"\\u5DE5\\u5177"/);
+assert.match(statusStripSource, /semanticHealth/);
+assert.match(statusStripSource, /status\.semantic\.title/);
+assert.match(statusStripSource, /status\.semantic\.strictEnabled/);
 
 assert.match(eventFeedSource, /getCommentProcessingTimeline/);
 assert.match(eventFeedSource, /processingStepTone/);

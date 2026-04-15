@@ -38,6 +38,9 @@ global.fetch = async (url) => {
           last_error: "",
           updated_at: 0,
         },
+        embedding_strict: true,
+        semantic_backend_ready: false,
+        semantic_backend_reason: "Chroma is unavailable",
       };
     },
   };
@@ -61,6 +64,9 @@ try {
   assert.equal(fetchUrl, "/api/bootstrap");
   assert.equal(eventSourceCount, 0);
   assert.equal(store.connectionState, "idle");
+  assert.equal(store.semanticHealth.embeddingStrict, true);
+  assert.equal(store.semanticHealth.ready, false);
+  assert.equal(store.semanticHealth.reason, "Chroma is unavailable");
 } finally {
   global.fetch = originalFetch;
   global.EventSource = originalEventSource;

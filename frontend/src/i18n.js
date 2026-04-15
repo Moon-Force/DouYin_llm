@@ -50,6 +50,13 @@ export const messages = {
         model: "模型",
         local: "本地",
       },
+      semantic: {
+        title: "语义后端",
+        ready: "语义后端正常",
+        unavailable: "语义后端异常",
+        strictEnabled: "严格模式已开启",
+        reason: "异常原因",
+      },
     },
     theme: {
       switchToLight: "切换浅色主题",
@@ -246,6 +253,13 @@ export const messages = {
         heuristic: "Heuristic",
         model: "Model",
         local: "Local",
+      },
+      semantic: {
+        title: "Semantic Backend",
+        ready: "Semantic backend ready",
+        unavailable: "Semantic backend unavailable",
+        strictEnabled: "Strict mode enabled",
+        reason: "Reason",
       },
     },
     theme: {

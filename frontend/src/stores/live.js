@@ -95,6 +95,11 @@ export const useLiveStore = defineStore("live", () => {
     last_error: "",
     updated_at: 0,
   });
+  const semanticHealth = ref({
+    embeddingStrict: false,
+    ready: true,
+    reason: "",
+  });
   const llmSettings = ref({
     model: "",
     systemPrompt: "",
@@ -176,6 +181,11 @@ export const useLiveStore = defineStore("live", () => {
     roomId.value = `${payload.room_id ?? ""}`;
     stats.value = payload.stats || createEmptyStats(roomId.value);
     modelStatus.value = payload.model_status || modelStatus.value;
+    semanticHealth.value = {
+      embeddingStrict: Boolean(payload.embedding_strict),
+      ready: payload.semantic_backend_ready !== false,
+      reason: `${payload.semantic_backend_reason ?? ""}`,
+    };
     events.value = payload.recent_events || [];
     suggestions.value = payload.recent_suggestions || [];
     if (!roomId.value) {
@@ -796,6 +806,7 @@ export const useLiveStore = defineStore("live", () => {
     selectedEventTypes,
     eventFilters,
     modelStatus,
+    semanticHealth,
     llmSettings,
     llmSettingsDraft,
     isLlmSettingsOpen,
