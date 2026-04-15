@@ -151,11 +151,38 @@ graph LR
 | `DATABASE_PATH` | `data/live_prompter.db` | SQLite 文件地址。 |
 | `CHROMA_DIR` | `data/chroma` | Chroma 磁盘存储。 |
 | `EMBEDDING_MODE` | `cloud` | `cloud` / `local` / 其他 -> hash fallback。 |
+| `EMBEDDING_STRICT` | `false` | 开启后要求真实 embedding 与真实向量检索，失败时不再退回 hash embedding 或词项匹配。 |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | 云端/本地嵌入模型名。 |
 | `EMBEDDING_BASE_URL` / `EMBEDDING_API_KEY` | OpenAI 默认 | 云端嵌入接口与密钥。 |
 | `LOCAL_EMBEDDING_DEVICE` | `cpu` | SentenceTransformer 运行设备。 |
 | `LOCAL_EMBEDDING_BATCH_SIZE` | `32` | 本地嵌入批大小。 |
 | `SEMANTIC_*` 系列 | 参考 `backend/config.py` | 控制观众记忆召回的相似度筛选与召回数量。 |
+
+### 严格语义模式
+
+如果你要求的是“真实 embedding + 真实语义召回”，建议显式开启：
+
+```powershell
+EMBEDDING_STRICT=true
+```
+
+开启后：
+
+- embedding 生成失败时不会再退回 hash embedding
+- 向量召回失败时不会再退回词项匹配
+- `rebuild_embeddings.py` 不会写入伪 embedding 结果
+
+这更适合对语义质量有硬要求的场景，而不是开发期兜底。
+
+### 语义健康字段
+
+`GET /health` 现在会返回：
+
+- `embedding_strict`
+- `semantic_backend_ready`
+- `semantic_backend_reason`
+
+用这组字段可以区分“这次确实没召回到记忆”和“语义后端本身不可用”。
 
 ## 数据流与关键流程
 
@@ -191,7 +218,7 @@ graph LR
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET /health` | 运行状况与当前房间。 |
+| `GET /health` | 运行状况、当前房间，以及 strict mode / 语义后端健康状态。 |
 | `GET /api/bootstrap?room_id=` | 前端初始化数据，包含最近事件、建议、统计与模型状态。 |
 | `POST /api/room` | 切换房间，并返回新的快照。 |
 | `POST /api/events` | 手动注入 `LiveEvent`（联调/回放）。 |
@@ -256,7 +283,7 @@ python -m unittest tests.test_verify_memory_pipeline
 
 如果继续演进，这些点会比较值得优先做：
 
-1. **把真实 embedding / 真实语义召回做成强保证**：现在 embedding 失败仍可能退回 hash fallback，适合开发期兜底，但不适合对语义质量要求更高的线上场景。
+1. **增强语义链路可观测性**：strict mode 已能阻止伪语义 fallback，下一步更值得补充的是 semantic backend 命中率、失败率、阻断原因和恢复路径。
 2. **减少 `backend.app` 的导入副作用**：当前模块导入时会初始化较多全局资源，测试隔离和启动时序都还有优化空间。
 3. **增强可观测性**：补 recall 命中率、记忆抽取产出率、suggestion 生成率、各环节耗时，会更利于调优。
 4. **补“为什么没生成提词”**：当前前端已能看到是否生成提词，但还可以进一步展示未生成的具体原因。
