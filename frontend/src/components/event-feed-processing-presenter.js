@@ -25,6 +25,70 @@ function buildBinaryState(value) {
   return value ? "success" : "neutral";
 }
 
+const suggestionReasonCodes = new Set([
+  "semantic_backend_unavailable",
+  "llm_failed",
+  "rule_skipped",
+  "no_generation_needed",
+]);
+
+function normalizeSuggestionState(status) {
+  const suggestionStatus = status?.suggestion_status;
+  if (suggestionStatus === "generated") {
+    return "success";
+  }
+  if (suggestionStatus === "skipped") {
+    return "skipped";
+  }
+  if (suggestionStatus === "failed") {
+    return "failed";
+  }
+  return buildBinaryState(status?.suggestion_generated);
+}
+
+function buildSuggestionReasonKey(status) {
+  if (typeof status?.suggestion_block_reason !== "string") {
+    return "";
+  }
+
+  const rawReasonCode = status.suggestion_block_reason.trim();
+  if (!rawReasonCode) {
+    return "";
+  }
+
+  const reasonCode = suggestionReasonCodes.has(rawReasonCode) ? rawReasonCode : "unknown";
+  return `feed.processing.reason.${reasonCode}`;
+}
+
+function buildSuggestionMeta(status, suggestionState) {
+  if (suggestionState === "success") {
+    return status.suggestion_id
+      ? [{ key: "feed.processing.suggestionId", value: status.suggestion_id }]
+      : [];
+  }
+
+  const reasonKey = buildSuggestionReasonKey(status);
+  if (!reasonKey) {
+    return [];
+  }
+
+  const meta = [
+    {
+      key: "feed.processing.suggestionReason",
+      valueKey: `${reasonKey}.label`,
+    },
+  ];
+
+  if (status.suggestion_block_detail) {
+    meta.push({
+      key: "feed.processing.suggestionDetail",
+      value: status.suggestion_block_detail,
+    });
+  }
+
+  return meta;
+}
+
 export function getCommentProcessingTimeline(event) {
   if (!isCommentWithStatus(event)) {
     return [];
@@ -39,7 +103,9 @@ export function getCommentProcessingTimeline(event) {
   );
   const receivedState = buildBinaryState(status.received);
   const persistedState = buildBinaryState(status.persisted);
-  const suggestionState = buildBinaryState(status.suggestion_generated);
+  const suggestionState = normalizeSuggestionState(status);
+  const suggestionReasonKey =
+    suggestionState === "success" ? "" : buildSuggestionReasonKey(status);
 
   return [
     {
@@ -66,6 +132,7 @@ export function getCommentProcessingTimeline(event) {
       key: "suggestionGenerated",
       state: suggestionState,
       labelKey: `feed.processing.timeline.suggestionGenerated.${suggestionState}`,
+      ...(suggestionReasonKey ? { reasonKey: suggestionReasonKey } : {}),
     },
   ];
 }
@@ -84,7 +151,7 @@ export function getCommentProcessingDetails(event) {
   );
   const receivedState = buildBinaryState(status.received);
   const persistedState = buildBinaryState(status.persisted);
-  const suggestionState = buildBinaryState(status.suggestion_generated);
+  const suggestionState = normalizeSuggestionState(status);
 
   return [
     {
@@ -120,9 +187,7 @@ export function getCommentProcessingDetails(event) {
       state: suggestionState,
       titleKey: "feed.processing.detail.suggestionGenerated.title",
       summaryKey: `feed.processing.detail.suggestionGenerated.${suggestionState}`,
-      meta: status.suggestion_id
-        ? [{ key: "feed.processing.suggestionId", value: status.suggestion_id }]
-        : [],
+      meta: buildSuggestionMeta(status, suggestionState),
     },
   ];
 }

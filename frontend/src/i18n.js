@@ -96,6 +96,8 @@ export const messages = {
         savedMemoryIds: "\u4fdd\u5b58\u8bb0\u5fc6 ID",
         recalledMemoryIds: "\u53ec\u56de\u8bb0\u5fc6 ID",
         suggestionId: "\u63d0\u8bcd ID",
+        suggestionReason: "\u672a\u751f\u6210\u539f\u56e0",
+        suggestionDetail: "\u8be6\u7ec6\u8bf4\u660e",
         timeline: {
           received: {
             success: "\u5df2\u63a5\u6536",
@@ -117,6 +119,8 @@ export const messages = {
           },
           suggestionGenerated: {
             success: "\u5df2\u751f\u6210\u5efa\u8bae",
+            skipped: "\u5df2\u8df3\u8fc7\u5efa\u8bae",
+            failed: "\u5efa\u8bae\u751f\u6210\u5931\u8d25",
             neutral: "\u672a\u751f\u6210\u5efa\u8bae",
           },
         },
@@ -146,7 +150,31 @@ export const messages = {
           suggestionGenerated: {
             title: "\u56de\u590d\u5efa\u8bae\u751f\u6210",
             success: "\u5df2\u751f\u6210\u56de\u590d\u5efa\u8bae\uff0c\u53ef\u7ee7\u7eed\u7528\u4e8e\u63d0\u8bcd",
+            skipped: "\u672c\u6b21\u6d41\u7a0b\u4e3b\u52a8\u8df3\u8fc7\u4e86\u56de\u590d\u5efa\u8bae\u751f\u6210",
+            failed: "\u56de\u590d\u5efa\u8bae\u751f\u6210\u5931\u8d25",
             neutral: "\u672c\u6b21\u6d41\u7a0b\u6ca1\u6709\u751f\u6210\u56de\u590d\u5efa\u8bae",
+          },
+        },
+        reason: {
+          semantic_backend_unavailable: {
+            short: "\u8bed\u4e49\u540e\u7aef\u4e0d\u53ef\u7528",
+            label: "\u8bed\u4e49\u540e\u7aef\u4e0d\u53ef\u7528",
+          },
+          llm_failed: {
+            short: "LLM \u751f\u6210\u5931\u8d25",
+            label: "LLM \u751f\u6210\u5931\u8d25",
+          },
+          rule_skipped: {
+            short: "\u89c4\u5219\u5224\u5b9a\u8df3\u8fc7",
+            label: "\u89c4\u5219\u5224\u5b9a\u8df3\u8fc7",
+          },
+          no_generation_needed: {
+            short: "\u65e0\u9700\u751f\u6210\u5efa\u8bae",
+            label: "\u65e0\u9700\u751f\u6210\u5efa\u8bae",
+          },
+          unknown: {
+            short: "\u539f\u56e0\u672a\u77e5",
+            label: "\u672a\u77e5\u539f\u56e0",
           },
         },
       },
@@ -300,6 +328,8 @@ export const messages = {
         savedMemoryIds: "Saved Memory IDs",
         recalledMemoryIds: "Recalled Memory IDs",
         suggestionId: "Suggestion ID",
+        suggestionReason: "Suggestion Reason",
+        suggestionDetail: "Suggestion Detail",
         timeline: {
           received: {
             success: "Received",
@@ -321,6 +351,8 @@ export const messages = {
           },
           suggestionGenerated: {
             success: "Suggestion Ready",
+            skipped: "Suggestion Skipped",
+            failed: "Suggestion Failed",
             neutral: "No Suggestion",
           },
         },
@@ -350,7 +382,31 @@ export const messages = {
           suggestionGenerated: {
             title: "Reply Suggestion",
             success: "A reply suggestion was generated for prompting.",
+            skipped: "This run skipped reply suggestion generation.",
+            failed: "Reply suggestion generation failed in this run.",
             neutral: "No reply suggestion was generated in this run.",
+          },
+        },
+        reason: {
+          semantic_backend_unavailable: {
+            short: "Semantic backend unavailable",
+            label: "Semantic backend unavailable",
+          },
+          llm_failed: {
+            short: "LLM generation failed",
+            label: "LLM generation failed",
+          },
+          rule_skipped: {
+            short: "Skipped by rule",
+            label: "Skipped by rule",
+          },
+          no_generation_needed: {
+            short: "No generation needed",
+            label: "No generation needed",
+          },
+          unknown: {
+            short: "Unknown reason",
+            label: "Unknown reason",
           },
         },
       },

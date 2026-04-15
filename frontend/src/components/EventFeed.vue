@@ -116,6 +116,7 @@ function processingTimeline(event) {
   return getCommentProcessingTimeline(event).map((item) => ({
     ...item,
     label: t(item.labelKey),
+    reason: item.reasonKey ? t(`${item.reasonKey}.short`) : "",
   }));
 }
 
@@ -127,6 +128,7 @@ function processingDetails(event) {
     meta: item.meta.map((metaItem) => ({
       ...metaItem,
       label: t(metaItem.key),
+      value: metaItem.valueKey ? t(metaItem.valueKey) : metaItem.value,
     })),
   }));
 }
@@ -151,6 +153,15 @@ function processingStepTone(state) {
       label: "text-muted",
       line: "border-t border-dashed border-line/18 bg-transparent",
       panel: "border-line/12 bg-panel/45",
+    };
+  }
+
+  if (state === "failed") {
+    return {
+      dot: "bg-rose-300 shadow-[0_0_0_4px_rgba(253,164,175,0.16)]",
+      label: "text-rose-100",
+      line: "bg-rose-300/40",
+      panel: "border-rose-300/24 bg-rose-400/12",
     };
   }
 
@@ -283,12 +294,17 @@ function toggleProcessingDetails(event) {
                         class="h-2.5 w-2.5 shrink-0 rounded-full"
                         :class="processingStepTone(step.state).dot"
                       />
-                      <span
-                        class="text-[11px] tracking-[0.12em]"
-                        :class="processingStepTone(step.state).label"
-                      >
-                        {{ step.label }}
-                      </span>
+                      <div class="min-w-0">
+                        <p
+                          class="text-[11px] tracking-[0.12em]"
+                          :class="processingStepTone(step.state).label"
+                        >
+                          {{ step.label }}
+                        </p>
+                        <p v-if="step.reason" class="mt-0.5 truncate text-[10px] text-muted/90">
+                          {{ step.reason }}
+                        </p>
+                      </div>
                     </div>
                     <span
                       v-if="index < processingTimeline(event).length - 1"

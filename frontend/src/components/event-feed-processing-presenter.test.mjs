@@ -16,7 +16,7 @@ const successEvent = {
     memory_recall_attempted: true,
     memory_recalled: true,
     recalled_memory_ids: ["mem-9"],
-    suggestion_generated: true,
+    suggestion_status: "generated",
     suggestion_id: "sug-1",
   },
 };
@@ -79,7 +79,7 @@ assert.deepEqual(getCommentProcessingDetails(successEvent), [
   },
 ]);
 
-const skippedRecallEvent = {
+const skippedSuggestionEvent = {
   event_type: "comment",
   processing_status: {
     received: true,
@@ -90,26 +90,203 @@ const skippedRecallEvent = {
     memory_recall_attempted: false,
     memory_recalled: false,
     recalled_memory_ids: [],
-    suggestion_generated: false,
+    suggestion_status: "skipped",
+    suggestion_block_reason: "rule_skipped",
+    suggestion_block_detail: "Rule gate skipped this turn",
   },
 };
 
 assert.equal(
-  getCommentProcessingTimeline(skippedRecallEvent)[2].labelKey,
+  getCommentProcessingTimeline(skippedSuggestionEvent)[2].labelKey,
   "feed.processing.timeline.memorySaved.neutral",
 );
 assert.equal(
-  getCommentProcessingTimeline(skippedRecallEvent)[3].labelKey,
+  getCommentProcessingTimeline(skippedSuggestionEvent)[3].labelKey,
   "feed.processing.timeline.memoryRecalled.skipped",
 );
 assert.equal(
-  getCommentProcessingDetails(skippedRecallEvent)[2].summaryKey,
+  getCommentProcessingDetails(skippedSuggestionEvent)[2].summaryKey,
   "feed.processing.detail.memorySaved.neutral",
 );
 assert.equal(
-  getCommentProcessingDetails(skippedRecallEvent)[3].summaryKey,
+  getCommentProcessingDetails(skippedSuggestionEvent)[3].summaryKey,
   "feed.processing.detail.memoryRecalled.skipped",
 );
+assert.deepEqual(getCommentProcessingTimeline(skippedSuggestionEvent)[4], {
+  key: "suggestionGenerated",
+  state: "skipped",
+  labelKey: "feed.processing.timeline.suggestionGenerated.skipped",
+  reasonKey: "feed.processing.reason.rule_skipped",
+});
+assert.deepEqual(getCommentProcessingDetails(skippedSuggestionEvent)[4], {
+  key: "suggestionGenerated",
+  state: "skipped",
+  titleKey: "feed.processing.detail.suggestionGenerated.title",
+  summaryKey: "feed.processing.detail.suggestionGenerated.skipped",
+  meta: [
+    {
+      key: "feed.processing.suggestionReason",
+      valueKey: "feed.processing.reason.rule_skipped.label",
+    },
+    {
+      key: "feed.processing.suggestionDetail",
+      value: "Rule gate skipped this turn",
+    },
+  ],
+});
+
+const failedSuggestionEvent = {
+  event_type: "comment",
+  processing_status: {
+    received: true,
+    persisted: true,
+    memory_extraction_attempted: true,
+    memory_saved: true,
+    memory_recall_attempted: true,
+    memory_recalled: true,
+    suggestion_status: "failed",
+    suggestion_block_reason: "llm_failed",
+    suggestion_block_detail: "LLM timeout",
+  },
+};
+
+assert.deepEqual(getCommentProcessingTimeline(failedSuggestionEvent)[4], {
+  key: "suggestionGenerated",
+  state: "failed",
+  labelKey: "feed.processing.timeline.suggestionGenerated.failed",
+  reasonKey: "feed.processing.reason.llm_failed",
+});
+assert.deepEqual(getCommentProcessingDetails(failedSuggestionEvent)[4], {
+  key: "suggestionGenerated",
+  state: "failed",
+  titleKey: "feed.processing.detail.suggestionGenerated.title",
+  summaryKey: "feed.processing.detail.suggestionGenerated.failed",
+  meta: [
+    {
+      key: "feed.processing.suggestionReason",
+      valueKey: "feed.processing.reason.llm_failed.label",
+    },
+    {
+      key: "feed.processing.suggestionDetail",
+      value: "LLM timeout",
+    },
+  ],
+});
+
+const unknownSuggestionReasonEvent = {
+  event_type: "comment",
+  processing_status: {
+    received: true,
+    persisted: true,
+    memory_extraction_attempted: true,
+    memory_saved: true,
+    memory_recall_attempted: true,
+    memory_recalled: true,
+    suggestion_status: "skipped",
+    suggestion_block_reason: "not_registered_reason",
+  },
+};
+
+assert.equal(
+  getCommentProcessingTimeline(unknownSuggestionReasonEvent)[4].reasonKey,
+  "feed.processing.reason.unknown",
+);
+assert.equal(
+  getCommentProcessingDetails(unknownSuggestionReasonEvent)[4].meta[0].valueKey,
+  "feed.processing.reason.unknown.label",
+);
+
+const legacySuggestionEvent = {
+  event_type: "comment",
+  processing_status: {
+    received: true,
+    persisted: true,
+    memory_extraction_attempted: true,
+    memory_saved: true,
+    memory_recall_attempted: true,
+    memory_recalled: true,
+    suggestion_generated: false,
+  },
+};
+
+const legacyTimelineSuggestion = getCommentProcessingTimeline(legacySuggestionEvent)[4];
+assert.deepEqual(legacyTimelineSuggestion, {
+  key: "suggestionGenerated",
+  state: "neutral",
+  labelKey: "feed.processing.timeline.suggestionGenerated.neutral",
+});
+assert.equal("reasonKey" in legacyTimelineSuggestion, false);
+
+const legacyDetailSuggestion = getCommentProcessingDetails(legacySuggestionEvent)[4];
+assert.equal(legacyDetailSuggestion.state, "neutral");
+assert.equal(legacyDetailSuggestion.summaryKey, "feed.processing.detail.suggestionGenerated.neutral");
+assert.deepEqual(legacyDetailSuggestion.meta, []);
+
+const legacySuggestionSuccessEvent = {
+  event_type: "comment",
+  processing_status: {
+    received: true,
+    persisted: true,
+    memory_extraction_attempted: true,
+    memory_saved: true,
+    memory_recall_attempted: true,
+    memory_recalled: true,
+    suggestion_generated: true,
+    suggestion_id: "legacy-sug-1",
+  },
+};
+
+const legacySuccessTimelineSuggestion = getCommentProcessingTimeline(legacySuggestionSuccessEvent)[4];
+assert.deepEqual(legacySuccessTimelineSuggestion, {
+  key: "suggestionGenerated",
+  state: "success",
+  labelKey: "feed.processing.timeline.suggestionGenerated.success",
+});
+assert.equal("reasonKey" in legacySuccessTimelineSuggestion, false);
+
+const legacySuccessDetailSuggestion = getCommentProcessingDetails(legacySuggestionSuccessEvent)[4];
+assert.deepEqual(legacySuccessDetailSuggestion, {
+  key: "suggestionGenerated",
+  state: "success",
+  titleKey: "feed.processing.detail.suggestionGenerated.title",
+  summaryKey: "feed.processing.detail.suggestionGenerated.success",
+  meta: [{ key: "feed.processing.suggestionId", value: "legacy-sug-1" }],
+});
+
+const mixedPayloadPrecedenceEvent = {
+  event_type: "comment",
+  processing_status: {
+    received: true,
+    persisted: true,
+    memory_extraction_attempted: true,
+    memory_saved: true,
+    memory_recall_attempted: true,
+    memory_recalled: true,
+    suggestion_status: "failed",
+    suggestion_generated: true,
+    suggestion_block_reason: "llm_failed",
+    suggestion_id: "legacy-sug-2",
+  },
+};
+
+assert.deepEqual(getCommentProcessingTimeline(mixedPayloadPrecedenceEvent)[4], {
+  key: "suggestionGenerated",
+  state: "failed",
+  labelKey: "feed.processing.timeline.suggestionGenerated.failed",
+  reasonKey: "feed.processing.reason.llm_failed",
+});
+assert.deepEqual(getCommentProcessingDetails(mixedPayloadPrecedenceEvent)[4], {
+  key: "suggestionGenerated",
+  state: "failed",
+  titleKey: "feed.processing.detail.suggestionGenerated.title",
+  summaryKey: "feed.processing.detail.suggestionGenerated.failed",
+  meta: [
+    {
+      key: "feed.processing.suggestionReason",
+      valueKey: "feed.processing.reason.llm_failed.label",
+    },
+  ],
+});
 
 assert.deepEqual(
   getCommentProcessingTimeline({ event_type: "gift", processing_status: { persisted: true } }),

@@ -23,6 +23,12 @@ assert.match(statusStripSource, /status\.semantic\.strictEnabled/);
 
 assert.match(eventFeedSource, /getCommentProcessingTimeline/);
 assert.match(eventFeedSource, /processingStepTone/);
+assert.match(eventFeedSource, /if \(state === "failed"\)/);
 assert.match(eventFeedSource, /border-l border-line\/14 pl-4/);
 assert.match(eventFeedSource, /feed\.processing\.hideDetails/);
+assert.match(eventFeedSource, /reasonKey/);
+assert.match(eventFeedSource, /step\.reason/);
+assert.match(eventFeedSource, /metaItem\.valueKey \? t\(metaItem\.valueKey\) : metaItem\.value/);
+assert.match(eventFeedSource, /item\.label/);
+assert.match(eventFeedSource, /item\.value/);
 assert.doesNotMatch(eventFeedSource, /getCommentProcessingBadges/);
