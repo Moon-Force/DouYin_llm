@@ -126,6 +126,15 @@ export const useLiveStore = defineStore("live", () => {
   const viewerNotePinned = ref(false);
   const editingViewerNoteId = ref("");
   const isSavingViewerNote = ref(false);
+  const viewerMemoryDraft = ref({
+    memoryText: "",
+    memoryType: "fact",
+    isPinned: false,
+    correctionReason: "",
+  });
+  const editingViewerMemoryId = ref("");
+  const isSavingViewerMemory = ref(false);
+  const viewerMemoryLogsById = ref({});
   let eventSource;
   let viewerWorkbenchRequestId = 0;
   let hotCleanupRegistered = false;
@@ -247,6 +256,8 @@ export const useLiveStore = defineStore("live", () => {
 
     if (resetEditor) {
       resetViewerNoteEditor();
+      resetViewerMemoryEditor();
+      viewerMemoryLogsById.value = {};
     }
 
     const query = new URLSearchParams({
@@ -650,11 +661,23 @@ export const useLiveStore = defineStore("live", () => {
     editingViewerNoteId.value = "";
   }
 
+  function resetViewerMemoryEditor() {
+    viewerMemoryDraft.value = {
+      memoryText: "",
+      memoryType: "fact",
+      isPinned: false,
+      correctionReason: "",
+    };
+    editingViewerMemoryId.value = "";
+  }
+
   function resetViewerWorkbenchState() {
     viewerWorkbench.value.viewer = null;
     viewerWorkbench.value.loading = false;
     viewerWorkbench.value.error = "";
     resetViewerNoteEditor();
+    resetViewerMemoryEditor();
+    viewerMemoryLogsById.value = {};
   }
 
   function closeViewerWorkbench() {
@@ -687,6 +710,32 @@ export const useLiveStore = defineStore("live", () => {
     viewerNoteDraft.value = note.content || "";
     viewerNotePinned.value = Boolean(note.is_pinned);
     editingViewerNoteId.value = note.note_id || "";
+  }
+
+  function setViewerMemoryDraft(patch) {
+    viewerMemoryDraft.value = {
+      ...viewerMemoryDraft.value,
+      ...patch,
+    };
+  }
+
+  function beginEditingViewerMemory(memory) {
+    if (isSavingViewerMemory.value) {
+      return;
+    }
+
+    if (!memory) {
+      resetViewerMemoryEditor();
+      return;
+    }
+
+    editingViewerMemoryId.value = memory.memory_id || "";
+    viewerMemoryDraft.value = {
+      memoryText: memory.memory_text || "",
+      memoryType: memory.memory_type || "fact",
+      isPinned: Boolean(memory.is_pinned),
+      correctionReason: memory.correction_reason || "",
+    };
   }
 
   async function saveActiveViewerNote() {
@@ -781,6 +830,205 @@ export const useLiveStore = defineStore("live", () => {
     }
   }
 
+  async function saveActiveViewerMemory() {
+    if (!viewerWorkbench.value.viewer || isSavingViewerMemory.value) {
+      return;
+    }
+
+    const currentViewer = viewerWorkbench.value.viewer;
+    if (!currentViewer.viewer_id) {
+      viewerWorkbench.value.error = "errors.viewerIdRequiredToSaveMemories";
+      return;
+    }
+    if (!viewerMemoryDraft.value.memoryText.trim()) {
+      viewerWorkbench.value.error = "errors.viewerMemoryRequired";
+      return;
+    }
+
+    const url = editingViewerMemoryId.value
+      ? `/api/viewer/memories/${editingViewerMemoryId.value}`
+      : "/api/viewer/memories";
+    const method = editingViewerMemoryId.value ? "PUT" : "POST";
+    const body = editingViewerMemoryId.value
+      ? {
+          memory_text: viewerMemoryDraft.value.memoryText,
+          memory_type: viewerMemoryDraft.value.memoryType,
+          is_pinned: viewerMemoryDraft.value.isPinned,
+          correction_reason: viewerMemoryDraft.value.correctionReason,
+        }
+      : {
+          room_id: currentViewer.room_id,
+          viewer_id: currentViewer.viewer_id,
+          memory_text: viewerMemoryDraft.value.memoryText,
+          memory_type: viewerMemoryDraft.value.memoryType,
+          is_pinned: viewerMemoryDraft.value.isPinned,
+          correction_reason: viewerMemoryDraft.value.correctionReason,
+        };
+
+    const requestId = viewerWorkbenchRequestId;
+    isSavingViewerMemory.value = true;
+    viewerWorkbench.value.error = "";
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        throw new Error(await getResponseError(response, "errors.viewerMemorySaveFailed"));
+      }
+      if (
+        isViewerRequestStale(requestId) ||
+        !viewerWorkbench.value.viewer ||
+        viewerWorkbench.value.viewer.viewer_id !== currentViewer.viewer_id
+      ) {
+        return;
+      }
+      resetViewerMemoryEditor();
+      await refreshViewerWorkbench();
+    } catch (error) {
+      if (!isViewerRequestStale(requestId)) {
+        viewerWorkbench.value.error = getViewerErrorMessage(error, "errors.viewerMemorySaveFailed");
+      }
+    } finally {
+      isSavingViewerMemory.value = false;
+    }
+  }
+
+  async function updateViewerMemoryStatus(memoryId, action, reason) {
+    if (!memoryId || !viewerWorkbench.value.viewer || isSavingViewerMemory.value) {
+      return;
+    }
+
+    const requestId = viewerWorkbenchRequestId;
+    isSavingViewerMemory.value = true;
+    viewerWorkbench.value.error = "";
+
+    try {
+      const response = await fetch(`/api/viewer/memories/${memoryId}/${action}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason }),
+      });
+      if (!response.ok) {
+        throw new Error(await getResponseError(response, "errors.viewerMemoryStatusFailed"));
+      }
+      if (!isViewerRequestStale(requestId)) {
+        await refreshViewerWorkbench();
+      }
+    } catch (error) {
+      if (!isViewerRequestStale(requestId)) {
+        viewerWorkbench.value.error = getViewerErrorMessage(error, "errors.viewerMemoryStatusFailed");
+      }
+    } finally {
+      isSavingViewerMemory.value = false;
+    }
+  }
+
+  async function invalidateViewerMemory(memoryId, reason) {
+    await updateViewerMemoryStatus(memoryId, "invalidate", reason);
+  }
+
+  async function reactivateViewerMemory(memoryId, reason) {
+    await updateViewerMemoryStatus(memoryId, "reactivate", reason);
+  }
+
+  async function deleteViewerMemory(memoryId, reason) {
+    if (!memoryId || !viewerWorkbench.value.viewer || isSavingViewerMemory.value) {
+      return;
+    }
+
+    const currentViewer = viewerWorkbench.value.viewer;
+    const requestId = viewerWorkbenchRequestId;
+    isSavingViewerMemory.value = true;
+    viewerWorkbench.value.error = "";
+
+    try {
+      const response = await fetch(`/api/viewer/memories/${memoryId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason }),
+      });
+      if (!response.ok) {
+        throw new Error(await getResponseError(response, "errors.viewerMemoryDeleteFailed"));
+      }
+      if (
+        isViewerRequestStale(requestId) ||
+        !viewerWorkbench.value.viewer ||
+        viewerWorkbench.value.viewer.viewer_id !== currentViewer.viewer_id
+      ) {
+        return;
+      }
+      if (editingViewerMemoryId.value === memoryId) {
+        resetViewerMemoryEditor();
+      }
+      await refreshViewerWorkbench();
+    } catch (error) {
+      if (!isViewerRequestStale(requestId)) {
+        viewerWorkbench.value.error = getViewerErrorMessage(error, "errors.viewerMemoryDeleteFailed");
+      }
+    } finally {
+      isSavingViewerMemory.value = false;
+    }
+  }
+
+  async function toggleViewerMemoryPin(memory) {
+    if (!memory) {
+      return;
+    }
+    beginEditingViewerMemory(memory);
+    setViewerMemoryDraft({ isPinned: !Boolean(memory.is_pinned) });
+    await saveActiveViewerMemory();
+  }
+
+  async function loadViewerMemoryLogs(memoryId) {
+    if (!memoryId) {
+      return;
+    }
+
+    viewerMemoryLogsById.value = {
+      ...viewerMemoryLogsById.value,
+      [memoryId]: {
+        ...(viewerMemoryLogsById.value[memoryId] || {}),
+        loading: true,
+        error: "",
+        items: viewerMemoryLogsById.value[memoryId]?.items || [],
+      },
+    };
+
+    try {
+      const response = await fetch(`/api/viewer/memories/${memoryId}/logs?limit=20`);
+      if (!response.ok) {
+        throw new Error(await getResponseError(response, "errors.viewerMemoryLogsLoadFailed"));
+      }
+      const payload = await response.json();
+      viewerMemoryLogsById.value = {
+        ...viewerMemoryLogsById.value,
+        [memoryId]: {
+          loading: false,
+          error: "",
+          items: payload.items || [],
+        },
+      };
+    } catch (error) {
+      viewerMemoryLogsById.value = {
+        ...viewerMemoryLogsById.value,
+        [memoryId]: {
+          loading: false,
+          error: getViewerErrorMessage(error, "errors.viewerMemoryLogsLoadFailed"),
+          items: [],
+        },
+      };
+    }
+  }
+
   if (
     typeof import.meta !== "undefined" &&
     import.meta.hot &&
@@ -847,10 +1095,22 @@ export const useLiveStore = defineStore("live", () => {
     viewerNotePinned,
     editingViewerNoteId,
     isSavingViewerNote,
+    viewerMemoryDraft,
+    editingViewerMemoryId,
+    isSavingViewerMemory,
+    viewerMemoryLogsById,
     setViewerNoteDraft,
     toggleViewerNotePinned,
     beginEditingViewerNote,
     saveActiveViewerNote,
     deleteViewerNote,
+    setViewerMemoryDraft,
+    beginEditingViewerMemory,
+    saveActiveViewerMemory,
+    invalidateViewerMemory,
+    reactivateViewerMemory,
+    deleteViewerMemory,
+    toggleViewerMemoryPin,
+    loadViewerMemoryLogs,
   };
 });

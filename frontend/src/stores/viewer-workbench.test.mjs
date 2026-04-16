@@ -442,3 +442,155 @@ store.setViewerNoteDraft("should not save");
 await store.saveActiveViewerNote();
 
 assert.equal(store.viewerWorkbench.error, "errors.viewerIdRequiredToSaveNotes");
+
+setFetch(async (url, options) => {
+  if (url.startsWith("/api/viewer?")) {
+    return {
+      ok: true,
+      async json() {
+        return {
+          ...baseViewerPayload,
+          memories: [
+            {
+              memory_id: "m1",
+              memory_text: "喜欢拉面",
+              memory_type: "preference",
+              source_kind: "auto",
+              status: "active",
+              is_pinned: 0,
+              correction_reason: "",
+              last_operation: "created",
+              last_operation_at: 1,
+            },
+          ],
+          notes: [],
+        };
+      },
+    };
+  }
+
+  throw new Error(`Unexpected request during memory workbench load: ${url} ${options.method || "GET"}`);
+});
+
+await store.openViewerWorkbench({
+  roomId: "841354217566",
+  viewerId: "id:viewer-1",
+  nickname: "A Ming",
+});
+
+setFetch(async (url, options) => {
+  if (url === "/api/viewer/memories" && options.method === "POST") {
+    return {
+      ok: true,
+      async json() {
+        return { memory_id: "m2" };
+      },
+    };
+  }
+
+  if (url.startsWith("/api/viewer?")) {
+    return {
+      ok: true,
+      async json() {
+        return {
+          ...baseViewerPayload,
+          memories: [
+            {
+              memory_id: "m2",
+              memory_text: "喜欢豚骨拉面",
+              memory_type: "preference",
+              source_kind: "manual",
+              status: "active",
+              is_pinned: 1,
+              correction_reason: "主播补充",
+              last_operation: "created",
+              last_operation_at: 2,
+            },
+          ],
+          notes: [],
+        };
+      },
+    };
+  }
+
+  throw new Error(`Unexpected request during memory create: ${url} ${options.method || "GET"}`);
+});
+
+store.setViewerMemoryDraft({
+  memoryText: "喜欢豚骨拉面",
+  memoryType: "preference",
+  isPinned: true,
+  correctionReason: "主播补充",
+});
+await store.saveActiveViewerMemory();
+
+const memoryCreate = requests.find(
+  (request) => request.url === "/api/viewer/memories" && request.options.method === "POST",
+);
+assert.ok(memoryCreate);
+assert.deepEqual(JSON.parse(memoryCreate.options.body), {
+  room_id: "841354217566",
+  viewer_id: "id:viewer-1",
+  memory_text: "喜欢豚骨拉面",
+  memory_type: "preference",
+  is_pinned: true,
+  correction_reason: "主播补充",
+});
+
+setFetch(async (url, options) => {
+  if (url === "/api/viewer/memories/m1/invalidate" && options.method === "POST") {
+    return {
+      ok: true,
+      async json() {
+        return { memory_id: "m1", status: "invalid" };
+      },
+    };
+  }
+
+  if (url === "/api/viewer/memories/m1/logs?limit=20") {
+    return {
+      ok: true,
+      async json() {
+        return {
+          items: [
+            { log_id: "l2", operation: "invalidated", reason: "信息过期" },
+            { log_id: "l1", operation: "created", reason: "" },
+          ],
+        };
+      },
+    };
+  }
+
+  if (url.startsWith("/api/viewer?")) {
+    return {
+      ok: true,
+      async json() {
+        return {
+          ...baseViewerPayload,
+          memories: [
+            {
+              memory_id: "m1",
+              memory_text: "喜欢拉面",
+              memory_type: "preference",
+              source_kind: "auto",
+              status: "invalid",
+              is_pinned: 0,
+              correction_reason: "信息过期",
+              last_operation: "invalidated",
+              last_operation_at: 3,
+            },
+          ],
+          notes: [],
+        };
+      },
+    };
+  }
+
+  throw new Error(`Unexpected request during memory invalidation: ${url} ${options.method || "GET"}`);
+});
+
+await store.invalidateViewerMemory("m1", "信息过期");
+await store.loadViewerMemoryLogs("m1");
+
+assert.equal(store.viewerMemoryLogsById.m1.items.length, 2);
+assert.equal(store.viewerWorkbench.viewer.memories[0].status, "invalid");
