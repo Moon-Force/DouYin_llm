@@ -48,6 +48,26 @@ class ViewerNoteUpsertRequest(BaseModel):
     note_id: str | None = None
 
 
+class ViewerMemoryUpsertRequest(BaseModel):
+    room_id: str
+    viewer_id: str
+    memory_text: str
+    memory_type: str = "fact"
+    is_pinned: bool = False
+    correction_reason: str = ""
+
+
+class ViewerMemoryUpdateRequest(BaseModel):
+    memory_text: str
+    memory_type: str = "fact"
+    is_pinned: bool = False
+    correction_reason: str = ""
+
+
+class ViewerMemoryStatusRequest(BaseModel):
+    reason: str = ""
+
+
 class LlmSettingsUpdateRequest(BaseModel):
     model: str
     system_prompt: str = ""
@@ -109,9 +129,15 @@ async def process_event(event: LiveEvent):
             source_event_id=event.event_id,
             memory_type=candidate["memory_type"],
             confidence=candidate["confidence"],
+            source_kind="auto",
+            status="active",
+            is_pinned=False,
+            correction_reason="",
+            corrected_by="system",
+            operation="created",
         )
         if memory:
-            vector_memory.add_memory(memory)
+            vector_memory.sync_memory(memory)
             saved_memory_ids.append(memory.memory_id)
 
     processing_status.memory_saved = bool(saved_memory_ids)
@@ -211,6 +237,84 @@ async def viewer_memories(room_id: str | None = None, viewer_id: str | None = No
     if not target_viewer_id:
         raise HTTPException(status_code=400, detail="viewer_id is required")
     return {"items": long_term_store.list_viewer_memories(target_room_id, target_viewer_id, limit=limit)}
+
+
+@app.post("/api/viewer/memories")
+async def create_viewer_memory(payload: ViewerMemoryUpsertRequest):
+    room_id = payload.room_id.strip()
+    viewer_id = payload.viewer_id.strip()
+    memory_text = payload.memory_text.strip()
+    if not room_id:
+        raise HTTPException(status_code=400, detail="room_id is required")
+    if not viewer_id:
+        raise HTTPException(status_code=400, detail="viewer_id is required")
+    if not memory_text:
+        raise HTTPException(status_code=400, detail="memory_text is required")
+
+    memory = long_term_store.save_viewer_memory(
+        room_id,
+        viewer_id,
+        memory_text,
+        source_event_id="",
+        memory_type=payload.memory_type.strip() or "fact",
+        confidence=1.0,
+        source_kind="manual",
+        status="active",
+        is_pinned=payload.is_pinned,
+        correction_reason=payload.correction_reason,
+        corrected_by="主播",
+        operation="created",
+    )
+    vector_memory.sync_memory(memory)
+    return memory
+
+
+@app.put("/api/viewer/memories/{memory_id}")
+async def update_viewer_memory(memory_id: str, payload: ViewerMemoryUpdateRequest):
+    memory = long_term_store.update_viewer_memory(
+        memory_id=memory_id,
+        memory_text=payload.memory_text,
+        memory_type=payload.memory_type,
+        is_pinned=payload.is_pinned,
+        correction_reason=payload.correction_reason,
+        corrected_by="主播",
+    )
+    if not memory:
+        raise HTTPException(status_code=404, detail="memory not found")
+    vector_memory.sync_memory(memory)
+    return memory
+
+
+@app.post("/api/viewer/memories/{memory_id}/invalidate")
+async def invalidate_viewer_memory(memory_id: str, payload: ViewerMemoryStatusRequest):
+    memory = long_term_store.invalidate_viewer_memory(memory_id, reason=payload.reason, corrected_by="主播")
+    if not memory:
+        raise HTTPException(status_code=404, detail="memory not found")
+    vector_memory.sync_memory(memory)
+    return memory
+
+
+@app.post("/api/viewer/memories/{memory_id}/reactivate")
+async def reactivate_viewer_memory(memory_id: str, payload: ViewerMemoryStatusRequest):
+    memory = long_term_store.reactivate_viewer_memory(memory_id, reason=payload.reason, corrected_by="主播")
+    if not memory:
+        raise HTTPException(status_code=404, detail="memory not found")
+    vector_memory.sync_memory(memory)
+    return memory
+
+
+@app.delete("/api/viewer/memories/{memory_id}")
+async def delete_viewer_memory(memory_id: str, payload: ViewerMemoryStatusRequest):
+    memory = long_term_store.delete_viewer_memory(memory_id, reason=payload.reason, corrected_by="主播")
+    if not memory:
+        raise HTTPException(status_code=404, detail="memory not found")
+    vector_memory.remove_memory(memory_id)
+    return memory
+
+
+@app.get("/api/viewer/memories/{memory_id}/logs")
+async def viewer_memory_logs(memory_id: str, limit: int = 20):
+    return {"items": long_term_store.list_viewer_memory_logs(memory_id, limit=limit)}
 
 
 @app.get("/api/viewer/notes")

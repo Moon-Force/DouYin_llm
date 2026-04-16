@@ -85,6 +85,21 @@ class CommentProcessingStatusTests(unittest.TestCase):
 
             asyncio.run(app_module.process_event(event))
 
+            app_module.long_term_store.save_viewer_memory.assert_called_with(
+                room_id="room-1",
+                viewer_id="id:user-1",
+                memory_text="likes ramen",
+                source_event_id="evt-1",
+                memory_type="preference",
+                confidence=0.91,
+                source_kind="auto",
+                status="active",
+                is_pinned=False,
+                correction_reason="",
+                corrected_by="system",
+                operation="created",
+            )
+
             published_event = app_module.broker.publish.await_args_list[0].args[0]
             status = published_event["data"]["processing_status"]
 
