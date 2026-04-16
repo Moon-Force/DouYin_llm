@@ -305,6 +305,91 @@ def run_internal_verification(dataset=None, count=1):
         return results, len(extracted_memories)
 
 
+def run_semantic_recall_verification(dataset_path):
+    print_header("Memory Pipeline Verify: semantic recall")
+    results = []
+    settings.ensure_dirs()
+    cases = load_semantic_recall_fixture(dataset_path)
+    record_step(results, "dataset", True, f"path={dataset_path} cases={len(cases)}")
+
+    with tempfile.TemporaryDirectory(prefix="semantic-recall-") as tempdir:
+        temp_root = Path(tempdir)
+        database_path = temp_root / "live_prompter.db"
+        chroma_dir = temp_root / "chroma"
+        chroma_dir.mkdir(parents=True, exist_ok=True)
+
+        store = LongTermStore(database_path)
+        embedding_service = EmbeddingService(settings)
+        vector = VectorMemory(chroma_dir, settings=settings, embedding_service=embedding_service)
+
+        total_memories = 0
+        failures = []
+        for index, case in enumerate(cases, start=1):
+            room_id = str(case.get("room_id") or DEFAULT_ROOM_ID).strip()
+            viewer_id = str(case.get("viewer_id") or f"id:semantic-eval-viewer-{index:03d}").strip()
+            for memory_text in case.get("memory_texts", []):
+                store.save_viewer_memory(
+                    room_id,
+                    viewer_id,
+                    memory_text,
+                    source_event_id=f"semantic-recall-{index:03d}",
+                    memory_type="fact",
+                    confidence=0.8,
+                )
+                total_memories += 1
+
+        vector.prime_memory_index(store.list_all_viewer_memories(limit=10000), batch_size=64, force_rebuild=True)
+        record_step(results, "index_memories", True, f"cases={len(cases)} memories={total_memories}")
+
+        top1_hits = 0
+        top3_hits = 0
+        for index, case in enumerate(cases, start=1):
+            room_id = str(case.get("room_id") or DEFAULT_ROOM_ID).strip()
+            viewer_id = str(case.get("viewer_id") or f"id:semantic-eval-viewer-{index:03d}").strip()
+            expected = str(case.get("expected_memory_text") or "").strip()
+            recalled = vector.similar_memories(str(case.get("query") or "").strip(), room_id, viewer_id, limit=3)
+            top_texts = [str(item.get("memory_text") or "") for item in recalled]
+
+            if top_texts[:1] and top_texts[0] == expected:
+                top1_hits += 1
+            if expected in top_texts:
+                top3_hits += 1
+            else:
+                failures.append(
+                    {
+                        "label": str(case.get("label") or f"case-{index}"),
+                        "query": str(case.get("query") or ""),
+                        "expected_memory_text": expected,
+                        "top_texts": top_texts,
+                    }
+                )
+
+        total_cases = len(cases)
+        recall_ok = top3_hits == total_cases
+        record_step(
+            results,
+            "semantic_recall",
+            recall_ok,
+            (
+                f"cases={total_cases} "
+                f"top1={top1_hits}/{total_cases} "
+                f"top3={top3_hits}/{total_cases} "
+                f"top1_rate={top1_hits / total_cases:.4f} "
+                f"top3_rate={top3_hits / total_cases:.4f}"
+            ),
+        )
+        for failure in failures[:5]:
+            print(
+                json.dumps(
+                    {
+                        "semantic_recall_failure": failure,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+        return results
+
+
 def post_json(url, payload):
     request = urllib.request.Request(
         url,

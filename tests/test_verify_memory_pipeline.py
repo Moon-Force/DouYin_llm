@@ -27,6 +27,7 @@ from tests.memory_pipeline_verifier.runner import (
     parse_args,
     query_batch_sqlite_counts,
     run_internal_verification,
+    run_semantic_recall_verification,
     should_start_backend,
     summarize_results,
 )
@@ -277,6 +278,67 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
         self.assertNotEqual(captured["chroma_dir"], fake_settings.chroma_dir)
         self.assertIn("temp", str(captured["database_path"]).lower())
         self.assertIn("temp", str(captured["chroma_dir"]).lower())
+
+    def test_run_semantic_recall_verification_reports_top1_and_top3(self):
+        dataset = [
+            {
+                "label": "job-overtime",
+                "room_id": "room-1",
+                "viewer_id": "id:viewer-1",
+                "memory_texts": [
+                    "我在杭州做前端开发，最近连续两周都在加班赶需求。",
+                    "我周末常去西湖边夜跑，一次差不多十公里。",
+                    "我皮肤偏干，换季的时候脸上很容易起皮。",
+                ],
+                "query": "最近写页面经常熬夜赶进度",
+                "expected_memory_text": "我在杭州做前端开发，最近连续两周都在加班赶需求。",
+            }
+        ]
+
+        with patch("tests.memory_pipeline_verifier.runner.load_semantic_recall_fixture", return_value=dataset), patch(
+            "tests.memory_pipeline_verifier.runner.EmbeddingService", return_value=MagicMock()
+        ), patch("tests.memory_pipeline_verifier.runner.VectorMemory") as vector_cls:
+            fake_vector = MagicMock()
+            fake_vector.similar_memories.return_value = [
+                {"memory_text": "我在杭州做前端开发，最近连续两周都在加班赶需求。"},
+                {"memory_text": "我皮肤偏干，换季的时候脸上很容易起皮。"},
+            ]
+            vector_cls.return_value = fake_vector
+
+            results = run_semantic_recall_verification("tests/fixtures/semantic_recall/default.json")
+
+        self.assertEqual(results[0].name, "dataset")
+        self.assertEqual(results[1].name, "index_memories")
+        self.assertEqual(results[2].name, "semantic_recall")
+        self.assertEqual(
+            results[2].details,
+            "cases=1 top1=1/1 top3=1/1 top1_rate=1.0000 top3_rate=1.0000",
+        )
+
+    def test_run_semantic_recall_verification_marks_failure_when_expected_text_misses_top3(self):
+        dataset = [
+            {
+                "label": "missed-case",
+                "memory_texts": ["我住在公司附近。", "我早饭只喝美式咖啡。"],
+                "query": "家离单位很近",
+                "expected_memory_text": "我住在公司附近。",
+            }
+        ]
+
+        with patch("tests.memory_pipeline_verifier.runner.load_semantic_recall_fixture", return_value=dataset), patch(
+            "tests.memory_pipeline_verifier.runner.EmbeddingService", return_value=MagicMock()
+        ), patch("tests.memory_pipeline_verifier.runner.VectorMemory") as vector_cls:
+            fake_vector = MagicMock()
+            fake_vector.similar_memories.return_value = [{"memory_text": "我早饭只喝美式咖啡。"}]
+            vector_cls.return_value = fake_vector
+
+            results = run_semantic_recall_verification("tests/fixtures/semantic_recall/default.json")
+
+        self.assertFalse(results[2].ok)
+        self.assertEqual(
+            results[2].details,
+            "cases=1 top1=0/1 top3=0/1 top1_rate=0.0000 top3_rate=0.0000",
+        )
 
 
 if __name__ == "__main__":
