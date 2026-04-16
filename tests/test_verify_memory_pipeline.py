@@ -195,6 +195,30 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
         finally:
             cleanup_temp_dir(temp_root)
 
+    def test_load_semantic_recall_blind_fixture_has_hundred_tagged_cases(self):
+        fixture_path = Path("tests/fixtures/semantic_recall/blind_100.json")
+
+        cases = load_semantic_recall_fixture(fixture_path)
+
+        self.assertGreaterEqual(len(cases), 100)
+        self.assertEqual(len({case["label"] for case in cases}), len(cases))
+        self.assertTrue(
+            all(
+                isinstance(case.get("tags"), list)
+                and case["tags"]
+                and all(str(tag).strip() for tag in case["tags"])
+                for case in cases
+            )
+        )
+
+    def test_blind_semantic_recall_fixture_cases_have_dense_memory_choices(self):
+        fixture_path = Path("tests/fixtures/semantic_recall/blind_100.json")
+
+        cases = load_semantic_recall_fixture(fixture_path)
+
+        self.assertTrue(all(len(case["memory_texts"]) >= 4 for case in cases))
+        self.assertTrue(all(case["expected_memory_text"] in case["memory_texts"] for case in cases))
+
     def test_validate_semantic_recall_cases_rejects_expected_text_outside_memory_texts(self):
         with self.assertRaises(ValueError):
             validate_semantic_recall_cases(
