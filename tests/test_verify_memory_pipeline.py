@@ -212,12 +212,12 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             )
         )
 
-    def test_blind_semantic_recall_fixture_cases_have_dense_memory_choices(self):
+    def test_blind_semantic_recall_fixture_cases_have_ten_memory_choices(self):
         fixture_path = Path("tests/fixtures/semantic_recall/blind_100.json")
 
         cases = load_semantic_recall_fixture(fixture_path)
 
-        self.assertTrue(all(len(case["memory_texts"]) >= 4 for case in cases))
+        self.assertTrue(all(len(case["memory_texts"]) >= 10 for case in cases))
         self.assertTrue(all(case["expected_memory_text"] in case["memory_texts"] for case in cases))
 
     def test_blind_semantic_recall_fixture_keeps_category_balance_and_non_copy_queries(self):
@@ -452,6 +452,57 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             results[2].details,
             "cases=1 top1=0/1 top3=0/1 top1_rate=0.0000 top3_rate=0.0000",
         )
+
+    def test_run_semantic_recall_verification_writes_markdown_report(self):
+        dataset = [
+            {
+                "label": "blind-001",
+                "tags": ["typo"],
+                "room_id": "room-1",
+                "viewer_id": "id:viewer-1",
+                "memory_texts": [
+                    "我在杭州做前端开发，最近连续两周都在加班赶需求。",
+                    "我最近在赶一个移动端重构项目，这两周经常改到半夜。",
+                    "我们组这个月一直在冲版本，晚上开会和改页面都特别频繁。",
+                    "我白天写后台联调，晚上还得补前端交互细节。",
+                    "我最近在做页面性能优化，连着几天都改到很晚。",
+                    "最近版本联调问题很多，下班后还得继续跟。",
+                    "这段时间需求变更多，前端排期一直很紧。",
+                    "我最近总在补交互细节，晚上经常不能准点走。",
+                    "最近项目节奏特别赶，白天晚上都在盯页面。",
+                    "我这两周一直在赶上线，所以经常熬夜处理问题。",
+                ],
+                "query": "最近写页面经常熬页赶进度",
+                "expected_memory_text": "我在杭州做前端开发，最近连续两周都在加班赶需求。",
+            }
+        ]
+
+        with tempfile.TemporaryDirectory(prefix="semantic-report-") as tempdir, patch(
+            "tests.memory_pipeline_verifier.runner.load_semantic_recall_fixture",
+            return_value=dataset,
+        ), patch("tests.memory_pipeline_verifier.runner.EmbeddingService", return_value=MagicMock()), patch(
+            "tests.memory_pipeline_verifier.runner.VectorMemory"
+        ) as vector_cls:
+            fake_vector = MagicMock()
+            fake_vector.similar_memories.return_value = [
+                {"memory_text": "我在杭州做前端开发，最近连续两周都在加班赶需求。"},
+                {"memory_text": "我最近在赶一个移动端重构项目，这两周经常改到半夜。"},
+                {"memory_text": "我们组这个月一直在冲版本，晚上开会和改页面都特别频繁。"},
+            ]
+            vector_cls.return_value = fake_vector
+
+            results, report_path = run_semantic_recall_verification(
+                "tests/fixtures/semantic_recall/blind_100.json",
+                report_dir=Path(tempdir),
+            )
+
+        report_text = Path(report_path).read_text(encoding="utf-8")
+        self.assertTrue(Path(report_path).exists())
+        self.assertEqual(results[3].name, "report")
+        self.assertIn("# Semantic Recall Report", report_text)
+        self.assertIn("## blind-001", report_text)
+        self.assertIn("Top1 Hit", report_text)
+        self.assertIn("Top3 Hit", report_text)
 
     def test_cleanup_temp_dir_swallows_permission_error(self):
         with patch("tests.memory_pipeline_verifier.runner.shutil.rmtree", side_effect=PermissionError("busy")):
