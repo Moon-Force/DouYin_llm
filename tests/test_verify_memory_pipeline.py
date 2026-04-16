@@ -12,6 +12,8 @@ from tests.memory_pipeline_verifier.datasets import (
     DEFAULT_DATASET_SIZE,
     build_memory_dataset,
     export_dataset_fixture,
+    load_semantic_recall_fixture,
+    validate_semantic_recall_cases,
 )
 from tests.memory_pipeline_verifier.runner import (
     DEFAULT_EVENT_CONTENT,
@@ -107,6 +109,29 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
                 output_path.unlink()
             if output_dir.exists():
                 output_dir.rmdir()
+
+    def test_load_semantic_recall_fixture_returns_cases(self):
+        fixture_path = Path("tests/fixtures/semantic_recall/default.json")
+
+        cases = load_semantic_recall_fixture(fixture_path)
+
+        self.assertGreaterEqual(len(cases), 5)
+        self.assertIn("memory_texts", cases[0])
+        self.assertIn("query", cases[0])
+        self.assertIn("expected_memory_text", cases[0])
+
+    def test_validate_semantic_recall_cases_rejects_expected_text_outside_memory_texts(self):
+        with self.assertRaises(ValueError):
+            validate_semantic_recall_cases(
+                [
+                    {
+                        "label": "bad-case",
+                        "memory_texts": ["我住在公司附近。"],
+                        "query": "我家离公司很近",
+                        "expected_memory_text": "我平时骑车上班。",
+                    }
+                ]
+            )
 
     def test_parse_args_accepts_dataset_and_count(self):
         args = parse_args(["--mode", "internal", "--count", "50", "--dataset", "tests/fixtures/demo.json"])

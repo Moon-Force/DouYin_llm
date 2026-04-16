@@ -84,3 +84,35 @@ def load_dataset_fixture(input_path: str | Path) -> list[dict]:
     """Load a dataset fixture from disk."""
 
     return json.loads(Path(input_path).read_text(encoding="utf-8"))
+
+
+def validate_semantic_recall_cases(cases: list[dict]) -> None:
+    """Validate semantic recall fixture cases before running evaluation."""
+
+    if not cases:
+        raise ValueError("semantic recall dataset is empty")
+
+    for index, case in enumerate(cases, start=1):
+        memory_texts = [str(item or "").strip() for item in case.get("memory_texts", [])]
+        query = str(case.get("query", "")).strip()
+        expected = str(case.get("expected_memory_text", "")).strip()
+        label = str(case.get("label", "")).strip()
+
+        if len(memory_texts) < 2:
+            raise ValueError(f"case {index} must contain at least 2 memory_texts")
+        if not query:
+            raise ValueError(f"case {index} query is required")
+        if not expected:
+            raise ValueError(f"case {index} expected_memory_text is required")
+        if expected not in memory_texts:
+            raise ValueError(f"case {index} expected_memory_text must exist in memory_texts")
+        if not label:
+            raise ValueError(f"case {index} label is required")
+
+
+def load_semantic_recall_fixture(input_path: str | Path) -> list[dict]:
+    """Load and validate semantic recall fixture cases from disk."""
+
+    cases = json.loads(Path(input_path).read_text(encoding="utf-8"))
+    validate_semantic_recall_cases(cases)
+    return cases

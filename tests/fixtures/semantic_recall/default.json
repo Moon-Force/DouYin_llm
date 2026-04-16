@@ -1,0 +1,62 @@
+[
+  {
+    "label": "工作熬夜",
+    "room_id": "semantic-eval-room",
+    "viewer_id": "id:semantic-eval-viewer-001",
+    "memory_texts": [
+      "我在杭州做前端开发，最近连续两周都在加班赶需求。",
+      "我周末常去西湖边夜跑，一次差不多十公里。",
+      "我皮肤偏干，换季的时候脸上很容易起皮。"
+    ],
+    "query": "最近写页面经常熬夜赶进度",
+    "expected_memory_text": "我在杭州做前端开发，最近连续两周都在加班赶需求。"
+  },
+  {
+    "label": "西湖夜跑",
+    "room_id": "semantic-eval-room",
+    "viewer_id": "id:semantic-eval-viewer-002",
+    "memory_texts": [
+      "我住在公司附近，走路十分钟左右就能到。",
+      "我周末常去西湖边夜跑，一次差不多十公里。",
+      "我最近在减脂，晚饭尽量不吃米饭和面。"
+    ],
+    "query": "休息天会绕着西湖跑长距离",
+    "expected_memory_text": "我周末常去西湖边夜跑，一次差不多十公里。"
+  },
+  {
+    "label": "乳糖不耐",
+    "room_id": "semantic-eval-room",
+    "viewer_id": "id:semantic-eval-viewer-003",
+    "memory_texts": [
+      "我乳糖不耐，喝牛奶就容易肚子不舒服。",
+      "我早饭一般只喝美式咖啡，不怎么吃甜的。",
+      "我喜欢吃重辣火锅，但是一点都不吃香菜。"
+    ],
+    "query": "一喝牛奶肚子就受不了",
+    "expected_memory_text": "我乳糖不耐，喝牛奶就容易肚子不舒服。"
+  },
+  {
+    "label": "备考雅思",
+    "room_id": "semantic-eval-room",
+    "viewer_id": "id:semantic-eval-viewer-004",
+    "memory_texts": [
+      "我最近在备考雅思，晚上下班后会背单词做听力。",
+      "我每个月都要去上海出差两三次，最近尤其频繁。",
+      "我平时上班主要骑电动车通勤，单程大概四十分钟。"
+    ],
+    "query": "晚上基本都在刷雅思词汇和听力",
+    "expected_memory_text": "我最近在备考雅思，晚上下班后会背单词做听力。"
+  },
+  {
+    "label": "橘猫团子",
+    "room_id": "semantic-eval-room",
+    "viewer_id": "id:semantic-eval-viewer-005",
+    "memory_texts": [
+      "我养了一只橘猫，名字叫团子，特别能吃。",
+      "我妈妈最近住院了，我白天要来回照顾她。",
+      "我一直用iPhone，不过下一台手机想换折叠屏。"
+    ],
+    "query": "家里那只叫团子的橘猫今天又拆家了",
+    "expected_memory_text": "我养了一只橘猫，名字叫团子，特别能吃。"
+  }
+]
