@@ -1,6 +1,7 @@
 import argparse
 from dataclasses import dataclass
 import json
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -216,6 +217,22 @@ def query_batch_sqlite_counts(database_path, room_id, viewer_ids, query_fn=None)
     return totals
 
 
+def cleanup_temp_dir(path, retries=3, delay_seconds=0.1):
+    target = Path(path)
+    attempts = max(1, int(retries))
+    for attempt in range(attempts):
+        try:
+            shutil.rmtree(target)
+            return True
+        except FileNotFoundError:
+            return True
+        except PermissionError:
+            if attempt >= attempts - 1:
+                return False
+            time.sleep(max(0.0, float(delay_seconds)))
+    return False
+
+
 def run_internal_verification(dataset=None, count=1):
     print_header("Memory Pipeline Verify: internal")
     results = []
@@ -223,8 +240,8 @@ def run_internal_verification(dataset=None, count=1):
     events = build_live_events(dataset=dataset, count=count)
     extractor = ViewerMemoryExtractor()
 
-    with tempfile.TemporaryDirectory(prefix="memory-pipeline-") as tempdir:
-        temp_root = Path(tempdir)
+    temp_root = Path(tempfile.mkdtemp(prefix="memory-pipeline-"))
+    try:
         database_path = temp_root / "live_prompter.db"
         chroma_dir = temp_root / "chroma"
         chroma_dir.mkdir(parents=True, exist_ok=True)
@@ -303,6 +320,8 @@ def run_internal_verification(dataset=None, count=1):
         recall_ok = matched_recall_count == len(extracted_memories)
         record_step(results, "recall", recall_ok, f"matches={matched_recall_count}/{len(extracted_memories)}")
         return results, len(extracted_memories)
+    finally:
+        cleanup_temp_dir(temp_root)
 
 
 def run_semantic_recall_verification(dataset_path):
@@ -312,8 +331,8 @@ def run_semantic_recall_verification(dataset_path):
     cases = load_semantic_recall_fixture(dataset_path)
     record_step(results, "dataset", True, f"path={dataset_path} cases={len(cases)}")
 
-    with tempfile.TemporaryDirectory(prefix="semantic-recall-") as tempdir:
-        temp_root = Path(tempdir)
+    temp_root = Path(tempfile.mkdtemp(prefix="semantic-recall-"))
+    try:
         database_path = temp_root / "live_prompter.db"
         chroma_dir = temp_root / "chroma"
         chroma_dir.mkdir(parents=True, exist_ok=True)
@@ -388,6 +407,8 @@ def run_semantic_recall_verification(dataset_path):
                 )
             )
         return results
+    finally:
+        cleanup_temp_dir(temp_root)
 
 
 def post_json(url, payload):
@@ -507,3 +528,7 @@ def main(argv=None):
         return 0
     print(f"overall: FAIL ({', '.join(summary['failed_steps'])})")
     return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

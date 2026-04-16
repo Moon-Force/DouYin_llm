@@ -21,6 +21,7 @@ from tests.memory_pipeline_verifier.runner import (
     StepResult,
     backend_ready_after_attempts,
     build_test_event_payload,
+    cleanup_temp_dir,
     format_step_status,
     normalize_mode,
     normalize_task,
@@ -88,6 +89,19 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             timeout=10,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_runner_module_help_runs_successfully(self):
+        repo_root = Path(__file__).resolve().parents[1]
+        completed = subprocess.run(
+            [sys.executable, "-m", "tests.memory_pipeline_verifier.runner", "--help"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("Verify the viewer memory extraction pipeline.", completed.stdout)
 
     def test_build_memory_dataset_returns_fifty_plus_extractable_events(self):
         dataset = build_memory_dataset()
@@ -339,6 +353,12 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             results[2].details,
             "cases=1 top1=0/1 top3=0/1 top1_rate=0.0000 top3_rate=0.0000",
         )
+
+    def test_cleanup_temp_dir_swallows_permission_error(self):
+        with patch("tests.memory_pipeline_verifier.runner.shutil.rmtree", side_effect=PermissionError("busy")):
+            removed = cleanup_temp_dir(Path("C:/temp/semantic-recall"), retries=1, delay_seconds=0)
+
+        self.assertFalse(removed)
 
 
 if __name__ == "__main__":
