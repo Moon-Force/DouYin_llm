@@ -170,7 +170,33 @@ class LongTermStore:
                     created_at INTEGER NOT NULL,
                     updated_at INTEGER NOT NULL,
                     last_recalled_at INTEGER,
-                    recall_count INTEGER NOT NULL DEFAULT 0
+                    recall_count INTEGER NOT NULL DEFAULT 0,
+                    source_kind TEXT NOT NULL DEFAULT 'auto',
+                    status TEXT NOT NULL DEFAULT 'active',
+                    is_pinned INTEGER NOT NULL DEFAULT 0,
+                    correction_reason TEXT NOT NULL DEFAULT '',
+                    corrected_by TEXT NOT NULL DEFAULT '',
+                    last_operation TEXT NOT NULL DEFAULT 'created',
+                    last_operation_at INTEGER NOT NULL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS viewer_memory_logs (
+                    log_id TEXT PRIMARY KEY,
+                    memory_id TEXT NOT NULL,
+                    room_id TEXT NOT NULL,
+                    viewer_id TEXT NOT NULL,
+                    operation TEXT NOT NULL,
+                    operator TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    old_memory_text TEXT NOT NULL,
+                    new_memory_text TEXT NOT NULL,
+                    old_memory_type TEXT NOT NULL,
+                    new_memory_type TEXT NOT NULL,
+                    old_status TEXT NOT NULL,
+                    new_status TEXT NOT NULL,
+                    old_is_pinned INTEGER NOT NULL DEFAULT 0,
+                    new_is_pinned INTEGER NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL
                 );
 
                 CREATE TABLE IF NOT EXISTS app_settings (
@@ -182,6 +208,7 @@ class LongTermStore:
             )
             self._ensure_event_columns(connection)
             self._ensure_viewer_profile_columns(connection)
+            self._ensure_viewer_memory_columns(connection)
             self._create_indexes(connection)
             self._backfill_event_columns(connection)
             self._rebuild_viewer_aggregates(connection)
@@ -213,6 +240,21 @@ class LongTermStore:
             if column_name not in existing_columns:
                 connection.execute(f"ALTER TABLE viewer_profiles ADD COLUMN {column_name} {column_type}")
 
+    def _ensure_viewer_memory_columns(self, connection):
+        existing_columns = self._table_columns(connection, "viewer_memories")
+        required_columns = {
+            "source_kind": "TEXT NOT NULL DEFAULT 'auto'",
+            "status": "TEXT NOT NULL DEFAULT 'active'",
+            "is_pinned": "INTEGER NOT NULL DEFAULT 0",
+            "correction_reason": "TEXT NOT NULL DEFAULT ''",
+            "corrected_by": "TEXT NOT NULL DEFAULT ''",
+            "last_operation": "TEXT NOT NULL DEFAULT 'created'",
+            "last_operation_at": "INTEGER NOT NULL DEFAULT 0",
+        }
+        for column_name, column_type in required_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(f"ALTER TABLE viewer_memories ADD COLUMN {column_name} {column_type}")
+
     def _create_indexes(self, connection):
         connection.executescript(
             """
@@ -225,6 +267,7 @@ class LongTermStore:
             CREATE INDEX IF NOT EXISTS idx_live_sessions_room_status_last_event ON live_sessions(room_id, status, last_event_at DESC);
             CREATE INDEX IF NOT EXISTS idx_viewer_notes_room_viewer_updated ON viewer_notes(room_id, viewer_id, updated_at DESC);
             CREATE INDEX IF NOT EXISTS idx_viewer_memories_room_viewer_updated ON viewer_memories(room_id, viewer_id, updated_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_viewer_memory_logs_memory_created ON viewer_memory_logs(memory_id, created_at DESC);
             """
         )
 
@@ -688,6 +731,13 @@ class LongTermStore:
             updated_at=row["updated_at"],
             last_recalled_at=row["last_recalled_at"],
             recall_count=row["recall_count"] or 0,
+            source_kind=row["source_kind"] or "auto",
+            status=row["status"] or "active",
+            is_pinned=bool(row["is_pinned"]),
+            correction_reason=row["correction_reason"] or "",
+            corrected_by=row["corrected_by"] or "",
+            last_operation=row["last_operation"] or "created",
+            last_operation_at=row["last_operation_at"] or row["updated_at"],
         )
 
     def list_all_viewer_memories(self, limit=5000):
@@ -696,8 +746,12 @@ class LongTermStore:
             rows = connection.execute(
                 """
                 SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
-                       confidence, created_at, updated_at, last_recalled_at, recall_count
-                FROM viewer_memories ORDER BY updated_at DESC LIMIT ?
+                       confidence, created_at, updated_at, last_recalled_at, recall_count,
+                       source_kind, status, is_pinned, correction_reason, corrected_by,
+                       last_operation, last_operation_at
+                FROM viewer_memories
+                WHERE status <> 'deleted'
+                ORDER BY updated_at DESC LIMIT ?
                 """,
                 (limit,),
             ).fetchall()
@@ -711,9 +765,12 @@ class LongTermStore:
             rows = connection.execute(
                 """
                 SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
-                       confidence, created_at, updated_at, last_recalled_at, recall_count
-                FROM viewer_memories WHERE room_id = ? AND viewer_id = ?
-                ORDER BY updated_at DESC LIMIT ?
+                       confidence, created_at, updated_at, last_recalled_at, recall_count,
+                       source_kind, status, is_pinned, correction_reason, corrected_by,
+                       last_operation, last_operation_at
+                FROM viewer_memories
+                WHERE room_id = ? AND viewer_id = ? AND status <> 'deleted'
+                ORDER BY is_pinned DESC, updated_at DESC LIMIT ?
                 """,
                 (room_id, viewer_id, limit),
             ).fetchall()
@@ -724,19 +781,86 @@ class LongTermStore:
             row = connection.execute(
                 """
                 SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
-                       confidence, created_at, updated_at, last_recalled_at, recall_count
+                       confidence, created_at, updated_at, last_recalled_at, recall_count,
+                       source_kind, status, is_pinned, correction_reason, corrected_by,
+                       last_operation, last_operation_at
                 FROM viewer_memories WHERE memory_id = ?
                 """,
                 (memory_id,),
             ).fetchone()
         return self._viewer_memory_from_row(row)
 
-    def save_viewer_memory(self, room_id, viewer_id, memory_text, source_event_id="", memory_type="fact", confidence=0.0):
+    def _append_viewer_memory_log(
+        self,
+        connection,
+        memory_id,
+        room_id,
+        viewer_id,
+        operation,
+        operator="",
+        reason="",
+        old_memory_text="",
+        new_memory_text="",
+        old_memory_type="",
+        new_memory_type="",
+        old_status="",
+        new_status="",
+        old_is_pinned=False,
+        new_is_pinned=False,
+    ):
+        connection.execute(
+            """
+            INSERT INTO viewer_memory_logs (
+                log_id, memory_id, room_id, viewer_id, operation, operator, reason,
+                old_memory_text, new_memory_text, old_memory_type, new_memory_type,
+                old_status, new_status, old_is_pinned, new_is_pinned, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid.uuid4()),
+                memory_id,
+                room_id,
+                viewer_id,
+                operation,
+                operator,
+                reason,
+                old_memory_text,
+                new_memory_text,
+                old_memory_type,
+                new_memory_type,
+                old_status,
+                new_status,
+                1 if old_is_pinned else 0,
+                1 if new_is_pinned else 0,
+                current_millis(),
+            ),
+        )
+
+    def save_viewer_memory(
+        self,
+        room_id,
+        viewer_id,
+        memory_text,
+        source_event_id="",
+        memory_type="fact",
+        confidence=0.0,
+        source_kind="auto",
+        status="active",
+        is_pinned=False,
+        correction_reason="",
+        corrected_by="",
+        operation="created",
+    ):
         room_id = safe_text(room_id)
         viewer_id = safe_text(viewer_id)
         memory_text = safe_text(memory_text)
         source_event_id = safe_text(source_event_id)
         memory_type = safe_text(memory_type) or "fact"
+        source_kind = safe_text(source_kind) or "auto"
+        status = safe_text(status) or "active"
+        correction_reason = safe_text(correction_reason)
+        corrected_by = safe_text(corrected_by)
+        operation = safe_text(operation) or "created"
         if not room_id or not viewer_id or not memory_text:
             return None
 
@@ -765,8 +889,10 @@ class LongTermStore:
                 """
                 INSERT OR REPLACE INTO viewer_memories (
                     memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
-                    confidence, created_at, updated_at, last_recalled_at, recall_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    confidence, created_at, updated_at, last_recalled_at, recall_count,
+                    source_kind, status, is_pinned, correction_reason, corrected_by,
+                    last_operation, last_operation_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -780,9 +906,171 @@ class LongTermStore:
                     timestamp,
                     last_recalled_at,
                     recall_count,
+                    source_kind,
+                    status,
+                    1 if is_pinned else 0,
+                    correction_reason,
+                    corrected_by,
+                    operation,
+                    timestamp,
                 ),
             )
+            self._append_viewer_memory_log(
+                connection,
+                memory_id=memory_id,
+                room_id=room_id,
+                viewer_id=viewer_id,
+                operation=operation,
+                operator=corrected_by,
+                reason=correction_reason,
+                new_memory_text=memory_text,
+                new_memory_type=memory_type,
+                new_status=status,
+                new_is_pinned=is_pinned,
+            )
         return self.get_viewer_memory(memory_id)
+
+    def update_viewer_memory(self, memory_id, memory_text="", memory_type="", is_pinned=False, correction_reason="", corrected_by="主播"):
+        existing = self.get_viewer_memory(memory_id)
+        if not existing or existing.status == "deleted":
+            return None
+
+        timestamp = current_millis()
+        next_text = safe_text(memory_text) or existing.memory_text
+        next_type = safe_text(memory_type) or existing.memory_type
+        next_reason = safe_text(correction_reason)
+        next_is_pinned = bool(is_pinned) and existing.status == "active"
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE viewer_memories
+                SET memory_text = ?, memory_type = ?, is_pinned = ?, correction_reason = ?,
+                    corrected_by = ?, updated_at = ?, last_operation = ?, last_operation_at = ?
+                WHERE memory_id = ?
+                """,
+                (
+                    next_text,
+                    next_type,
+                    1 if next_is_pinned else 0,
+                    next_reason,
+                    safe_text(corrected_by),
+                    timestamp,
+                    "edited",
+                    timestamp,
+                    memory_id,
+                ),
+            )
+            self._append_viewer_memory_log(
+                connection,
+                memory_id=existing.memory_id,
+                room_id=existing.room_id,
+                viewer_id=existing.viewer_id,
+                operation="edited",
+                operator=safe_text(corrected_by),
+                reason=next_reason,
+                old_memory_text=existing.memory_text,
+                new_memory_text=next_text,
+                old_memory_type=existing.memory_type,
+                new_memory_type=next_type,
+                old_status=existing.status,
+                new_status=existing.status,
+                old_is_pinned=existing.is_pinned,
+                new_is_pinned=next_is_pinned,
+            )
+        return self.get_viewer_memory(memory_id)
+
+    def _set_viewer_memory_status(self, memory_id, status, reason="", corrected_by="主播", operation="invalidated"):
+        existing = self.get_viewer_memory(memory_id)
+        if not existing or existing.status == "deleted":
+            return None
+
+        timestamp = current_millis()
+        next_status = safe_text(status) or existing.status
+        next_reason = safe_text(reason)
+        next_is_pinned = existing.is_pinned if next_status == "active" else False
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE viewer_memories
+                SET status = ?, is_pinned = ?, correction_reason = ?, corrected_by = ?,
+                    updated_at = ?, last_operation = ?, last_operation_at = ?
+                WHERE memory_id = ?
+                """,
+                (
+                    next_status,
+                    1 if next_is_pinned else 0,
+                    next_reason,
+                    safe_text(corrected_by),
+                    timestamp,
+                    operation,
+                    timestamp,
+                    memory_id,
+                ),
+            )
+            self._append_viewer_memory_log(
+                connection,
+                memory_id=existing.memory_id,
+                room_id=existing.room_id,
+                viewer_id=existing.viewer_id,
+                operation=operation,
+                operator=safe_text(corrected_by),
+                reason=next_reason,
+                old_memory_text=existing.memory_text,
+                new_memory_text=existing.memory_text,
+                old_memory_type=existing.memory_type,
+                new_memory_type=existing.memory_type,
+                old_status=existing.status,
+                new_status=next_status,
+                old_is_pinned=existing.is_pinned,
+                new_is_pinned=next_is_pinned,
+            )
+        return self.get_viewer_memory(memory_id)
+
+    def invalidate_viewer_memory(self, memory_id, reason="", corrected_by="主播"):
+        return self._set_viewer_memory_status(
+            memory_id,
+            status="invalid",
+            reason=reason,
+            corrected_by=corrected_by,
+            operation="invalidated",
+        )
+
+    def reactivate_viewer_memory(self, memory_id, reason="", corrected_by="主播"):
+        return self._set_viewer_memory_status(
+            memory_id,
+            status="active",
+            reason=reason,
+            corrected_by=corrected_by,
+            operation="reactivated",
+        )
+
+    def delete_viewer_memory(self, memory_id, reason="", corrected_by="主播"):
+        return self._set_viewer_memory_status(
+            memory_id,
+            status="deleted",
+            reason=reason,
+            corrected_by=corrected_by,
+            operation="deleted",
+        )
+
+    def list_viewer_memory_logs(self, memory_id, limit=20):
+        limit = max(1, min(int(limit), 100))
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT log_id, memory_id, room_id, viewer_id, operation, operator, reason,
+                       old_memory_text, new_memory_text, old_memory_type, new_memory_type,
+                       old_status, new_status, old_is_pinned, new_is_pinned, created_at
+                FROM viewer_memory_logs
+                WHERE memory_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (memory_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def touch_viewer_memories(self, memory_ids, recalled_at=None):
         normalized_ids = [safe_text(memory_id) for memory_id in memory_ids if safe_text(memory_id)]

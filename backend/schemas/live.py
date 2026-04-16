@@ -76,6 +76,34 @@ class ViewerMemory(BaseModel):
     updated_at: int
     last_recalled_at: int | None = None
     recall_count: int = 0
+    source_kind: str = "auto"
+    status: str = "active"
+    is_pinned: bool = False
+    correction_reason: str = ""
+    corrected_by: str = ""
+    last_operation: str = "created"
+    last_operation_at: int = 0
+
+
+class ViewerMemoryLog(BaseModel):
+    """Audit trail for viewer memory corrections."""
+
+    log_id: str
+    memory_id: str
+    room_id: str
+    viewer_id: str
+    operation: str
+    operator: str = ""
+    reason: str = ""
+    old_memory_text: str = ""
+    new_memory_text: str = ""
+    old_memory_type: str = ""
+    new_memory_type: str = ""
+    old_status: str = ""
+    new_status: str = ""
+    old_is_pinned: bool = False
+    new_is_pinned: bool = False
+    created_at: int
 
 
 class CommentProcessingStatus(BaseModel):
