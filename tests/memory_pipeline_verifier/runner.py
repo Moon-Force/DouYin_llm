@@ -233,6 +233,60 @@ def cleanup_temp_dir(path, retries=3, delay_seconds=0.1):
     return False
 
 
+def build_semantic_recall_report_path(dataset_path, report_dir=None):
+    dataset = Path(dataset_path)
+    root = Path(report_dir) if report_dir else Path("artifacts") / "semantic_recall_reports"
+    return root / f"{dataset.stem}.md"
+
+
+def render_semantic_recall_report_markdown(*, dataset_path, total_cases, top1_hits, top3_hits, case_results):
+    top1_rate = (top1_hits / total_cases) if total_cases else 0.0
+    top3_rate = (top3_hits / total_cases) if total_cases else 0.0
+
+    lines = []
+    lines.append("# Semantic Recall Report")
+    lines.append("")
+    lines.append("## Summary")
+    lines.append("")
+    lines.append(f"- Dataset: `{dataset_path}`")
+    lines.append(f"- Cases: {total_cases}")
+    lines.append(f"- Top1: {top1_hits}/{total_cases} ({top1_rate:.4f})")
+    lines.append(f"- Top3: {top3_hits}/{total_cases} ({top3_rate:.4f})")
+    lines.append("")
+
+    for case in case_results:
+        label = str(case.get("label") or "").strip() or "unknown"
+        lines.append(f"## {label}")
+        lines.append("")
+        tags = case.get("tags") or []
+        if tags:
+            lines.append(f"- Tags: {', '.join(str(tag) for tag in tags)}")
+        lines.append(f"- Top1 Hit: {'YES' if case.get('top1_hit') else 'NO'}")
+        lines.append(f"- Top3 Hit: {'YES' if case.get('top3_hit') else 'NO'}")
+        query = str(case.get("query") or "")
+        expected = str(case.get("expected_memory_text") or "")
+        if query:
+            lines.append("")
+            lines.append("**Query**")
+            lines.append("")
+            lines.append(f"> {query}")
+        if expected:
+            lines.append("")
+            lines.append("**Expected Memory**")
+            lines.append("")
+            lines.append(f"> {expected}")
+        top_texts = case.get("top_texts") or []
+        if top_texts:
+            lines.append("")
+            lines.append("**Top 3 Recalled**")
+            lines.append("")
+            for idx, text in enumerate(top_texts[:3], start=1):
+                lines.append(f"{idx}. {text}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def run_internal_verification(dataset=None, count=1):
     print_header("Memory Pipeline Verify: internal")
     results = []
@@ -324,7 +378,7 @@ def run_internal_verification(dataset=None, count=1):
         cleanup_temp_dir(temp_root)
 
 
-def run_semantic_recall_verification(dataset_path):
+def run_semantic_recall_verification(dataset_path, report_dir=None):
     print_header("Memory Pipeline Verify: semantic recall")
     results = []
     settings.ensure_dirs()
@@ -333,6 +387,7 @@ def run_semantic_recall_verification(dataset_path):
 
     temp_root = Path(tempfile.mkdtemp(prefix="semantic-recall-"))
     try:
+        report_path = build_semantic_recall_report_path(dataset_path, report_dir=report_dir)
         database_path = temp_root / "live_prompter.db"
         chroma_dir = temp_root / "chroma"
         chroma_dir.mkdir(parents=True, exist_ok=True)
@@ -362,26 +417,41 @@ def run_semantic_recall_verification(dataset_path):
 
         top1_hits = 0
         top3_hits = 0
+        case_results = []
         for index, case in enumerate(cases, start=1):
             room_id = str(case.get("room_id") or DEFAULT_ROOM_ID).strip()
             viewer_id = str(case.get("viewer_id") or f"id:semantic-eval-viewer-{index:03d}").strip()
             expected = str(case.get("expected_memory_text") or "").strip()
-            recalled = vector.similar_memories(str(case.get("query") or "").strip(), room_id, viewer_id, limit=3)
+            query = str(case.get("query") or "").strip()
+            recalled = vector.similar_memories(query, room_id, viewer_id, limit=3)
             top_texts = [str(item.get("memory_text") or "") for item in recalled]
 
-            if top_texts[:1] and top_texts[0] == expected:
+            top1_hit = bool(top_texts[:1] and top_texts[0] == expected)
+            top3_hit = bool(expected and expected in top_texts)
+            if top1_hit:
                 top1_hits += 1
-            if expected in top_texts:
+            if top3_hit:
                 top3_hits += 1
             else:
                 failures.append(
                     {
                         "label": str(case.get("label") or f"case-{index}"),
-                        "query": str(case.get("query") or ""),
+                        "query": query,
                         "expected_memory_text": expected,
                         "top_texts": top_texts,
                     }
                 )
+            case_results.append(
+                {
+                    "label": str(case.get("label") or f"case-{index}"),
+                    "tags": list(case.get("tags") or []),
+                    "query": query,
+                    "expected_memory_text": expected,
+                    "top_texts": top_texts,
+                    "top1_hit": top1_hit,
+                    "top3_hit": top3_hit,
+                }
+            )
 
         total_cases = len(cases)
         recall_ok = top3_hits == total_cases
@@ -406,7 +476,20 @@ def run_semantic_recall_verification(dataset_path):
                     ensure_ascii=False,
                 )
             )
-        return results
+        try:
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_text = render_semantic_recall_report_markdown(
+                dataset_path=dataset_path,
+                total_cases=total_cases,
+                top1_hits=top1_hits,
+                top3_hits=top3_hits,
+                case_results=case_results,
+            )
+            report_path.write_text(report_text, encoding="utf-8")
+            record_step(results, "report", True, f"path={report_path.as_posix()}")
+        except Exception as exc:
+            record_step(results, "report", False, str(exc))
+        return results, report_path
     finally:
         cleanup_temp_dir(temp_root)
 
@@ -512,7 +595,7 @@ def main(argv=None):
             raise ValueError("semantic-recall only supports internal mode")
         if not args.dataset:
             raise ValueError("--dataset is required for semantic-recall")
-        results = run_semantic_recall_verification(args.dataset)
+        results, _ = run_semantic_recall_verification(args.dataset)
     elif mode == "internal":
         dataset = load_dataset_fixture(args.dataset) if args.dataset else None
         results, _ = run_internal_verification(dataset=dataset, count=args.count)

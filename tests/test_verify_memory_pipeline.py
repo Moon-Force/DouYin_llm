@@ -25,6 +25,7 @@ from tests.memory_pipeline_verifier.runner import (
     DEFAULT_QUERY_TEXT,
     StepResult,
     backend_ready_after_attempts,
+    build_semantic_recall_report_path,
     build_test_event_payload,
     cleanup_temp_dir,
     format_step_status,
@@ -395,6 +396,16 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
         self.assertIn("temp", str(captured["database_path"]).lower())
         self.assertIn("temp", str(captured["chroma_dir"]).lower())
 
+    def test_semantic_recall_report_path_uses_dataset_name(self):
+        report_path = build_semantic_recall_report_path(
+            "tests/fixtures/semantic_recall/blind_100.json"
+        )
+
+        self.assertEqual(
+            report_path.as_posix(),
+            "artifacts/semantic_recall_reports/blind_100.md",
+        )
+
     def test_run_semantic_recall_verification_reports_top1_and_top3(self):
         dataset = [
             {
@@ -421,7 +432,11 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             ]
             vector_cls.return_value = fake_vector
 
-            results = run_semantic_recall_verification("tests/fixtures/semantic_recall/default.json")
+            with tempfile.TemporaryDirectory(prefix="semantic-topk-") as tempdir:
+                results, _ = run_semantic_recall_verification(
+                    "tests/fixtures/semantic_recall/default.json",
+                    report_dir=Path(tempdir),
+                )
 
         self.assertEqual(results[0].name, "dataset")
         self.assertEqual(results[1].name, "index_memories")
@@ -448,7 +463,11 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             fake_vector.similar_memories.return_value = [{"memory_text": "我早饭只喝美式咖啡。"}]
             vector_cls.return_value = fake_vector
 
-            results = run_semantic_recall_verification("tests/fixtures/semantic_recall/default.json")
+            with tempfile.TemporaryDirectory(prefix="semantic-miss-top3-") as tempdir:
+                results, _ = run_semantic_recall_verification(
+                    "tests/fixtures/semantic_recall/default.json",
+                    report_dir=Path(tempdir),
+                )
 
         self.assertFalse(results[2].ok)
         self.assertEqual(
