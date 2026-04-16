@@ -2,6 +2,7 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -160,7 +161,7 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             "tests.memory_pipeline_verifier.runner.VectorMemory", return_value=fake_vector
         ), patch(
             "tests.memory_pipeline_verifier.runner.query_sqlite_counts",
-            return_value={"events": 50, "viewer_profiles": 50, "viewer_memories": 50},
+            return_value={"events": 1, "viewer_profiles": 1, "viewer_memories": 1},
         ):
             results, processed = run_internal_verification(dataset=dataset)
 
@@ -168,6 +169,63 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
         self.assertEqual(results[1].details, "candidates=50/50")
         self.assertEqual(results[2].details, "events=50 profiles=50 memories=50 processed=50")
         self.assertEqual(results[3].details, "matches=50/50")
+
+    def test_run_internal_verification_uses_isolated_temp_storage(self):
+        dataset = [build_memory_dataset(count=1)[0]]
+        captured = {}
+        fake_settings = SimpleNamespace(
+            ensure_dirs=MagicMock(),
+            database_path=Path("data/live_prompter.db"),
+            chroma_dir=Path("data/chroma"),
+            embedding_mode="cloud",
+            llm_mode="qwen",
+        )
+
+        def make_store(database_path):
+            captured["database_path"] = database_path
+            store = MagicMock()
+            store.persist_event.return_value = None
+            store.save_viewer_memory.side_effect = lambda room_id, viewer_id, memory_text, **kwargs: MagicMock(
+                room_id=room_id,
+                viewer_id=viewer_id,
+                memory_text=memory_text,
+                memory_id=f"memory-{viewer_id}",
+                memory_type=kwargs["memory_type"],
+                confidence=kwargs["confidence"],
+                updated_at=1,
+                recall_count=0,
+                status="active",
+                source_kind="auto",
+                is_pinned=False,
+                source_event_id=kwargs.get("source_event_id", ""),
+            )
+            return store
+
+        def make_vector(chroma_dir, settings=None, embedding_service=None):
+            captured["chroma_dir"] = chroma_dir
+            vector = MagicMock()
+            vector.similar_memories.side_effect = lambda query_text, room_id, viewer_id, limit=2: [
+                {"memory_text": DEFAULT_QUERY_TEXT if query_text == DEFAULT_QUERY_TEXT else query_text}
+            ]
+            return vector
+
+        with patch("tests.memory_pipeline_verifier.runner.settings", fake_settings), patch(
+            "tests.memory_pipeline_verifier.runner.EmbeddingService", return_value=MagicMock()
+        ), patch(
+            "tests.memory_pipeline_verifier.runner.LongTermStore", side_effect=make_store
+        ), patch(
+            "tests.memory_pipeline_verifier.runner.VectorMemory", side_effect=make_vector
+        ), patch(
+            "tests.memory_pipeline_verifier.runner.query_batch_sqlite_counts",
+            return_value={"events": 1, "viewer_profiles": 1, "viewer_memories": 1},
+        ):
+            results, processed = run_internal_verification(dataset=dataset)
+
+        self.assertEqual(processed, 1)
+        self.assertNotEqual(captured["database_path"], fake_settings.database_path)
+        self.assertNotEqual(captured["chroma_dir"], fake_settings.chroma_dir)
+        self.assertIn("temp", str(captured["database_path"]).lower())
+        self.assertIn("temp", str(captured["chroma_dir"]).lower())
 
 
 if __name__ == "__main__":

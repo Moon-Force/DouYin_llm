@@ -13,6 +13,8 @@ from pydantic import BaseModel
 from backend.config import settings
 from backend.memory.embedding_service import EmbeddingService
 from backend.memory.long_term import LongTermStore
+from backend.memory.rebuild_embeddings import build_memory_collection_name
+from backend.memory.rebuild_embeddings import load_manifest
 from backend.memory.session_memory import SessionMemory
 from backend.memory.vector_store import VectorMemory
 from backend.schemas.live import CommentProcessingStatus, LiveEvent, ModelStatus
@@ -21,17 +23,16 @@ from backend.services.broker import EventBroker
 from backend.services.collector import DouyinCollector
 from backend.services.memory_extractor import ViewerMemoryExtractor
 
-settings.ensure_dirs()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
-broker = EventBroker()
-session_memory = SessionMemory(settings.redis_url, settings.session_ttl_seconds)
-long_term_store = LongTermStore(settings.database_path)
-embedding_service = EmbeddingService(settings)
-vector_memory = VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
-vector_memory.prime_memory_index(long_term_store.list_all_viewer_memories(limit=10000))
-agent = LivePromptAgent(settings, vector_memory, long_term_store)
-memory_extractor = ViewerMemoryExtractor()
+broker = None
+session_memory = None
+long_term_store = None
+embedding_service = None
+vector_memory = None
+agent = None
+memory_extractor = None
+collector = None
 
 
 class RoomSwitchRequest(BaseModel):
@@ -72,11 +73,72 @@ class LlmSettingsUpdateRequest(BaseModel):
     system_prompt: str = ""
 
 
+def _active_memory_count(memories):
+    count = 0
+    for memory in memories or []:
+        if not memory or not getattr(memory, "memory_text", "") or not getattr(memory, "viewer_id", ""):
+            continue
+        if str(getattr(memory, "status", "active") or "active") != "active":
+            continue
+        count += 1
+    return count
+
+
+def _should_force_memory_rebuild(memories):
+    if vector_memory is None:
+        return False
+
+    manifest = load_manifest(settings)
+    collection_name = build_memory_collection_name(vector_memory)
+    collection_info = manifest.get("collections", {}).get(collection_name, {})
+    expected_count = _active_memory_count(memories)
+
+    if manifest.get("active_signature") != settings.embedding_signature():
+        return True
+    if collection_info.get("collection_name") != collection_name:
+        return True
+    return int(collection_info.get("count", -1)) != expected_count
+
+
+def ensure_runtime():
+    global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector
+
+    if all(
+        component is not None
+        for component in (broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector)
+    ):
+        return
+
+    ensure_dirs = getattr(settings, "ensure_dirs", None)
+    if callable(ensure_dirs):
+        ensure_dirs()
+
+    if broker is None:
+        broker = EventBroker()
+    if session_memory is None:
+        session_memory = SessionMemory(settings.redis_url, settings.session_ttl_seconds)
+    if long_term_store is None:
+        long_term_store = LongTermStore(settings.database_path)
+    if embedding_service is None:
+        embedding_service = EmbeddingService(settings)
+    if vector_memory is None:
+        vector_memory = VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
+        memories = long_term_store.list_all_viewer_memories(limit=10000)
+        vector_memory.prime_memory_index(memories, force_rebuild=_should_force_memory_rebuild(memories))
+    if agent is None:
+        agent = LivePromptAgent(settings, vector_memory, long_term_store)
+    if memory_extractor is None:
+        memory_extractor = ViewerMemoryExtractor()
+    if collector is None:
+        collector = DouyinCollector(settings, event_handler=process_event)
+
+
 def event_envelope(kind, data):
     return {"type": kind, "data": data}
 
 
 def snapshot_with_status(room_id):
+    ensure_runtime()
     room_id = str(room_id or "").strip()
     snapshot = session_memory.snapshot(room_id)
     if not snapshot.recent_events:
@@ -90,6 +152,7 @@ def snapshot_with_status(room_id):
 
 
 async def process_event(event: LiveEvent):
+    ensure_runtime()
     processing_status = CommentProcessingStatus(received=True)
     session_memory.add_event(event)
     long_term_store.persist_event(event)
@@ -152,19 +215,17 @@ async def process_event(event: LiveEvent):
     await broker.publish(event_envelope("model_status", ModelStatus(**agent.current_status()).model_dump()))
     return suggestion
 
-
-collector = DouyinCollector(settings, event_handler=process_event)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_runtime()
     collector.start(asyncio.get_running_loop())
     try:
         yield
     finally:
-        if settings.room_id:
+        if settings.room_id and long_term_store:
             long_term_store.close_active_session(settings.room_id)
-        collector.stop()
+        if collector:
+            collector.stop()
 
 
 app = FastAPI(title="Live Prompter Backend", version="0.1.0", lifespan=lifespan)
@@ -179,6 +240,8 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
+    if long_term_store is None or vector_memory is None:
+        ensure_runtime()
     return {
         "status": "ok",
         "room_id": settings.room_id,
@@ -191,12 +254,14 @@ async def health():
 
 @app.get("/api/bootstrap")
 async def bootstrap(room_id: str | None = None):
+    ensure_runtime()
     target_room_id = (room_id or settings.room_id).strip()
     return snapshot_with_status(target_room_id).model_dump()
 
 
 @app.post("/api/room")
 async def switch_room(payload: RoomSwitchRequest):
+    ensure_runtime()
     target_room_id = payload.room_id.strip()
     if not target_room_id:
         raise HTTPException(status_code=400, detail="room_id is required")
@@ -211,6 +276,7 @@ async def switch_room(payload: RoomSwitchRequest):
 
 @app.post("/api/events")
 async def ingest_event(event: LiveEvent):
+    ensure_runtime()
     suggestion = await process_event(event)
     return {
         "accepted": True,
@@ -222,6 +288,7 @@ async def ingest_event(event: LiveEvent):
 
 @app.get("/api/viewer")
 async def viewer_detail(room_id: str | None = None, viewer_id: str | None = None, nickname: str | None = None):
+    ensure_runtime()
     target_room_id = (room_id or settings.room_id).strip()
     detail = long_term_store.get_viewer_detail(target_room_id, viewer_id=viewer_id or "", nickname=nickname or "")
     if not detail:
@@ -231,6 +298,7 @@ async def viewer_detail(room_id: str | None = None, viewer_id: str | None = None
 
 @app.get("/api/viewer/memories")
 async def viewer_memories(room_id: str | None = None, viewer_id: str | None = None, limit: int = 20):
+    ensure_runtime()
     target_room_id = (room_id or settings.room_id).strip()
     target_viewer_id = (viewer_id or "").strip()
     if not target_viewer_id:
@@ -240,6 +308,7 @@ async def viewer_memories(room_id: str | None = None, viewer_id: str | None = No
 
 @app.post("/api/viewer/memories")
 async def create_viewer_memory(payload: ViewerMemoryUpsertRequest):
+    ensure_runtime()
     room_id = payload.room_id.strip()
     viewer_id = payload.viewer_id.strip()
     memory_text = payload.memory_text.strip()
@@ -270,6 +339,7 @@ async def create_viewer_memory(payload: ViewerMemoryUpsertRequest):
 
 @app.put("/api/viewer/memories/{memory_id}")
 async def update_viewer_memory(memory_id: str, payload: ViewerMemoryUpdateRequest):
+    ensure_runtime()
     memory = long_term_store.update_viewer_memory(
         memory_id=memory_id,
         memory_text=payload.memory_text,
@@ -286,6 +356,7 @@ async def update_viewer_memory(memory_id: str, payload: ViewerMemoryUpdateReques
 
 @app.post("/api/viewer/memories/{memory_id}/invalidate")
 async def invalidate_viewer_memory(memory_id: str, payload: ViewerMemoryStatusRequest):
+    ensure_runtime()
     memory = long_term_store.invalidate_viewer_memory(memory_id, reason=payload.reason, corrected_by="主播")
     if not memory:
         raise HTTPException(status_code=404, detail="memory not found")
@@ -295,6 +366,7 @@ async def invalidate_viewer_memory(memory_id: str, payload: ViewerMemoryStatusRe
 
 @app.post("/api/viewer/memories/{memory_id}/reactivate")
 async def reactivate_viewer_memory(memory_id: str, payload: ViewerMemoryStatusRequest):
+    ensure_runtime()
     memory = long_term_store.reactivate_viewer_memory(memory_id, reason=payload.reason, corrected_by="主播")
     if not memory:
         raise HTTPException(status_code=404, detail="memory not found")
@@ -304,6 +376,7 @@ async def reactivate_viewer_memory(memory_id: str, payload: ViewerMemoryStatusRe
 
 @app.delete("/api/viewer/memories/{memory_id}")
 async def delete_viewer_memory(memory_id: str, payload: ViewerMemoryStatusRequest):
+    ensure_runtime()
     memory = long_term_store.delete_viewer_memory(memory_id, reason=payload.reason, corrected_by="主播")
     if not memory:
         raise HTTPException(status_code=404, detail="memory not found")
@@ -313,11 +386,13 @@ async def delete_viewer_memory(memory_id: str, payload: ViewerMemoryStatusReques
 
 @app.get("/api/viewer/memories/{memory_id}/logs")
 async def viewer_memory_logs(memory_id: str, limit: int = 20):
+    ensure_runtime()
     return {"items": long_term_store.list_viewer_memory_logs(memory_id, limit=limit)}
 
 
 @app.get("/api/viewer/notes")
 async def viewer_notes(room_id: str | None = None, viewer_id: str | None = None, limit: int = 20):
+    ensure_runtime()
     target_room_id = (room_id or settings.room_id).strip()
     target_viewer_id = (viewer_id or "").strip()
     if not target_viewer_id:
@@ -327,6 +402,7 @@ async def viewer_notes(room_id: str | None = None, viewer_id: str | None = None,
 
 @app.post("/api/viewer/notes")
 async def save_viewer_note(payload: ViewerNoteUpsertRequest):
+    ensure_runtime()
     room_id = payload.room_id.strip()
     viewer_id = payload.viewer_id.strip()
     content = payload.content.strip()
@@ -348,6 +424,7 @@ async def save_viewer_note(payload: ViewerNoteUpsertRequest):
 
 @app.delete("/api/viewer/notes/{note_id}")
 async def delete_viewer_note(note_id: str):
+    ensure_runtime()
     if not long_term_store.delete_viewer_note(note_id):
         raise HTTPException(status_code=404, detail="note not found")
     return {"deleted": True, "note_id": note_id}
@@ -355,11 +432,13 @@ async def delete_viewer_note(note_id: str):
 
 @app.get("/api/settings/llm")
 async def get_llm_settings():
+    ensure_runtime()
     return agent.current_llm_settings()
 
 
 @app.put("/api/settings/llm")
 async def save_llm_settings(payload: LlmSettingsUpdateRequest):
+    ensure_runtime()
     model = payload.model.strip()
     if not model:
         raise HTTPException(status_code=400, detail="model is required")
@@ -368,6 +447,7 @@ async def save_llm_settings(payload: LlmSettingsUpdateRequest):
 
 @app.get("/api/sessions")
 async def list_sessions(room_id: str | None = None, status: str | None = None, limit: int = 20):
+    ensure_runtime()
     target_room_id = (room_id or "").strip()
     target_status = (status or "").strip()
     return {"items": long_term_store.list_live_sessions(target_room_id, target_status, limit=limit)}
@@ -375,6 +455,7 @@ async def list_sessions(room_id: str | None = None, status: str | None = None, l
 
 @app.get("/api/sessions/current")
 async def current_session(room_id: str | None = None):
+    ensure_runtime()
     target_room_id = (room_id or settings.room_id).strip()
     if not target_room_id:
         return {}
@@ -383,6 +464,7 @@ async def current_session(room_id: str | None = None):
 
 @app.get("/api/events/stream")
 async def stream_events(room_id: str | None = None):
+    ensure_runtime()
     target_room_id = (room_id or settings.room_id).strip()
 
     async def event_generator():
@@ -405,6 +487,7 @@ async def stream_events(room_id: str | None = None):
 
 @app.websocket("/ws/live")
 async def live_socket(websocket: WebSocket):
+    ensure_runtime()
     await websocket.accept()
     queue = broker.subscribe()
     await websocket.send_json(event_envelope("bootstrap", snapshot_with_status(settings.room_id).model_dump()))

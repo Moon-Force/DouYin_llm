@@ -166,7 +166,54 @@ class VectorMemory:
             logger.warning("Failed to delete stale memory collection during startup warmup: %s", collection_name)
         self.memory_collection = self._client.get_or_create_collection(collection_name)
 
-    def prime_memory_index(self, memories, batch_size=64):
+    def _sample_memory_records(self, records, sample_size=3):
+        if not records:
+            return []
+
+        size = max(1, int(sample_size))
+        samples = []
+        for item in records[:size]:
+            if item["id"] not in {sample["id"] for sample in samples}:
+                samples.append(item)
+        for item in records[-size:]:
+            if item["id"] not in {sample["id"] for sample in samples}:
+                samples.append(item)
+        return samples
+
+    def _collection_sample_matches(self, records, sample_size=3):
+        if not self.memory_collection:
+            return True
+
+        samples = self._sample_memory_records(records, sample_size=sample_size)
+        if not samples:
+            return True
+
+        expected_by_id = {item["id"]: item for item in samples}
+        try:
+            result = self.memory_collection.get(
+                ids=list(expected_by_id.keys()),
+                include=["documents", "metadatas"],
+            )
+        except Exception:
+            return False
+
+        actual_ids = result.get("ids", []) or []
+        actual_documents = result.get("documents", []) or []
+        actual_metadatas = result.get("metadatas", []) or []
+        if len(actual_ids) != len(expected_by_id):
+            return False
+
+        for index, memory_id in enumerate(actual_ids):
+            expected = expected_by_id.get(memory_id)
+            if not expected:
+                return False
+            if index >= len(actual_documents) or actual_documents[index] != expected["document"]:
+                return False
+            if index >= len(actual_metadatas) or dict(actual_metadatas[index] or {}) != expected["metadata"]:
+                return False
+        return True
+
+    def prime_memory_index(self, memories, batch_size=64, force_rebuild=False):
         records = self._active_memory_records(memories)
         self._memory_items = records[-3000:]
 
@@ -179,7 +226,11 @@ class VectorMemory:
         except Exception:
             current_count = -1
 
-        if current_count == expected_count:
+        if (
+            not force_rebuild
+            and current_count == expected_count
+            and self._collection_sample_matches(records)
+        ):
             return
 
         if current_count > 0 and expected_count >= 0:

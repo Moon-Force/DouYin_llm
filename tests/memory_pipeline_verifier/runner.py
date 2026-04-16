@@ -4,6 +4,7 @@ import json
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -104,7 +105,6 @@ def build_live_event():
 
 
 def build_live_events(dataset=None, count=1):
-    # 优先使用显式传入的数据集；否则按 count 决定单条还是批量样本。
     if dataset:
         return [LiveEvent(**payload) for payload in dataset]
     if int(count) > 1:
@@ -194,8 +194,8 @@ def query_sqlite_counts(database_path, room_id, viewer_id):
     }
 
 
-def query_batch_sqlite_counts(database_path, room_id, viewer_ids, query_fn=query_sqlite_counts):
-    # 批量模式下需要把多个观众的落库结果汇总成一份统计。
+def query_batch_sqlite_counts(database_path, room_id, viewer_ids, query_fn=None):
+    query_fn = query_fn or query_sqlite_counts
     totals = {
         "events": 0,
         "viewer_profiles": 0,
@@ -213,82 +213,88 @@ def run_internal_verification(dataset=None, count=1):
     results = []
     settings.ensure_dirs()
     events = build_live_events(dataset=dataset, count=count)
-    store = LongTermStore(settings.database_path)
-    embedding_service = EmbeddingService(settings)
-    vector = VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
     extractor = ViewerMemoryExtractor()
 
-    record_step(
-        results,
-        "environment",
-        True,
-        (
-            f"database={settings.database_path} "
-            f"embedding_mode={settings.embedding_mode} "
-            f"llm_mode={settings.llm_mode}"
-        ),
-    )
+    with tempfile.TemporaryDirectory(prefix="memory-pipeline-") as tempdir:
+        temp_root = Path(tempdir)
+        database_path = temp_root / "live_prompter.db"
+        chroma_dir = temp_root / "chroma"
+        chroma_dir.mkdir(parents=True, exist_ok=True)
 
-    extracted_memories = []
-    for event in events:
-        candidates = extractor.extract(event)
-        if not candidates:
-            continue
-        extracted_memories.append((event, candidates[0]))
+        store = LongTermStore(database_path)
+        embedding_service = EmbeddingService(settings)
+        vector = VectorMemory(chroma_dir, settings=settings, embedding_service=embedding_service)
 
-    extract_ok = bool(extracted_memories)
-    record_step(results, "extract", extract_ok, f"candidates={len(extracted_memories)}/{len(events)}")
-    if not extract_ok:
-        return results, 0
-
-    for event, candidate in extracted_memories:
-        store.persist_event(event)
-        memory = store.save_viewer_memory(
-            event.room_id,
-            event.user.viewer_id,
-            candidate["memory_text"],
-            source_event_id=event.event_id,
-            memory_type=candidate["memory_type"],
-            confidence=candidate["confidence"],
+        record_step(
+            results,
+            "environment",
+            True,
+            (
+                f"database={database_path} "
+                f"embedding_mode={settings.embedding_mode} "
+                f"llm_mode={settings.llm_mode}"
+            ),
         )
-        if memory is not None:
-            vector.add_memory(memory)
 
-    # persist 阶段统计的是整批观众，而不是最后一条事件。
-    room_id = extracted_memories[0][0].room_id
-    counts = query_batch_sqlite_counts(
-        settings.database_path,
-        room_id,
-        [event.user.viewer_id for event, _ in extracted_memories],
-    )
-    persist_ok = all(counts[key] > 0 for key in counts)
-    record_step(
-        results,
-        "persist",
-        persist_ok,
-        (
-            f"events={counts['events']} "
-            f"profiles={counts['viewer_profiles']} "
-            f"memories={counts['viewer_memories']} "
-            f"processed={len(extracted_memories)}"
-        ),
-    )
+        extracted_memories = []
+        for event in events:
+            candidates = extractor.extract(event)
+            if not candidates:
+                continue
+            extracted_memories.append((event, candidates[0]))
 
-    matched_recall_count = 0
-    for event, candidate in extracted_memories:
-        # 单条模式沿用默认查询；批量模式用各自记忆文本做回查，避免互相干扰。
-        recalled = vector.similar_memories(
-            DEFAULT_QUERY_TEXT if len(extracted_memories) == 1 else candidate["memory_text"],
-            event.room_id,
-            event.user.viewer_id,
-            limit=2,
+        extract_ok = bool(extracted_memories)
+        record_step(results, "extract", extract_ok, f"candidates={len(extracted_memories)}/{len(events)}")
+        if not extract_ok:
+            return results, 0
+
+        for event, candidate in extracted_memories:
+            store.persist_event(event)
+            memory = store.save_viewer_memory(
+                event.room_id,
+                event.user.viewer_id,
+                candidate["memory_text"],
+                source_event_id=event.event_id,
+                memory_type=candidate["memory_type"],
+                confidence=candidate["confidence"],
+            )
+            if memory is not None:
+                vector.add_memory(memory)
+
+        room_id = extracted_memories[0][0].room_id
+        counts = query_batch_sqlite_counts(
+            database_path,
+            room_id,
+            [event.user.viewer_id for event, _ in extracted_memories],
         )
-        if any(item.get("memory_text") == candidate["memory_text"] for item in recalled):
-            matched_recall_count += 1
+        persist_ok = all(counts[key] > 0 for key in counts)
+        record_step(
+            results,
+            "persist",
+            persist_ok,
+            (
+                f"events={counts['events']} "
+                f"profiles={counts['viewer_profiles']} "
+                f"memories={counts['viewer_memories']} "
+                f"processed={len(extracted_memories)}"
+            ),
+        )
 
-    recall_ok = matched_recall_count == len(extracted_memories)
-    record_step(results, "recall", recall_ok, f"matches={matched_recall_count}/{len(extracted_memories)}")
-    return results, len(extracted_memories)
+        matched_recall_count = 0
+        for event, candidate in extracted_memories:
+            query_text = DEFAULT_QUERY_TEXT if len(extracted_memories) == 1 else candidate["memory_text"]
+            recalled = vector.similar_memories(
+                query_text,
+                event.room_id,
+                event.user.viewer_id,
+                limit=2,
+            )
+            if any(item.get("memory_text") == candidate["memory_text"] for item in recalled):
+                matched_recall_count += 1
+
+        recall_ok = matched_recall_count == len(extracted_memories)
+        record_step(results, "recall", recall_ok, f"matches={matched_recall_count}/{len(extracted_memories)}")
+        return results, len(extracted_memories)
 
 
 def post_json(url, payload):
@@ -343,8 +349,7 @@ def run_e2e_verification(repo_root: Path, base_url=DEFAULT_BASE_URL):
         memory_ok = any(item.get("memory_text") == event["content"] for item in memories)
         record_step(results, "viewer_detail", memory_ok, f"memories={len(memories)}")
     except urllib.error.HTTPError as exc:
-        details = f"http_{exc.code}"
-        record_step(results, "inject_event", False, details)
+        record_step(results, "inject_event", False, f"http_{exc.code}")
     except Exception as exc:
         record_step(results, "inject_event", False, str(exc))
     finally:
@@ -382,7 +387,6 @@ def main(argv=None):
     repo_root = Path(__file__).resolve().parents[2]
 
     if mode == "internal":
-        # 支持两种入口：直接读固定夹具，或者按 count 生成一批稳定样本。
         dataset = load_dataset_fixture(args.dataset) if args.dataset else None
         results, _ = run_internal_verification(dataset=dataset, count=args.count)
     else:
