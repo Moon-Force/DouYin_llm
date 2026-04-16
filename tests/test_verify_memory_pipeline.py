@@ -23,6 +23,7 @@ from tests.memory_pipeline_verifier.runner import (
     build_test_event_payload,
     format_step_status,
     normalize_mode,
+    normalize_task,
     parse_args,
     query_batch_sqlite_counts,
     run_internal_verification,
@@ -139,6 +140,31 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
         self.assertEqual(args.mode, "internal")
         self.assertEqual(args.count, 50)
         self.assertEqual(args.dataset, "tests/fixtures/demo.json")
+
+    def test_normalize_task_accepts_pipeline_and_semantic_recall(self):
+        self.assertEqual(normalize_task("pipeline"), "pipeline")
+        self.assertEqual(normalize_task("semantic-recall"), "semantic-recall")
+        with self.assertRaises(ValueError):
+            normalize_task("unknown")
+
+    def test_parse_args_accepts_task_dataset_and_count(self):
+        args = parse_args(
+            [
+                "--mode",
+                "internal",
+                "--task",
+                "semantic-recall",
+                "--dataset",
+                "tests/fixtures/semantic_recall/default.json",
+                "--count",
+                "50",
+            ]
+        )
+
+        self.assertEqual(args.mode, "internal")
+        self.assertEqual(args.task, "semantic-recall")
+        self.assertEqual(args.dataset, "tests/fixtures/semantic_recall/default.json")
+        self.assertEqual(args.count, 50)
 
     def test_query_batch_sqlite_counts_sums_multiple_viewers(self):
         rows = {

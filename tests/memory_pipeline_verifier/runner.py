@@ -19,6 +19,7 @@ from backend.schemas.live import LiveEvent
 from backend.services.memory_extractor import ViewerMemoryExtractor
 from tests.memory_pipeline_verifier.datasets import build_memory_dataset
 from tests.memory_pipeline_verifier.datasets import load_dataset_fixture
+from tests.memory_pipeline_verifier.datasets import load_semantic_recall_fixture
 
 
 DEFAULT_ROOM_ID = "verify-memory-room"
@@ -49,6 +50,13 @@ def normalize_mode(mode):
     normalized = str(mode or "").strip().lower()
     if normalized not in {"internal", "e2e"}:
         raise ValueError(f"unsupported mode: {mode}")
+    return normalized
+
+
+def normalize_task(task):
+    normalized = str(task or "").strip().lower()
+    if normalized not in {"pipeline", "semantic-recall"}:
+        raise ValueError(f"unsupported task: {task}")
     return normalized
 
 
@@ -368,6 +376,12 @@ def parse_args(argv=None):
         help="Verification mode to run.",
     )
     parser.add_argument(
+        "--task",
+        default="pipeline",
+        choices=["pipeline", "semantic-recall"],
+        help="Verification task to run.",
+    )
+    parser.add_argument(
         "--count",
         default=1,
         type=int,
@@ -384,9 +398,16 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     mode = normalize_mode(args.mode)
+    task = normalize_task(args.task)
     repo_root = Path(__file__).resolve().parents[2]
 
-    if mode == "internal":
+    if task == "semantic-recall":
+        if mode != "internal":
+            raise ValueError("semantic-recall only supports internal mode")
+        if not args.dataset:
+            raise ValueError("--dataset is required for semantic-recall")
+        results = run_semantic_recall_verification(args.dataset)
+    elif mode == "internal":
         dataset = load_dataset_fixture(args.dataset) if args.dataset else None
         results, _ = run_internal_verification(dataset=dataset, count=args.count)
     else:
