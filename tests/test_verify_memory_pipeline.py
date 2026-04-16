@@ -1,11 +1,15 @@
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+from backend.config import settings as backend_settings
+from backend.memory.long_term import LongTermStore
+from backend.memory.vector_store import VectorMemory
 from backend.schemas.live import LiveEvent
 from backend.services.memory_extractor import ViewerMemoryExtractor
 from tests.memory_pipeline_verifier.datasets import (
@@ -135,6 +139,61 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
         self.assertIn("memory_texts", cases[0])
         self.assertIn("query", cases[0])
         self.assertIn("expected_memory_text", cases[0])
+
+    def test_load_semantic_recall_hard_fixture_returns_twenty_five_plus_cases(self):
+        fixture_path = Path("tests/fixtures/semantic_recall/hard.json")
+
+        cases = load_semantic_recall_fixture(fixture_path)
+
+        self.assertGreaterEqual(len(cases), 25)
+        self.assertEqual(len({case["label"] for case in cases}), len(cases))
+        self.assertTrue(all(len(case["memory_texts"]) >= 3 for case in cases))
+
+    def test_hard_semantic_recall_fixture_is_written_into_vector_collection(self):
+        cases = load_semantic_recall_fixture(Path("tests/fixtures/semantic_recall/hard.json"))
+        temp_root = Path(tempfile.mkdtemp(prefix="semantic-hard-vector-"))
+        total_memories = sum(len(case["memory_texts"]) for case in cases)
+
+        try:
+            database_path = temp_root / "live_prompter.db"
+            chroma_dir = temp_root / "chroma"
+            chroma_dir.mkdir(parents=True, exist_ok=True)
+
+            store = LongTermStore(database_path)
+            fake_embedding = MagicMock()
+            fake_embedding.embed_texts.side_effect = lambda texts: [
+                [float(index + 1), 0.0, 0.0, 0.0] for index, _ in enumerate(texts)
+            ]
+            vector = VectorMemory(chroma_dir, settings=backend_settings, embedding_service=fake_embedding)
+
+            for index, case in enumerate(cases, start=1):
+                room_id = str(case.get("room_id") or "semantic-hard-room").strip()
+                viewer_id = str(case.get("viewer_id") or f"id:semantic-hard-viewer-{index:03d}").strip()
+                for memory_text in case["memory_texts"]:
+                    store.save_viewer_memory(
+                        room_id,
+                        viewer_id,
+                        memory_text,
+                        source_event_id=f"hard-fixture-{index:03d}",
+                        memory_type="fact",
+                        confidence=0.8,
+                    )
+
+            memories = store.list_all_viewer_memories(limit=10000)
+            vector.prime_memory_index(memories, batch_size=64, force_rebuild=True)
+
+            self.assertEqual(vector.memory_collection.count(), total_memories)
+
+            sample_memory = memories[0]
+            stored = vector.memory_collection.get(
+                ids=[sample_memory.memory_id],
+                include=["documents", "metadatas"],
+            )
+            self.assertEqual(stored["documents"][0], sample_memory.memory_text)
+            self.assertEqual(stored["metadatas"][0]["viewer_id"], sample_memory.viewer_id)
+            self.assertEqual(stored["metadatas"][0]["room_id"], sample_memory.room_id)
+        finally:
+            cleanup_temp_dir(temp_root)
 
     def test_validate_semantic_recall_cases_rejects_expected_text_outside_memory_texts(self):
         with self.assertRaises(ValueError):

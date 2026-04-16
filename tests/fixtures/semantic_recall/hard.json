@@ -1,0 +1,327 @@
+[
+  {
+    "label": "hard-work-overtime-hangzhou",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-001",
+    "memory_texts": [
+      "我在杭州做前端开发，最近连续两周都在加班赶需求。",
+      "我周末常去西湖边夜跑，一次差不多十公里。",
+      "我皮肤偏干，换季的时候脸上很容易起皮。",
+      "我每个月都要去上海出差两三次，最近尤其频繁。"
+    ],
+    "query": "最近写页面经常熬夜赶进度",
+    "expected_memory_text": "我在杭州做前端开发，最近连续两周都在加班赶需求。"
+  },
+  {
+    "label": "hard-work-weekly-meeting",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-002",
+    "memory_texts": [
+      "我在苏州做产品经理，每周三固定开周会到很晚。",
+      "我平时上班主要骑电动车通勤，单程大概四十分钟。",
+      "我早饭一般只喝美式咖啡，不怎么吃甜的。",
+      "我最近在备考雅思，晚上下班后会背单词做听力。"
+    ],
+    "query": "礼拜三总是开会拖到很晚才下班",
+    "expected_memory_text": "我在苏州做产品经理，每周三固定开周会到很晚。"
+  },
+  {
+    "label": "hard-work-night-shift-nurse",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-003",
+    "memory_texts": [
+      "我在宁波医院做护士，这个月夜班排得特别密。",
+      "我妈妈最近住院了，我白天要来回照顾她。",
+      "我最近在减脂，晚饭尽量不吃米饭和面。",
+      "我乳糖不耐，喝牛奶就容易肚子不舒服。"
+    ],
+    "query": "最近医院夜班很多，作息全乱了",
+    "expected_memory_text": "我在宁波医院做护士，这个月夜班排得特别密。"
+  },
+  {
+    "label": "hard-work-training-accountant",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-004",
+    "memory_texts": [
+      "我在合肥做会计，月底结账那几天经常要培训新人到很晚。",
+      "我住在公司附近，走路十分钟左右就能到。",
+      "我喜欢吃重辣火锅，但是一点都不吃香菜。",
+      "我最近在备考雅思，晚上下班后会背单词做听力。"
+    ],
+    "query": "月底带新人做账，经常忙到很晚",
+    "expected_memory_text": "我在合肥做会计，月底结账那几天经常要培训新人到很晚。"
+  },
+  {
+    "label": "hard-work-kindergarten-lesson-plans",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-005",
+    "memory_texts": [
+      "我在武汉幼儿园当老师，最近一直在改公开课教案。",
+      "我准备六月去日本看演唱会，机票已经在看了。",
+      "我养了一只橘猫，名字叫团子，特别能吃。",
+      "我平时上班主要骑电动车通勤，单程大概四十分钟。"
+    ],
+    "query": "这阵子天天都在改公开课的教学方案",
+    "expected_memory_text": "我在武汉幼儿园当老师，最近一直在改公开课教案。"
+  },
+  {
+    "label": "hard-rewrite-westlake-night-run",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-006",
+    "memory_texts": [
+      "我周末常去西湖边夜跑，一次差不多十公里。",
+      "我最近在减脂，晚饭尽量不吃米饭和面。",
+      "我平时上班主要骑电动车通勤，单程大概四十分钟。",
+      "我住在公司附近，走路十分钟左右就能到。"
+    ],
+    "query": "休息天会绕着西湖跑长距离",
+    "expected_memory_text": "我周末常去西湖边夜跑，一次差不多十公里。"
+  },
+  {
+    "label": "hard-rewrite-lactose-intolerance",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-007",
+    "memory_texts": [
+      "我乳糖不耐，喝牛奶就容易肚子不舒服。",
+      "我对海鲜过敏，尤其虾蟹一吃就起疹子。",
+      "我早饭一般只喝美式咖啡，不怎么吃甜的。",
+      "我最近在减脂，晚饭尽量不吃米饭和面。"
+    ],
+    "query": "一喝奶制品胃就很难受",
+    "expected_memory_text": "我乳糖不耐，喝牛奶就容易肚子不舒服。"
+  },
+  {
+    "label": "hard-rewrite-ielts-night-study",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-008",
+    "memory_texts": [
+      "我最近在备考雅思，晚上下班后会背单词做听力。",
+      "我准备十二月考教师资格证，周末都在刷题。",
+      "我每个月都要去上海出差两三次，最近尤其频繁。",
+      "我早饭一般只喝美式咖啡，不怎么吃甜的。"
+    ],
+    "query": "晚上基本都在刷雅思词汇和听力",
+    "expected_memory_text": "我最近在备考雅思，晚上下班后会背单词做听力。"
+  },
+  {
+    "label": "hard-rewrite-cat-tuanzi",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-009",
+    "memory_texts": [
+      "我养了一只橘猫，名字叫团子，特别能吃。",
+      "我家还有一只小白狗，胆子很小。",
+      "我妈妈最近住院了，我白天要来回照顾她。",
+      "我一直用iPhone，不过下一台手机想换折叠屏。"
+    ],
+    "query": "家里那只叫团子的橘猫今天又拆家了",
+    "expected_memory_text": "我养了一只橘猫，名字叫团子，特别能吃。"
+  },
+  {
+    "label": "hard-rewrite-foldable-phone",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-010",
+    "memory_texts": [
+      "我一直用iPhone，不过下一台手机想换折叠屏。",
+      "我现在这台安卓备用机电池已经不太行了。",
+      "我平时上班主要骑电动车通勤，单程大概四十分钟。",
+      "我每个月都要去上海出差两三次，最近尤其频繁。"
+    ],
+    "query": "虽然一直拿苹果手机，但下次想试试折叠机",
+    "expected_memory_text": "我一直用iPhone，不过下一台手机想换折叠屏。"
+  },
+  {
+    "label": "hard-distractor-spicy-vs-cilantro",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-011",
+    "memory_texts": [
+      "我喜欢吃重辣火锅，但是一点都不吃香菜。",
+      "我很爱吃川菜，尤其麻婆豆腐和水煮牛肉。",
+      "我乳糖不耐，喝牛奶就容易肚子不舒服。",
+      "我早饭一般只喝美式咖啡，不怎么吃甜的。"
+    ],
+    "query": "辣锅可以，但凡是香菜我一口都不碰",
+    "expected_memory_text": "我喜欢吃重辣火锅，但是一点都不吃香菜。"
+  },
+  {
+    "label": "hard-distractor-dry-skin-season",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-012",
+    "memory_texts": [
+      "我皮肤偏干，换季的时候脸上很容易起皮。",
+      "我最近熬夜比较多，黑眼圈特别重。",
+      "我最近一直在试新的补水面膜。",
+      "我喜欢吃重辣火锅，但是一点都不吃香菜。"
+    ],
+    "query": "一到换季脸上就特别干还会起皮",
+    "expected_memory_text": "我皮肤偏干，换季的时候脸上很容易起皮。"
+  },
+  {
+    "label": "hard-distractor-diet-no-carbs",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-013",
+    "memory_texts": [
+      "我最近在减脂，晚饭尽量不吃米饭和面。",
+      "我早饭一般只喝美式咖啡，不怎么吃甜的。",
+      "我周末常去西湖边夜跑，一次差不多十公里。",
+      "我乳糖不耐，喝牛奶就容易肚子不舒服。"
+    ],
+    "query": "最近控制体重，晚上基本不碰主食了",
+    "expected_memory_text": "我最近在减脂，晚饭尽量不吃米饭和面。"
+  },
+  {
+    "label": "hard-distractor-americano-morning",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-014",
+    "memory_texts": [
+      "我早饭一般只喝美式咖啡，不怎么吃甜的。",
+      "我下午犯困的时候会再来一杯拿铁。",
+      "我最近在减脂，晚饭尽量不吃米饭和面。",
+      "我喜欢吃重辣火锅，但是一点都不吃香菜。"
+    ],
+    "query": "早上通常就一杯黑咖啡，甜口的都不太碰",
+    "expected_memory_text": "我早饭一般只喝美式咖啡，不怎么吃甜的。"
+  },
+  {
+    "label": "hard-distractor-seafood-allergy",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-015",
+    "memory_texts": [
+      "我对海鲜过敏，尤其虾蟹一吃就起疹子。",
+      "我乳糖不耐，喝牛奶就容易肚子不舒服。",
+      "我喜欢吃重辣火锅，但是一点都不吃香菜。",
+      "我最近在减脂，晚饭尽量不吃米饭和面。"
+    ],
+    "query": "虾蟹这种海鲜我吃了会过敏起疹子",
+    "expected_memory_text": "我对海鲜过敏，尤其虾蟹一吃就起疹子。"
+  },
+  {
+    "label": "hard-time-japan-concert-june",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-016",
+    "memory_texts": [
+      "我准备六月去日本看演唱会，机票已经在看了。",
+      "我打算十一月去成都玩一周，酒店都快订好了。",
+      "我每个月都要去上海出差两三次，最近尤其频繁。",
+      "我一直用iPhone，不过下一台手机想换折叠屏。"
+    ],
+    "query": "六月想飞去日本看现场演出",
+    "expected_memory_text": "我准备六月去日本看演唱会，机票已经在看了。"
+  },
+  {
+    "label": "hard-time-shanghai-business-trip",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-017",
+    "memory_texts": [
+      "我每个月都要去上海出差两三次，最近尤其频繁。",
+      "我准备六月去日本看演唱会，机票已经在看了。",
+      "我在杭州做前端开发，最近连续两周都在加班赶需求。",
+      "我住在公司附近，走路十分钟左右就能到。"
+    ],
+    "query": "这个月又得跑上海谈事情了",
+    "expected_memory_text": "我每个月都要去上海出差两三次，最近尤其频繁。"
+  },
+  {
+    "label": "hard-time-mom-hospital-daytime",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-018",
+    "memory_texts": [
+      "我妈妈最近住院了，我白天要来回照顾她。",
+      "我在宁波医院做护士，这个月夜班排得特别密。",
+      "我家还有一只小白狗，胆子很小。",
+      "我平时上班主要骑电动车通勤，单程大概四十分钟。"
+    ],
+    "query": "白天还得往医院跑着照顾妈妈",
+    "expected_memory_text": "我妈妈最近住院了，我白天要来回照顾她。"
+  },
+  {
+    "label": "hard-time-teacher-cert-weekend",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-019",
+    "memory_texts": [
+      "我准备十二月考教师资格证，周末都在刷题。",
+      "我最近在备考雅思，晚上下班后会背单词做听力。",
+      "我在武汉幼儿园当老师，最近一直在改公开课教案。",
+      "我准备六月去日本看演唱会，机票已经在看了。"
+    ],
+    "query": "休息天基本都在准备教资考试",
+    "expected_memory_text": "我准备十二月考教师资格证，周末都在刷题。"
+  },
+  {
+    "label": "hard-time-chengdu-november",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-020",
+    "memory_texts": [
+      "我打算十一月去成都玩一周，酒店都快订好了。",
+      "我准备六月去日本看演唱会，机票已经在看了。",
+      "我每个月都要去上海出差两三次，最近尤其频繁。",
+      "我周末常去西湖边夜跑，一次差不多十公里。"
+    ],
+    "query": "十一月想去成都待几天放松一下",
+    "expected_memory_text": "我打算十一月去成都玩一周，酒店都快订好了。"
+  },
+  {
+    "label": "hard-place-live-near-company",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-021",
+    "memory_texts": [
+      "我住在公司附近，走路十分钟左右就能到。",
+      "我平时上班主要骑电动车通勤，单程大概四十分钟。",
+      "我在杭州做前端开发，最近连续两周都在加班赶需求。",
+      "我每个月都要去上海出差两三次，最近尤其频繁。"
+    ],
+    "query": "住的地方离单位很近，走一会儿就到了",
+    "expected_memory_text": "我住在公司附近，走路十分钟左右就能到。"
+  },
+  {
+    "label": "hard-place-e-bike-commute",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-022",
+    "memory_texts": [
+      "我平时上班主要骑电动车通勤，单程大概四十分钟。",
+      "我住在公司附近，走路十分钟左右就能到。",
+      "我周末常去西湖边夜跑，一次差不多十公里。",
+      "我在苏州做产品经理，每周三固定开周会到很晚。"
+    ],
+    "query": "我平常通勤基本都靠电瓶车，来回时间挺长",
+    "expected_memory_text": "我平时上班主要骑电动车通勤，单程大概四十分钟。"
+  },
+  {
+    "label": "hard-place-pudong-move",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-023",
+    "memory_texts": [
+      "我准备九月搬去浦东住，已经开始看房了。",
+      "我每个月都要去上海出差两三次，最近尤其频繁。",
+      "我打算十一月去成都玩一周，酒店都快订好了。",
+      "我住在公司附近，走路十分钟左右就能到。"
+    ],
+    "query": "九月份想搬到浦东那边住，最近在找房子",
+    "expected_memory_text": "我准备九月搬去浦东住，已经开始看房了。"
+  },
+  {
+    "label": "hard-place-beijing-relocation",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-024",
+    "memory_texts": [
+      "我明年春天可能调去北京工作，现在提前了解租房。",
+      "我准备九月搬去浦东住，已经开始看房了。",
+      "我每个月都要去上海出差两三次，最近尤其频繁。",
+      "我在杭州做前端开发，最近连续两周都在加班赶需求。"
+    ],
+    "query": "明年开春有可能去北京上班，所以先看看那边租房",
+    "expected_memory_text": "我明年春天可能调去北京工作，现在提前了解租房。"
+  },
+  {
+    "label": "hard-life-dog-timid",
+    "room_id": "semantic-hard-room",
+    "viewer_id": "id:semantic-hard-viewer-025",
+    "memory_texts": [
+      "我家还有一只小白狗，胆子很小。",
+      "我养了一只橘猫，名字叫团子，特别能吃。",
+      "我妈妈最近住院了，我白天要来回照顾她。",
+      "我早饭一般只喝美式咖啡，不怎么吃甜的。"
+    ],
+    "query": "家里那只白色小狗特别胆小，见人就躲",
+    "expected_memory_text": "我家还有一只小白狗，胆子很小。"
+  }
+]
