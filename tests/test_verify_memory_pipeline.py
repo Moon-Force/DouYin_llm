@@ -477,32 +477,33 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             }
         ]
 
-        with tempfile.TemporaryDirectory(prefix="semantic-report-") as tempdir, patch(
-            "tests.memory_pipeline_verifier.runner.load_semantic_recall_fixture",
-            return_value=dataset,
-        ), patch("tests.memory_pipeline_verifier.runner.EmbeddingService", return_value=MagicMock()), patch(
-            "tests.memory_pipeline_verifier.runner.VectorMemory"
-        ) as vector_cls:
-            fake_vector = MagicMock()
-            fake_vector.similar_memories.return_value = [
-                {"memory_text": "我在杭州做前端开发，最近连续两周都在加班赶需求。"},
-                {"memory_text": "我最近在赶一个移动端重构项目，这两周经常改到半夜。"},
-                {"memory_text": "我们组这个月一直在冲版本，晚上开会和改页面都特别频繁。"},
-            ]
-            vector_cls.return_value = fake_vector
+        with tempfile.TemporaryDirectory(prefix="semantic-report-") as tempdir:
+            with patch(
+                "tests.memory_pipeline_verifier.runner.load_semantic_recall_fixture",
+                return_value=dataset,
+            ), patch(
+                "tests.memory_pipeline_verifier.runner.EmbeddingService", return_value=MagicMock()
+            ), patch("tests.memory_pipeline_verifier.runner.VectorMemory") as vector_cls:
+                fake_vector = MagicMock()
+                fake_vector.similar_memories.return_value = [
+                    {"memory_text": "我在杭州做前端开发，最近连续两周都在加班赶需求。"},
+                    {"memory_text": "我最近在赶一个移动端重构项目，这两周经常改到半夜。"},
+                    {"memory_text": "我们组这个月一直在冲版本，晚上开会和改页面都特别频繁。"},
+                ]
+                vector_cls.return_value = fake_vector
 
-            results, report_path = run_semantic_recall_verification(
-                "tests/fixtures/semantic_recall/blind_100.json",
-                report_dir=Path(tempdir),
-            )
+                results, report_path = run_semantic_recall_verification(
+                    "tests/fixtures/semantic_recall/blind_100.json",
+                    report_dir=Path(tempdir),
+                )
 
-        report_text = Path(report_path).read_text(encoding="utf-8")
-        self.assertTrue(Path(report_path).exists())
-        self.assertEqual(results[3].name, "report")
-        self.assertIn("# Semantic Recall Report", report_text)
-        self.assertIn("## blind-001", report_text)
-        self.assertIn("Top1 Hit", report_text)
-        self.assertIn("Top3 Hit", report_text)
+            self.assertTrue(Path(report_path).exists())
+            report_text = Path(report_path).read_text(encoding="utf-8")
+            self.assertEqual(results[3].name, "report")
+            self.assertIn("# Semantic Recall Report", report_text)
+            self.assertIn("## blind-001", report_text)
+            self.assertIn("Top1 Hit", report_text)
+            self.assertIn("Top3 Hit", report_text)
 
     def test_cleanup_temp_dir_swallows_permission_error(self):
         with patch("tests.memory_pipeline_verifier.runner.shutil.rmtree", side_effect=PermissionError("busy")):
