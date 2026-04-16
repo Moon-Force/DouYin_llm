@@ -217,8 +217,11 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
 
         cases = load_semantic_recall_fixture(fixture_path)
 
-        self.assertTrue(all(len(case["memory_texts"]) >= 10 for case in cases))
-        self.assertTrue(all(case["expected_memory_text"] in case["memory_texts"] for case in cases))
+        for case in cases:
+            label = case.get("label", "<missing-label>")
+            with self.subTest(label=label):
+                self.assertGreaterEqual(len(case["memory_texts"]), 10)
+                self.assertIn(case["expected_memory_text"], case["memory_texts"])
 
     def test_blind_semantic_recall_fixture_keeps_category_balance_and_non_copy_queries(self):
         fixture_path = Path("tests/fixtures/semantic_recall/blind_100.json")
@@ -499,7 +502,9 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
 
             self.assertTrue(Path(report_path).exists())
             report_text = Path(report_path).read_text(encoding="utf-8")
-            self.assertEqual(results[3].name, "report")
+            report_step = next((step for step in results if step.name == "report"), None)
+            self.assertIsNotNone(report_step, "missing report step in results")
+            self.assertTrue(report_step.ok)
             self.assertIn("# Semantic Recall Report", report_text)
             self.assertIn("## blind-001", report_text)
             self.assertIn("Top1 Hit", report_text)
