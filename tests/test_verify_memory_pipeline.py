@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 import subprocess
 import sys
@@ -218,6 +219,21 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
 
         self.assertTrue(all(len(case["memory_texts"]) >= 4 for case in cases))
         self.assertTrue(all(case["expected_memory_text"] in case["memory_texts"] for case in cases))
+
+    def test_blind_semantic_recall_fixture_keeps_category_balance_and_non_copy_queries(self):
+        fixture_path = Path("tests/fixtures/semantic_recall/blind_100.json")
+
+        cases = load_semantic_recall_fixture(fixture_path)
+        category_counts = Counter(tuple(case["tags"]) for case in cases)
+
+        self.assertEqual(category_counts[("typo",)], 20)
+        self.assertEqual(category_counts[("spoken",)], 20)
+        self.assertEqual(category_counts[("fragment",)], 20)
+        self.assertEqual(category_counts[("typo", "spoken", "fragment", "mixed_noise")], 20)
+        self.assertEqual(category_counts[("distractor",)], 20)
+        self.assertTrue(
+            all(case["query"].strip() != case["expected_memory_text"].strip() for case in cases)
+        )
 
     def test_validate_semantic_recall_cases_rejects_expected_text_outside_memory_texts(self):
         with self.assertRaises(ValueError):
