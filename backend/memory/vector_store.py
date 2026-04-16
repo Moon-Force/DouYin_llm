@@ -128,11 +128,15 @@ class VectorMemory:
         confidence = float(metadata.get("confidence") or 0.0)
         recall_count = int(metadata.get("recall_count") or 0)
         updated_at = int(metadata.get("updated_at") or 0)
+        source_kind = str(metadata.get("source_kind") or "auto")
+        is_pinned = int(metadata.get("is_pinned") or 0)
         reranked_score = (
             float(item.get("score", 0.0))
             + (0.1 * confidence)
             + (0.02 * contains_query)
             + (0.01 * min(recall_count, 10))
+            + (0.03 if source_kind == "manual" else 0.0)
+            + (0.05 if is_pinned else 0.0)
         )
         return (reranked_score, updated_at)
 
@@ -153,6 +157,9 @@ class VectorMemory:
     def add_memory(self, memory: ViewerMemory):
         if not memory.memory_text or not memory.viewer_id:
             return
+        if str(getattr(memory, "status", "active") or "active") != "active":
+            self.remove_memory(memory.memory_id)
+            return
 
         metadata = {
             "room_id": memory.room_id,
@@ -162,6 +169,9 @@ class VectorMemory:
             "confidence": memory.confidence,
             "updated_at": memory.updated_at,
             "recall_count": memory.recall_count,
+            "status": getattr(memory, "status", "active"),
+            "source_kind": getattr(memory, "source_kind", "auto"),
+            "is_pinned": 1 if getattr(memory, "is_pinned", False) else 0,
         }
         self._memory_items = [item for item in self._memory_items if item["id"] != memory.memory_id]
         self._memory_items.append({"id": memory.memory_id, "document": memory.memory_text, "metadata": metadata})
@@ -175,6 +185,22 @@ class VectorMemory:
                 metadatas=[metadata],
                 embeddings=[self.embedding.embed_text(memory.memory_text)],
             )
+
+    def remove_memory(self, memory_id):
+        memory_id = str(memory_id or "").strip()
+        if not memory_id:
+            return
+        self._memory_items = [item for item in self._memory_items if item["id"] != memory_id]
+
+        self._ensure_semantic_backend()
+        if self.memory_collection:
+            self.memory_collection.delete(ids=[memory_id])
+
+    def sync_memory(self, memory):
+        if not memory or str(getattr(memory, "status", "active") or "active") != "active":
+            self.remove_memory(getattr(memory, "memory_id", ""))
+            return
+        self.add_memory(memory)
 
     def similar_memories(self, text, room_id, viewer_id, limit=3):
         query_text = str(text or "").strip()
@@ -200,6 +226,9 @@ class VectorMemory:
                 distances = result.get("distances", [[]])[0]
                 items = []
                 for index, memory_id in enumerate(ids):
+                    metadata = metadatas[index] if index < len(metadatas) else {}
+                    if str(metadata.get("status") or "active") != "active":
+                        continue
                     score = self._distance_to_score(distances[index] if index < len(distances) else None)
                     if score < min_score:
                         continue
@@ -208,7 +237,7 @@ class VectorMemory:
                             "memory_id": memory_id,
                             "memory_text": documents[index] if index < len(documents) else "",
                             "score": score,
-                            "metadata": metadatas[index] if index < len(metadatas) else {},
+                            "metadata": metadata,
                         }
                     )
                 items.sort(key=lambda item: self._memory_rank_key(item, query_text), reverse=True)
@@ -223,6 +252,8 @@ class VectorMemory:
         for item in self._memory_items:
             metadata = item["metadata"]
             if metadata.get("room_id") != room_id or metadata.get("viewer_id") != viewer_id:
+                continue
+            if str(metadata.get("status") or "active") != "active":
                 continue
             target_text = item["document"]
             target_tokens = set(tokenize_text(target_text))

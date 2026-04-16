@@ -110,6 +110,121 @@ class VectorMemoryTests(unittest.TestCase):
         self.assertFalse(store.semantic_backend_ready())
         self.assertIn("Chroma", store.semantic_backend_reason())
 
+    def test_add_memory_includes_status_source_and_pin_metadata(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        memory = SimpleNamespace(
+            memory_id="mem-1",
+            room_id="room-1",
+            viewer_id="viewer-1",
+            source_event_id="evt-1",
+            memory_text="喜欢豚骨拉面",
+            memory_type="preference",
+            confidence=0.91,
+            updated_at=123,
+            recall_count=2,
+            status="active",
+            source_kind="manual",
+            is_pinned=True,
+        )
+
+        store.add_memory(memory)
+
+        upsert_kwargs = fake_collection.upsert.call_args.kwargs
+        self.assertEqual(upsert_kwargs["metadatas"][0]["status"], "active")
+        self.assertEqual(upsert_kwargs["metadatas"][0]["source_kind"], "manual")
+        self.assertEqual(upsert_kwargs["metadatas"][0]["is_pinned"], 1)
+
+    def test_sync_memory_removes_deleted_or_invalid_entries(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+        store._memory_items = [
+            {
+                "id": "mem-1",
+                "document": "喜欢拉面",
+                "metadata": {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "confidence": 0.8,
+                    "updated_at": 10,
+                    "recall_count": 1,
+                },
+            }
+        ]
+
+        store.sync_memory(
+            SimpleNamespace(
+                memory_id="mem-1",
+                room_id="room-1",
+                viewer_id="viewer-1",
+                source_event_id="evt-1",
+                memory_text="喜欢拉面",
+                memory_type="preference",
+                confidence=0.8,
+                updated_at=20,
+                recall_count=1,
+                status="deleted",
+                source_kind="auto",
+                is_pinned=False,
+            )
+        )
+
+        self.assertEqual(store._memory_items, [])
+        fake_collection.delete.assert_called_once_with(ids=["mem-1"])
+
+    def test_similar_memories_prefers_manual_and_pinned_when_scores_are_close(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.return_value = {
+            "ids": [["m-auto", "m-manual"]],
+            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": 100,
+                    "recall_count": 2,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": 90,
+                    "recall_count": 2,
+                    "status": "active",
+                    "source_kind": "manual",
+                    "is_pinned": 1,
+                },
+            ]],
+            "distances": [[0.4, 0.4]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("喜欢拉面", "room-1", "viewer-1", limit=2)
+
+        self.assertEqual(result[0]["memory_id"], "m-manual")
+
 
 if __name__ == "__main__":
     unittest.main()
