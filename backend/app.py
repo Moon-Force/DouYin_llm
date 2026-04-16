@@ -29,8 +29,7 @@ session_memory = SessionMemory(settings.redis_url, settings.session_ttl_seconds)
 long_term_store = LongTermStore(settings.database_path)
 embedding_service = EmbeddingService(settings)
 vector_memory = VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
-for memory in long_term_store.list_all_viewer_memories(limit=10000):
-    vector_memory.add_memory(memory)
+vector_memory.prime_memory_index(long_term_store.list_all_viewer_memories(limit=10000))
 agent = LivePromptAgent(settings, vector_memory, long_term_store)
 memory_extractor = ViewerMemoryExtractor()
 

@@ -121,6 +121,81 @@ class VectorMemory:
         return min(int(limit), int(base))
 
     @staticmethod
+    def _memory_metadata(memory):
+        return {
+            "room_id": memory.room_id,
+            "viewer_id": memory.viewer_id,
+            "memory_type": memory.memory_type,
+            "source_event_id": memory.source_event_id,
+            "confidence": memory.confidence,
+            "updated_at": memory.updated_at,
+            "recall_count": memory.recall_count,
+            "status": getattr(memory, "status", "active"),
+            "source_kind": getattr(memory, "source_kind", "auto"),
+            "is_pinned": 1 if getattr(memory, "is_pinned", False) else 0,
+        }
+
+    def _active_memory_records(self, memories):
+        records = []
+        for memory in memories or []:
+            if not memory or not getattr(memory, "memory_text", "") or not getattr(memory, "viewer_id", ""):
+                continue
+            if str(getattr(memory, "status", "active") or "active") != "active":
+                continue
+            records.append(
+                {
+                    "id": memory.memory_id,
+                    "document": memory.memory_text,
+                    "metadata": self._memory_metadata(memory),
+                }
+            )
+        return records
+
+    def _embed_texts(self, texts):
+        if hasattr(self.embedding, "embed_texts"):
+            return self.embedding.embed_texts(texts)
+        return [self.embedding.embed_text(text) for text in texts]
+
+    def _recreate_memory_collection(self):
+        if not self._client or not self.memory_collection:
+            return
+        collection_name = getattr(self.memory_collection, "name", "") or f"viewer_memories_{self._collection_suffix}"
+        try:
+            self._client.delete_collection(collection_name)
+        except Exception:
+            logger.warning("Failed to delete stale memory collection during startup warmup: %s", collection_name)
+        self.memory_collection = self._client.get_or_create_collection(collection_name)
+
+    def prime_memory_index(self, memories, batch_size=64):
+        records = self._active_memory_records(memories)
+        self._memory_items = records[-3000:]
+
+        if not self.memory_collection:
+            return
+
+        expected_count = len(records)
+        try:
+            current_count = int(self.memory_collection.count())
+        except Exception:
+            current_count = -1
+
+        if current_count == expected_count:
+            return
+
+        if current_count > 0 and expected_count >= 0:
+            self._recreate_memory_collection()
+
+        for start in range(0, len(records), max(1, int(batch_size))):
+            batch = records[start : start + max(1, int(batch_size))]
+            texts = [item["document"] for item in batch]
+            self.memory_collection.upsert(
+                ids=[item["id"] for item in batch],
+                documents=texts,
+                metadatas=[item["metadata"] for item in batch],
+                embeddings=self._embed_texts(texts),
+            )
+
+    @staticmethod
     def _memory_rank_key(item, query_text):
         text = str(item.get("memory_text") or "")
         metadata = item.get("metadata") or {}
@@ -161,18 +236,7 @@ class VectorMemory:
             self.remove_memory(memory.memory_id)
             return
 
-        metadata = {
-            "room_id": memory.room_id,
-            "viewer_id": memory.viewer_id,
-            "memory_type": memory.memory_type,
-            "source_event_id": memory.source_event_id,
-            "confidence": memory.confidence,
-            "updated_at": memory.updated_at,
-            "recall_count": memory.recall_count,
-            "status": getattr(memory, "status", "active"),
-            "source_kind": getattr(memory, "source_kind", "auto"),
-            "is_pinned": 1 if getattr(memory, "is_pinned", False) else 0,
-        }
+        metadata = self._memory_metadata(memory)
         self._memory_items = [item for item in self._memory_items if item["id"] != memory.memory_id]
         self._memory_items.append({"id": memory.memory_id, "document": memory.memory_text, "metadata": metadata})
         self._memory_items = self._memory_items[-3000:]

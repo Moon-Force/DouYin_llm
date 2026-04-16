@@ -226,5 +226,97 @@ class VectorMemoryTests(unittest.TestCase):
         self.assertEqual(result[0]["memory_id"], "m-manual")
 
 
+    def test_prime_memory_index_warms_cache_without_reembedding_when_collection_count_matches(self):
+        fake_embedding = MagicMock()
+        fake_collection = MagicMock()
+        fake_collection.count.return_value = 2
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        memories = [
+            SimpleNamespace(
+                memory_id="mem-1",
+                room_id="room-1",
+                viewer_id="viewer-1",
+                source_event_id="evt-1",
+                memory_text="likes ramen",
+                memory_type="preference",
+                confidence=0.8,
+                updated_at=10,
+                recall_count=1,
+                status="active",
+                source_kind="auto",
+                is_pinned=False,
+            ),
+            SimpleNamespace(
+                memory_id="mem-2",
+                room_id="room-1",
+                viewer_id="viewer-2",
+                source_event_id="evt-2",
+                memory_text="likes noodles",
+                memory_type="preference",
+                confidence=0.9,
+                updated_at=20,
+                recall_count=2,
+                status="active",
+                source_kind="manual",
+                is_pinned=True,
+            ),
+        ]
+
+        store.prime_memory_index(memories)
+
+        self.assertEqual([item["id"] for item in store._memory_items], ["mem-1", "mem-2"])
+        fake_embedding.embed_text.assert_not_called()
+        fake_embedding.embed_texts.assert_not_called()
+        fake_collection.upsert.assert_not_called()
+
+    def test_prime_memory_index_rebuilds_collection_when_collection_is_empty(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_texts.return_value = [[0.1, 0.2], [0.3, 0.4]]
+        fake_collection = MagicMock()
+        fake_collection.count.return_value = 0
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        memories = [
+            SimpleNamespace(
+                memory_id="mem-1",
+                room_id="room-1",
+                viewer_id="viewer-1",
+                source_event_id="evt-1",
+                memory_text="likes ramen",
+                memory_type="preference",
+                confidence=0.8,
+                updated_at=10,
+                recall_count=1,
+                status="active",
+                source_kind="auto",
+                is_pinned=False,
+            ),
+            SimpleNamespace(
+                memory_id="mem-2",
+                room_id="room-1",
+                viewer_id="viewer-2",
+                source_event_id="evt-2",
+                memory_text="likes noodles",
+                memory_type="preference",
+                confidence=0.9,
+                updated_at=20,
+                recall_count=2,
+                status="active",
+                source_kind="manual",
+                is_pinned=True,
+            ),
+        ]
+
+        store.prime_memory_index(memories, batch_size=64)
+
+        fake_embedding.embed_texts.assert_called_once_with(["likes ramen", "likes noodles"])
+        fake_collection.upsert.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()
