@@ -34,6 +34,10 @@ const {
   viewerNotePinned,
   isSavingViewerNote,
   editingViewerNoteId,
+  viewerMemoryDraft,
+  editingViewerMemoryId,
+  isSavingViewerMemory,
+  viewerMemoryLogsById,
   llmSettings,
   llmSettingsDraft,
   isLlmSettingsOpen,
@@ -114,14 +118,25 @@ onBeforeUnmount(() => {
     :error="viewerWorkbench.error"
     :note-draft="viewerNoteDraft"
     :note-pinned="viewerNotePinned"
-    :saving="isSavingViewerNote"
+    :saving="isSavingViewerNote || isSavingViewerMemory"
     :editing-note-id="editingViewerNoteId"
+    :memory-draft="viewerMemoryDraft"
+    :editing-memory-id="editingViewerMemoryId"
+    :memory-logs-by-id="viewerMemoryLogsById"
     @close="liveStore.closeViewerWorkbench"
     @update-note-draft="liveStore.setViewerNoteDraft"
     @toggle-note-pinned="liveStore.toggleViewerNotePinned"
     @save-note="liveStore.saveActiveViewerNote"
     @edit-note="liveStore.beginEditingViewerNote"
     @delete-note="liveStore.deleteViewerNote"
+    @update-memory-draft="liveStore.setViewerMemoryDraft"
+    @save-memory="liveStore.saveActiveViewerMemory"
+    @edit-memory="liveStore.beginEditingViewerMemory"
+    @invalidate-memory="liveStore.invalidateViewerMemory"
+    @reactivate-memory="liveStore.reactivateViewerMemory"
+    @delete-memory="liveStore.deleteViewerMemory"
+    @toggle-memory-pin="liveStore.toggleViewerMemoryPin"
+    @load-memory-logs="liveStore.loadViewerMemoryLogs"
   />
 
   <LlmSettingsPanel
