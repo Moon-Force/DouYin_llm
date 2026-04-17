@@ -35,7 +35,9 @@ class MemoryExtractorClientTests(unittest.TestCase):
 
         with patch(
             "backend.services.memory_extractor_client.urllib.request.urlopen",
-            return_value=_FakeResponse(b'{"ok":true}'),
+            return_value=_FakeResponse(
+                b'{"choices":[{"message":{"role":"assistant","content":"{\\"ok\\":true}"}}]}'
+            ),
         ) as urlopen:
             client = MemoryExtractorClient(self._settings())
 
@@ -45,10 +47,13 @@ class MemoryExtractorClientTests(unittest.TestCase):
         request = urlopen.call_args.args[0]
         self.assertEqual(request.full_url, "http://127.0.0.1:11434/v1/chat/completions")
         self.assertEqual(request.get_method(), "POST")
-        self.assertEqual(request.get_header("Content-type"), "application/json")
+        self.assertEqual(request.get_header("Content-type"), "application/json; charset=utf-8")
+        self.assertEqual(request.get_header("Accept"), "application/json")
 
         payload = json.loads(request.data.decode("utf-8"))
         self.assertEqual(payload["model"], "qwen3:8b")
+        self.assertEqual(payload["max_tokens"], 256)
+        self.assertEqual(payload["temperature"], 0)
         self.assertEqual(
             payload["messages"],
             [
@@ -62,7 +67,7 @@ class MemoryExtractorClientTests(unittest.TestCase):
 
         with patch(
             "backend.services.memory_extractor_client.urllib.request.urlopen",
-            return_value=_FakeResponse(b"{}"),
+            return_value=_FakeResponse(b'{"choices":[{"message":{"content":"{}"}}]}'),
         ) as urlopen:
             client = MemoryExtractorClient(self._settings(memory_extractor_timeout_seconds=3.25))
 
@@ -75,7 +80,7 @@ class MemoryExtractorClientTests(unittest.TestCase):
 
         with patch(
             "backend.services.memory_extractor_client.urllib.request.urlopen",
-            return_value=_FakeResponse(b"{}"),
+            return_value=_FakeResponse(b'{"choices":[{"message":{"content":"{}"}}]}'),
         ) as urlopen:
             client = MemoryExtractorClient(
                 self._settings(memory_extractor_model="llama3.1:8b", memory_extractor_max_tokens=777)
@@ -93,7 +98,7 @@ class MemoryExtractorClientTests(unittest.TestCase):
 
         with patch(
             "backend.services.memory_extractor_client.urllib.request.urlopen",
-            return_value=_FakeResponse(b"{}"),
+            return_value=_FakeResponse(b'{"choices":[{"message":{"content":"{}"}}]}'),
         ) as urlopen:
             client = MemoryExtractorClient(self._settings(memory_extractor_api_key="secret-key"))
 
@@ -101,6 +106,49 @@ class MemoryExtractorClientTests(unittest.TestCase):
 
         request = urlopen.call_args.args[0]
         self.assertEqual(request.get_header("Authorization"), "Bearer secret-key")
+
+    def test_omits_authorization_header_when_api_key_blank(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            return_value=_FakeResponse(b'{"choices":[{"message":{"content":"{}"}}]}'),
+        ) as urlopen:
+            client = MemoryExtractorClient(self._settings(memory_extractor_api_key="   "))
+
+            client.infer_json("system", "user")
+
+        request = urlopen.call_args.args[0]
+        self.assertIsNone(request.get_header("Authorization"))
+
+    def test_normalizes_trailing_slash_in_base_url(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            return_value=_FakeResponse(b'{"choices":[{"message":{"content":"{}"}}]}'),
+        ) as urlopen:
+            client = MemoryExtractorClient(self._settings(memory_extractor_base_url="http://host/v1/"))
+
+            client.infer_json("sys", "user")
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.full_url, "http://host/v1/chat/completions")
+
+    def test_validates_required_settings(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with self.assertRaisesRegex(ValueError, "memory_extractor_base_url must not be blank"):
+            MemoryExtractorClient(self._settings(memory_extractor_base_url=""))
+
+        with self.assertRaisesRegex(ValueError, "memory_extractor_model must not be blank"):
+            MemoryExtractorClient(self._settings(memory_extractor_model=" "))
+
+        with self.assertRaisesRegex(ValueError, "memory_extractor_max_tokens must be > 0"):
+            MemoryExtractorClient(self._settings(memory_extractor_max_tokens=0))
+
+        with self.assertRaisesRegex(ValueError, "memory_extractor_timeout_seconds must be > 0"):
+            MemoryExtractorClient(self._settings(memory_extractor_timeout_seconds=0))
 
 
 if __name__ == "__main__":
