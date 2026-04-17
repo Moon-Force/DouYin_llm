@@ -102,6 +102,26 @@ def _should_force_memory_rebuild(memories):
     return int(collection_info.get("count", -1)) != expected_count
 
 
+def _normalize_recalled_memory_ids(raw_ids):
+    if raw_ids is None:
+        return []
+    if isinstance(raw_ids, str):
+        normalized = raw_ids.strip()
+        return [normalized] if normalized else []
+
+    try:
+        values = list(raw_ids)
+    except TypeError:
+        return []
+
+    normalized_ids = []
+    for value in values:
+        normalized = str(value or "").strip()
+        if normalized:
+            normalized_ids.append(normalized)
+    return normalized_ids
+
+
 def ensure_runtime():
     global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector
 
@@ -172,7 +192,9 @@ async def process_event(event: LiveEvent):
     processing_status.suggestion_block_reason = str(generation_metadata.get("suggestion_block_reason") or "")
     processing_status.suggestion_block_detail = str(generation_metadata.get("suggestion_block_detail") or "")
     processing_status.memory_recall_attempted = bool(generation_metadata.get("memory_recall_attempted"))
-    processing_status.recalled_memory_ids = list(generation_metadata.get("recalled_memory_ids", []))
+    processing_status.recalled_memory_ids = _normalize_recalled_memory_ids(
+        generation_metadata.get("recalled_memory_ids")
+    )
     processing_status.memory_recalled = bool(
         generation_metadata.get("memory_recalled") or processing_status.recalled_memory_ids
     )
@@ -187,27 +209,33 @@ async def process_event(event: LiveEvent):
         processing_status.suggestion_generated = False
         processing_status.suggestion_id = ""
 
-    processing_status.memory_extraction_attempted = True
     saved_memory_ids = []
+    extract_method = getattr(memory_extractor, "extract", None)
+    processing_status.memory_extraction_attempted = bool(event.event_type == "comment" and callable(extract_method))
 
-    for candidate in memory_extractor.extract(event):
-        memory = long_term_store.save_viewer_memory(
-            room_id=event.room_id,
-            viewer_id=event.user.viewer_id,
-            memory_text=candidate["memory_text"],
-            source_event_id=event.event_id,
-            memory_type=candidate["memory_type"],
-            confidence=candidate["confidence"],
-            source_kind="auto",
-            status="active",
-            is_pinned=False,
-            correction_reason="",
-            corrected_by="system",
-            operation="created",
-        )
-        if memory:
-            vector_memory.sync_memory(memory)
-            saved_memory_ids.append(memory.memory_id)
+    if processing_status.memory_extraction_attempted:
+        try:
+            for candidate in extract_method(event):
+                memory = long_term_store.save_viewer_memory(
+                    room_id=event.room_id,
+                    viewer_id=event.user.viewer_id,
+                    memory_text=candidate["memory_text"],
+                    source_event_id=event.event_id,
+                    memory_type=candidate["memory_type"],
+                    confidence=candidate["confidence"],
+                    source_kind="auto",
+                    status="active",
+                    is_pinned=False,
+                    correction_reason="",
+                    corrected_by="system",
+                    operation="created",
+                )
+                if memory:
+                    vector_memory.sync_memory(memory)
+                    saved_memory_ids.append(memory.memory_id)
+        except Exception:
+            saved_memory_ids = []
+            logging.exception("Memory extraction pipeline failed for event_id=%s", event.event_id)
 
     processing_status.memory_saved = bool(saved_memory_ids)
     processing_status.saved_memory_ids = saved_memory_ids
