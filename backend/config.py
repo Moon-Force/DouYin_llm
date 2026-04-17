@@ -1,21 +1,13 @@
-"""后端配置模块。
-
-配置优先从环境变量和 `.env` 读取，默认值尽量保证本地开箱可跑。
-"""
+"""Backend runtime configuration."""
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
 def load_dotenv(dotenv_path=".env"):
-    """读取项目根目录下的 `.env` 文件。
-
-    这里只实现项目实际需要的最小功能：
-    - 支持 `KEY=VALUE`
-    - 支持注释和空行
-    """
+    """Load simple KEY=VALUE pairs from .env."""
 
     path = Path(dotenv_path)
     if not path.exists():
@@ -30,58 +22,128 @@ def load_dotenv(dotenv_path=".env"):
         key = key.strip()
         value = value.strip().strip("'").strip('"')
 
-        if key:
+        if key and key not in os.environ:
             os.environ[key] = value
 
 
 load_dotenv()
 
+_TRUE_VALUES = {"1", "true", "yes", "on"}
+
+
+def _env_bool(key, default):
+    return os.getenv(key, str(default)).strip().lower() in _TRUE_VALUES
+
+
+def _env_int(key, default):
+    value = os.getenv(key, "")
+    if value is None:
+        return int(default)
+    value = value.strip()
+    if value == "":
+        return int(default)
+    return int(value)
+
+
+def _env_float(key, default):
+    value = os.getenv(key, "")
+    if value is None:
+        return float(default)
+    value = value.strip()
+    if value == "":
+        return float(default)
+    return float(value)
+
+
+def _env_path(key, default):
+    value = os.getenv(key, "").strip()
+    if value:
+        return Path(value)
+    return Path(default)
+
+
+def _default_memory_extractor_model_dir():
+    local_app_data = os.getenv("LOCALAPPDATA", "").strip()
+    if local_app_data:
+        return Path(local_app_data) / "DouYinLLM" / "models" / "memory_extractor"
+
+    return Path.home() / ".douyin_llm" / "models" / "memory_extractor"
+
+
+def _memory_extractor_model_path():
+    value = os.getenv("MEMORY_EXTRACTOR_MODEL_PATH", "").strip()
+    if value:
+        return Path(value)
+    return _default_memory_extractor_model_dir()
+
 
 @dataclass
 class Settings:
-    """后端运行时配置集合。"""
+    """Backend settings."""
 
-    app_host: str = os.getenv("APP_HOST", "127.0.0.1")
-    app_port: int = int(os.getenv("APP_PORT", "8010"))
-    room_id: str = os.getenv("ROOM_ID", "")
-    collector_enabled: bool = os.getenv("COLLECTOR_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
-    collector_host: str = os.getenv("COLLECTOR_HOST", "127.0.0.1")
-    collector_port: int = int(os.getenv("COLLECTOR_PORT", "1088"))
-    collector_ping_interval_seconds: float = float(os.getenv("COLLECTOR_PING_INTERVAL_SECONDS", "30"))
-    collector_reconnect_delay_seconds: float = float(os.getenv("COLLECTOR_RECONNECT_DELAY_SECONDS", "3"))
-    data_dir: Path = Path(os.getenv("DATA_DIR", "data"))
-    database_path: Path = Path(os.getenv("DATABASE_PATH", "data/live_prompter.db"))
-    chroma_dir: Path = Path(os.getenv("CHROMA_DIR", "data/chroma"))
-    redis_url: str = os.getenv("REDIS_URL", "")
-    session_ttl_seconds: int = int(os.getenv("SESSION_TTL_SECONDS", "14400"))
-    llm_mode: str = os.getenv("LLM_MODE", "heuristic")
-    llm_base_url: str = os.getenv("LLM_BASE_URL", "")
-    llm_model: str = os.getenv("LLM_MODEL", "")
-    llm_api_key: str = os.getenv("LLM_API_KEY", "") or os.getenv("DASHSCOPE_API_KEY", "")
-    llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.4"))
-    llm_timeout_seconds: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "6.0"))
-    llm_max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "120"))
-    embedding_mode: str = os.getenv("EMBEDDING_MODE", "cloud").strip().lower()
-    embedding_strict: bool = os.getenv("EMBEDDING_STRICT", "false").lower() in {"1", "true", "yes", "on"}
-    embedding_model: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-    embedding_base_url: str = os.getenv("EMBEDDING_BASE_URL", "https://api.openai.com/v1")
-    embedding_api_key: str = os.getenv("EMBEDDING_API_KEY", "") or os.getenv("LLM_API_KEY", "") or os.getenv("DASHSCOPE_API_KEY", "")
-    embedding_timeout_seconds: float = float(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "10.0"))
-    local_embedding_device: str = os.getenv("LOCAL_EMBEDDING_DEVICE", "cpu")
-    local_embedding_batch_size: int = int(os.getenv("LOCAL_EMBEDDING_BATCH_SIZE", "32"))
-    semantic_memory_min_score: float = float(os.getenv("SEMANTIC_MEMORY_MIN_SCORE", "0.35"))
-    semantic_memory_query_limit: int = int(os.getenv("SEMANTIC_MEMORY_QUERY_LIMIT", "6"))
-    semantic_final_k: int = int(os.getenv("SEMANTIC_FINAL_K", "3"))
+    app_host: str = field(default_factory=lambda: os.getenv("APP_HOST", "127.0.0.1"))
+    app_port: int = field(default_factory=lambda: _env_int("APP_PORT", 8010))
+    room_id: str = field(default_factory=lambda: os.getenv("ROOM_ID", ""))
+    collector_enabled: bool = field(default_factory=lambda: _env_bool("COLLECTOR_ENABLED", True))
+    collector_host: str = field(default_factory=lambda: os.getenv("COLLECTOR_HOST", "127.0.0.1"))
+    collector_port: int = field(default_factory=lambda: _env_int("COLLECTOR_PORT", 1088))
+    collector_ping_interval_seconds: float = field(default_factory=lambda: _env_float("COLLECTOR_PING_INTERVAL_SECONDS", 30))
+    collector_reconnect_delay_seconds: float = field(
+        default_factory=lambda: _env_float("COLLECTOR_RECONNECT_DELAY_SECONDS", 3)
+    )
+    data_dir: Path = field(default_factory=lambda: _env_path("DATA_DIR", "data"))
+    database_path: Path = field(default_factory=lambda: _env_path("DATABASE_PATH", "data/live_prompter.db"))
+    chroma_dir: Path = field(default_factory=lambda: _env_path("CHROMA_DIR", "data/chroma"))
+    redis_url: str = field(default_factory=lambda: os.getenv("REDIS_URL", ""))
+    session_ttl_seconds: int = field(default_factory=lambda: _env_int("SESSION_TTL_SECONDS", 14400))
+    llm_mode: str = field(default_factory=lambda: os.getenv("LLM_MODE", "heuristic"))
+    llm_base_url: str = field(default_factory=lambda: os.getenv("LLM_BASE_URL", ""))
+    llm_model: str = field(default_factory=lambda: os.getenv("LLM_MODEL", ""))
+    llm_api_key: str = field(default_factory=lambda: os.getenv("LLM_API_KEY", "") or os.getenv("DASHSCOPE_API_KEY", ""))
+    llm_temperature: float = field(default_factory=lambda: _env_float("LLM_TEMPERATURE", 0.4))
+    llm_timeout_seconds: float = field(default_factory=lambda: _env_float("LLM_TIMEOUT_SECONDS", 6.0))
+    llm_max_tokens: int = field(default_factory=lambda: _env_int("LLM_MAX_TOKENS", 120))
+    embedding_mode: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODE", "cloud").strip().lower())
+    embedding_strict: bool = field(default_factory=lambda: _env_bool("EMBEDDING_STRICT", False))
+    embedding_model: str = field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"))
+    embedding_base_url: str = field(default_factory=lambda: os.getenv("EMBEDDING_BASE_URL", "https://api.openai.com/v1"))
+    embedding_api_key: str = field(
+        default_factory=lambda: os.getenv("EMBEDDING_API_KEY", "")
+        or os.getenv("LLM_API_KEY", "")
+        or os.getenv("DASHSCOPE_API_KEY", "")
+    )
+    embedding_timeout_seconds: float = field(default_factory=lambda: _env_float("EMBEDDING_TIMEOUT_SECONDS", 10.0))
+    local_embedding_device: str = field(default_factory=lambda: os.getenv("LOCAL_EMBEDDING_DEVICE", "cpu"))
+    local_embedding_batch_size: int = field(default_factory=lambda: _env_int("LOCAL_EMBEDDING_BATCH_SIZE", 32))
+    semantic_memory_min_score: float = field(default_factory=lambda: _env_float("SEMANTIC_MEMORY_MIN_SCORE", 0.35))
+    semantic_memory_query_limit: int = field(default_factory=lambda: _env_int("SEMANTIC_MEMORY_QUERY_LIMIT", 6))
+    semantic_final_k: int = field(default_factory=lambda: _env_int("SEMANTIC_FINAL_K", 3))
+    memory_extractor_enabled: bool = field(default_factory=lambda: _env_bool("MEMORY_EXTRACTOR_ENABLED", False))
+    memory_extractor_mode: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODE", "local").strip().lower())
+    memory_extractor_model_path: Path = field(default_factory=_memory_extractor_model_path)
+    memory_extractor_model_url: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL_URL", ""))
+    memory_extractor_model_filename: str = field(
+        default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL_FILENAME", "memory-extractor.gguf")
+    )
+    memory_extractor_context_size: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_CONTEXT_SIZE", 4096))
+    memory_extractor_max_tokens: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_MAX_TOKENS", 512))
+    memory_extractor_timeout_seconds: float = field(
+        default_factory=lambda: _env_float("MEMORY_EXTRACTOR_TIMEOUT_SECONDS", 30.0)
+    )
+    memory_extractor_threads: int = field(
+        default_factory=lambda: _env_int("MEMORY_EXTRACTOR_THREADS", max(1, min(8, os.cpu_count() or 1)))
+    )
 
     def ensure_dirs(self):
-        """创建运行期需要的本地数据目录。"""
+        """Create required runtime directories."""
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
+        self.memory_extractor_model_path.mkdir(parents=True, exist_ok=True)
 
     def resolved_llm_base_url(self):
-        """解析最终实际使用的模型服务地址。"""
+        """Resolve effective LLM base URL."""
 
         if self.llm_base_url:
             return self.llm_base_url.rstrip("/")
@@ -92,7 +154,7 @@ class Settings:
         return "https://api.openai.com/v1"
 
     def resolved_llm_model(self):
-        """解析最终实际使用的模型名。"""
+        """Resolve effective LLM model."""
 
         if self.llm_model:
             return self.llm_model
@@ -106,6 +168,10 @@ class Settings:
         mode = re.sub(r"[^a-z0-9]+", "_", self.embedding_mode.strip().lower()).strip("_") or "unknown"
         model = re.sub(r"[^a-z0-9]+", "_", self.embedding_model.strip().lower()).strip("_") or "default"
         return f"{mode}_{model}"
+
+    @property
+    def memory_extractor_model_file_path(self):
+        return self.memory_extractor_model_path / self.memory_extractor_model_filename
 
 
 settings = Settings()
