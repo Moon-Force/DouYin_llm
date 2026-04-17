@@ -109,64 +109,13 @@
 
 这样可以将改动局限在抽取层，不破坏事件处理、入库、召回和提词生成的主链路。
 
-## 模型文件与运行时管理
+## 模型文件与运行时管理（已被替代）
 
-### 目录结构
+本节原先描述的 `llama-cpp-python + GGUF` 进程内运行时方案已被新方案替代，不再适用于当前代码实现。
 
-项目内固定模型目录：
+请改读：`docs/superpowers/specs/2026-04-18-memory-extractor-ollama-design.md`。
 
-```text
-data/models/memory_extractor/
-```
-
-默认模型文件名采用单文件 GGUF，例如：
-
-```text
-qwen2.5-3b-instruct-q4_k_m.gguf
-```
-
-### 配置项
-
-新增以下配置项：
-
-- `MEMORY_EXTRACTOR_ENABLED=true`
-- `MEMORY_EXTRACTOR_MODE=local`
-- `MEMORY_EXTRACTOR_MODEL_PATH=`
-- `MEMORY_EXTRACTOR_MODEL_URL=`
-- `MEMORY_EXTRACTOR_MODEL_FILENAME=memory-extractor.gguf`
-- `MEMORY_EXTRACTOR_CONTEXT_SIZE=4096`
-- `MEMORY_EXTRACTOR_MAX_TOKENS=512`
-- `MEMORY_EXTRACTOR_TIMEOUT_SECONDS=30`
-- `MEMORY_EXTRACTOR_THREADS=`
-
-规则：
-
-- `MODEL_PATH` 优先级最高
-- 未显式配置路径时，使用默认目录 + 默认文件名
-- 本地文件不存在且配置了 `MODEL_URL` 时，自动下载到默认目录
-- 下载成功后复用本地文件，后续不重复下载
-
-### 加载策略
-
-采用懒加载：
-
-- 应用启动时不强制加载模型
-- 第一次真正触发记忆抽取时，才检查文件并加载模型
-- 模型实例在进程内缓存复用
-
-这样可以避免后端启动时因为模型加载拖慢初始化，也更适合非记忆抽取测试场景。
-
-### 失败处理
-
-当出现以下情况时，不中断评论处理主链路：
-
-- 模型文件不存在且下载失败
-- 模型加载失败
-- 推理超时
-- 返回结果不是合法 JSON
-- 返回 JSON 结构不合法
-
-上述情况统一记录日志，并切换到规则兜底抽取。
+当前记忆抽取路径为 Ollama/OpenAI-compatible chat 客户端，旧的 GGUF 运行时配置（如 `MEMORY_EXTRACTOR_MODEL_PATH` 等）已移除。
 
 ## LLM 抽取输出协议
 

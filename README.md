@@ -285,3 +285,16 @@ python backend/memory/rebuild_embeddings.py
 
 - [jwwsjlm/douyinLive](https://github.com/jwwsjlm/douyinLive)
 - 所有在 issue / PR 中持续推动这个项目演进的贡献者
+
+### Memory Extractor (Ollama)
+
+Viewer memory extraction now uses an Ollama/OpenAI-compatible chat endpoint.
+
+Recommended setup:
+1. Start Ollama.
+2. Pull a memory extraction model.
+3. Set `MEMORY_EXTRACTOR_ENABLED=true`.
+4. Set `MEMORY_EXTRACTOR_BASE_URL=http://127.0.0.1:11434/v1`.
+5. Set `MEMORY_EXTRACTOR_MODEL=<your ollama model name>`.
+
+The previous in-process GGUF runtime path has been removed.

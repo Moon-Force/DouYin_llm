@@ -2,6 +2,7 @@ import json
 import io
 import unittest
 import urllib.error
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -207,6 +208,24 @@ class MemoryExtractorClientTests(unittest.TestCase):
                 "request failed.*chat/completions.*connection refused",
             ):
                 client.infer_json("system", "user")
+
+
+class DocsCleanupTests(unittest.TestCase):
+    def test_env_example_documents_ollama_memory_extractor(self):
+        env_example = Path(__file__).resolve().parents[1] / ".env.example"
+        content = env_example.read_text(encoding="utf-8")
+
+        self.assertIn("Ollama", content)
+        self.assertIn("OpenAI-compatible", content)
+        self.assertIn("MEMORY_EXTRACTOR_MODE=ollama", content)
+        self.assertIn("MEMORY_EXTRACTOR_BASE_URL=http://127.0.0.1:11434/v1", content)
+        self.assertIn("MEMORY_EXTRACTOR_MODEL=", content)
+
+    def test_env_example_no_longer_mentions_local_model_path_setting(self):
+        env_example = Path(__file__).resolve().parents[1] / ".env.example"
+        content = env_example.read_text(encoding="utf-8")
+
+        self.assertNotIn("MEMORY_EXTRACTOR_MODEL_PATH", content)
 
 
 if __name__ == "__main__":
