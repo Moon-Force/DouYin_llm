@@ -3,6 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import backend.app as app_module
 from backend.schemas.live import LiveEvent
@@ -27,6 +28,147 @@ def make_event():
 
 
 class CommentProcessingStatusTests(unittest.TestCase):
+    def test_ensure_runtime_wires_local_llm_memory_extractor_when_enabled(self):
+        original_settings = app_module.settings
+        original_broker = app_module.broker
+        original_session_memory = app_module.session_memory
+        original_long_term_store = app_module.long_term_store
+        original_embedding_service = app_module.embedding_service
+        original_vector_memory = app_module.vector_memory
+        original_agent = app_module.agent
+        original_memory_extractor = app_module.memory_extractor
+        original_collector = app_module.collector
+        try:
+            app_module.settings = SimpleNamespace(
+                ensure_dirs=MagicMock(),
+                redis_url="redis://localhost:6379/0",
+                session_ttl_seconds=3600,
+                database_path="data/live_prompter.db",
+                chroma_dir="data/chroma",
+                memory_extractor_enabled=True,
+            )
+            app_module.broker = None
+            app_module.session_memory = None
+            app_module.long_term_store = None
+            app_module.embedding_service = None
+            app_module.vector_memory = None
+            app_module.agent = None
+            app_module.memory_extractor = None
+            app_module.collector = None
+
+            with patch("backend.app._should_force_memory_rebuild", return_value=False), patch(
+                "backend.app.EventBroker", return_value=MagicMock()
+            ), patch(
+                "backend.app.SessionMemory", return_value=MagicMock()
+            ), patch(
+                "backend.app.LongTermStore"
+            ) as long_term_store_cls, patch(
+                "backend.app.EmbeddingService", return_value=MagicMock()
+            ), patch(
+                "backend.app.VectorMemory", return_value=MagicMock()
+            ), patch(
+                "backend.app.LivePromptAgent", return_value=MagicMock()
+            ), patch(
+                "backend.app.DouyinCollector", return_value=MagicMock()
+            ), patch(
+                "backend.app.LocalMemoryExtractionModel"
+            ) as local_model_cls, patch(
+                "backend.app.LLMBackedViewerMemoryExtractor"
+            ) as llm_extractor_cls, patch(
+                "backend.app.ViewerMemoryExtractor", return_value=MagicMock()
+            ) as composite_cls:
+                long_term_store_instance = MagicMock()
+                long_term_store_instance.list_all_viewer_memories.return_value = []
+                long_term_store_cls.return_value = long_term_store_instance
+
+                app_module.ensure_runtime()
+
+                local_model_cls.assert_called_once_with(app_module.settings)
+                llm_extractor_cls.assert_called_once_with(app_module.settings, local_model_cls.return_value)
+                composite_cls.assert_called_once_with(
+                    settings=app_module.settings,
+                    llm_extractor=llm_extractor_cls.return_value,
+                )
+        finally:
+            app_module.settings = original_settings
+            app_module.broker = original_broker
+            app_module.session_memory = original_session_memory
+            app_module.long_term_store = original_long_term_store
+            app_module.embedding_service = original_embedding_service
+            app_module.vector_memory = original_vector_memory
+            app_module.agent = original_agent
+            app_module.memory_extractor = original_memory_extractor
+            app_module.collector = original_collector
+
+    def test_ensure_runtime_uses_rule_only_memory_extractor_when_disabled(self):
+        original_settings = app_module.settings
+        original_broker = app_module.broker
+        original_session_memory = app_module.session_memory
+        original_long_term_store = app_module.long_term_store
+        original_embedding_service = app_module.embedding_service
+        original_vector_memory = app_module.vector_memory
+        original_agent = app_module.agent
+        original_memory_extractor = app_module.memory_extractor
+        original_collector = app_module.collector
+        try:
+            app_module.settings = SimpleNamespace(
+                ensure_dirs=MagicMock(),
+                redis_url="redis://localhost:6379/0",
+                session_ttl_seconds=3600,
+                database_path="data/live_prompter.db",
+                chroma_dir="data/chroma",
+                memory_extractor_enabled=False,
+            )
+            app_module.broker = None
+            app_module.session_memory = None
+            app_module.long_term_store = None
+            app_module.embedding_service = None
+            app_module.vector_memory = None
+            app_module.agent = None
+            app_module.memory_extractor = None
+            app_module.collector = None
+
+            with patch("backend.app._should_force_memory_rebuild", return_value=False), patch(
+                "backend.app.EventBroker", return_value=MagicMock()
+            ), patch(
+                "backend.app.SessionMemory", return_value=MagicMock()
+            ), patch(
+                "backend.app.LongTermStore"
+            ) as long_term_store_cls, patch(
+                "backend.app.EmbeddingService", return_value=MagicMock()
+            ), patch(
+                "backend.app.VectorMemory", return_value=MagicMock()
+            ), patch(
+                "backend.app.LivePromptAgent", return_value=MagicMock()
+            ), patch(
+                "backend.app.DouyinCollector", return_value=MagicMock()
+            ), patch(
+                "backend.app.LocalMemoryExtractionModel"
+            ) as local_model_cls, patch(
+                "backend.app.LLMBackedViewerMemoryExtractor"
+            ) as llm_extractor_cls, patch(
+                "backend.app.ViewerMemoryExtractor", return_value=MagicMock()
+            ) as composite_cls:
+                long_term_store_instance = MagicMock()
+                long_term_store_instance.list_all_viewer_memories.return_value = []
+                long_term_store_cls.return_value = long_term_store_instance
+
+                app_module.ensure_runtime()
+
+                local_model_cls.assert_not_called()
+                llm_extractor_cls.assert_not_called()
+                composite_cls.assert_called_once_with(settings=app_module.settings)
+        finally:
+            app_module.settings = original_settings
+            app_module.broker = original_broker
+            app_module.session_memory = original_session_memory
+            app_module.long_term_store = original_long_term_store
+            app_module.embedding_service = original_embedding_service
+            app_module.vector_memory = original_vector_memory
+            app_module.agent = original_agent
+            app_module.memory_extractor = original_memory_extractor
+            app_module.collector = original_collector
+
     def test_process_event_attaches_processing_status_to_streamed_comment(self):
         event = make_event()
         suggestion = SimpleNamespace(
