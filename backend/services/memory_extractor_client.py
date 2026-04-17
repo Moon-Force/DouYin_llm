@@ -35,7 +35,7 @@ class MemoryExtractorClient:
         if self._timeout_seconds <= 0:
             raise ValueError("memory_extractor_timeout_seconds must be > 0")
 
-    def infer_json(self, system_prompt, user_prompt):
+    def infer_json(self, system_prompt: str, user_prompt: str) -> str:
         endpoint = f"{self._base_url}/chat/completions"
         payload = {
             "model": self._model,
@@ -96,14 +96,6 @@ class MemoryExtractorClient:
                 f"memory extractor response missing choices[0].message.content for {endpoint}; "
                 f"body: {self._snippet(raw_body)}"
             )
-
-        try:
-            json.loads(content)
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"assistant message content is not valid JSON text for {endpoint}; "
-                f"content: {self._snippet(content)}"
-            ) from exc
 
         return content
 

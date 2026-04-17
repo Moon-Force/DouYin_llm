@@ -163,7 +163,7 @@ class MemoryExtractorClientTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "choices\\[0\\]\\.message\\.content"):
                 client.infer_json("system", "user")
 
-    def test_raises_value_error_for_non_json_assistant_content(self):
+    def test_returns_non_json_assistant_content_as_text(self):
         from backend.services.memory_extractor_client import MemoryExtractorClient
 
         with patch(
@@ -171,8 +171,7 @@ class MemoryExtractorClientTests(unittest.TestCase):
             return_value=_FakeResponse(b'{"choices":[{"message":{"content":"not-json"}}]}'),
         ):
             client = MemoryExtractorClient(self._settings())
-            with self.assertRaisesRegex(ValueError, "assistant message content is not valid JSON text"):
-                client.infer_json("system", "user")
+            self.assertEqual(client.infer_json("system", "user"), "not-json")
 
     def test_wraps_http_error_with_status_and_body_snippet(self):
         from backend.services.memory_extractor_client import MemoryExtractorClient
