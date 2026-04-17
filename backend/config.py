@@ -119,17 +119,25 @@ class Settings:
     semantic_memory_query_limit: int = field(default_factory=lambda: _env_int("SEMANTIC_MEMORY_QUERY_LIMIT", 6))
     semantic_final_k: int = field(default_factory=lambda: _env_int("SEMANTIC_FINAL_K", 3))
     memory_extractor_enabled: bool = field(default_factory=lambda: _env_bool("MEMORY_EXTRACTOR_ENABLED", False))
-    memory_extractor_mode: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODE", "local").strip().lower())
+    memory_extractor_mode: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODE", "ollama").strip().lower())
+    memory_extractor_base_url: str = field(
+        default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_BASE_URL", "http://127.0.0.1:11434/v1").strip().rstrip("/")
+    )
+    memory_extractor_model: str = field(
+        default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL", "").strip() or os.getenv("LLM_MODEL", "").strip()
+    )
+    memory_extractor_api_key: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_API_KEY", "").strip())
+    memory_extractor_max_tokens: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_MAX_TOKENS", 512))
+    memory_extractor_timeout_seconds: float = field(
+        default_factory=lambda: _env_float("MEMORY_EXTRACTOR_TIMEOUT_SECONDS", 30.0)
+    )
+    # Deprecated legacy local-runtime settings; kept for compatibility until runtime removal is complete.
     memory_extractor_model_path: Path = field(default_factory=_memory_extractor_model_path)
     memory_extractor_model_url: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL_URL", ""))
     memory_extractor_model_filename: str = field(
         default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL_FILENAME", "memory-extractor.gguf")
     )
     memory_extractor_context_size: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_CONTEXT_SIZE", 4096))
-    memory_extractor_max_tokens: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_MAX_TOKENS", 512))
-    memory_extractor_timeout_seconds: float = field(
-        default_factory=lambda: _env_float("MEMORY_EXTRACTOR_TIMEOUT_SECONDS", 30.0)
-    )
     memory_extractor_threads: int = field(
         default_factory=lambda: _env_int("MEMORY_EXTRACTOR_THREADS", max(1, min(8, os.cpu_count() or 1)))
     )
@@ -140,7 +148,6 @@ class Settings:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
-        self.memory_extractor_model_path.mkdir(parents=True, exist_ok=True)
 
     def resolved_llm_base_url(self):
         """Resolve effective LLM base URL."""

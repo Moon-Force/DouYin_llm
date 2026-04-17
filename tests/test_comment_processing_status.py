@@ -28,7 +28,7 @@ def make_event():
 
 
 class CommentProcessingStatusTests(unittest.TestCase):
-    def test_ensure_runtime_wires_local_llm_memory_extractor_when_enabled(self):
+    def test_ensure_runtime_wires_ollama_memory_extractor_when_enabled(self):
         original_settings = app_module.settings
         original_broker = app_module.broker
         original_session_memory = app_module.session_memory
@@ -46,6 +46,12 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 database_path="data/live_prompter.db",
                 chroma_dir="data/chroma",
                 memory_extractor_enabled=True,
+                memory_extractor_mode="ollama",
+                memory_extractor_base_url="http://127.0.0.1:11434/v1",
+                memory_extractor_model="qwen2.5:3b",
+                memory_extractor_api_key="",
+                memory_extractor_timeout_seconds=30.0,
+                memory_extractor_max_tokens=512,
             )
             app_module.broker = None
             app_module.session_memory = None
@@ -71,8 +77,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
             ), patch(
                 "backend.app.DouyinCollector", return_value=MagicMock()
             ), patch(
-                "backend.app.LocalMemoryExtractionModel"
-            ) as local_model_cls, patch(
+                "backend.app.MemoryExtractorClient", create=True
+            ) as memory_client_cls, patch(
                 "backend.app.LLMBackedViewerMemoryExtractor"
             ) as llm_extractor_cls, patch(
                 "backend.app.ViewerMemoryExtractor", return_value=MagicMock()
@@ -83,8 +89,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
 
                 app_module.ensure_runtime()
 
-                local_model_cls.assert_called_once_with(app_module.settings)
-                llm_extractor_cls.assert_called_once_with(app_module.settings, local_model_cls.return_value)
+                memory_client_cls.assert_called_once_with(app_module.settings)
+                llm_extractor_cls.assert_called_once_with(app_module.settings, memory_client_cls.return_value)
                 composite_cls.assert_called_once_with(
                     settings=app_module.settings,
                     llm_extractor=llm_extractor_cls.return_value,
@@ -143,8 +149,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
             ), patch(
                 "backend.app.DouyinCollector", return_value=MagicMock()
             ), patch(
-                "backend.app.LocalMemoryExtractionModel"
-            ) as local_model_cls, patch(
+                "backend.app.MemoryExtractorClient", create=True
+            ) as memory_client_cls, patch(
                 "backend.app.LLMBackedViewerMemoryExtractor"
             ) as llm_extractor_cls, patch(
                 "backend.app.ViewerMemoryExtractor", return_value=MagicMock()
@@ -155,7 +161,7 @@ class CommentProcessingStatusTests(unittest.TestCase):
 
                 app_module.ensure_runtime()
 
-                local_model_cls.assert_not_called()
+                memory_client_cls.assert_not_called()
                 llm_extractor_cls.assert_not_called()
                 composite_cls.assert_called_once_with(settings=app_module.settings)
         finally:
