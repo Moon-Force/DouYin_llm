@@ -62,21 +62,6 @@ def _env_path(key, default):
     return Path(default)
 
 
-def _default_memory_extractor_model_dir():
-    local_app_data = os.getenv("LOCALAPPDATA", "").strip()
-    if local_app_data:
-        return Path(local_app_data) / "DouYinLLM" / "models" / "memory_extractor"
-
-    return Path.home() / ".douyin_llm" / "models" / "memory_extractor"
-
-
-def _memory_extractor_model_path():
-    value = os.getenv("MEMORY_EXTRACTOR_MODEL_PATH", "").strip()
-    if value:
-        return Path(value)
-    return _default_memory_extractor_model_dir()
-
-
 @dataclass
 class Settings:
     """Backend settings."""
@@ -123,23 +108,11 @@ class Settings:
     memory_extractor_base_url: str = field(
         default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_BASE_URL", "http://127.0.0.1:11434/v1").strip().rstrip("/")
     )
-    memory_extractor_model: str = field(
-        default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL", "").strip() or os.getenv("LLM_MODEL", "").strip()
-    )
+    memory_extractor_model: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL", "").strip())
     memory_extractor_api_key: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_API_KEY", "").strip())
     memory_extractor_max_tokens: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_MAX_TOKENS", 512))
     memory_extractor_timeout_seconds: float = field(
         default_factory=lambda: _env_float("MEMORY_EXTRACTOR_TIMEOUT_SECONDS", 30.0)
-    )
-    # Deprecated legacy local-runtime settings; kept for compatibility until runtime removal is complete.
-    memory_extractor_model_path: Path = field(default_factory=_memory_extractor_model_path)
-    memory_extractor_model_url: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL_URL", ""))
-    memory_extractor_model_filename: str = field(
-        default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL_FILENAME", "memory-extractor.gguf")
-    )
-    memory_extractor_context_size: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_CONTEXT_SIZE", 4096))
-    memory_extractor_threads: int = field(
-        default_factory=lambda: _env_int("MEMORY_EXTRACTOR_THREADS", max(1, min(8, os.cpu_count() or 1)))
     )
 
     def ensure_dirs(self):
@@ -175,10 +148,6 @@ class Settings:
         mode = re.sub(r"[^a-z0-9]+", "_", self.embedding_mode.strip().lower()).strip("_") or "unknown"
         model = re.sub(r"[^a-z0-9]+", "_", self.embedding_model.strip().lower()).strip("_") or "default"
         return f"{mode}_{model}"
-
-    @property
-    def memory_extractor_model_file_path(self):
-        return self.memory_extractor_model_path / self.memory_extractor_model_filename
 
 
 settings = Settings()

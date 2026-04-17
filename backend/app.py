@@ -22,7 +22,7 @@ from backend.services.agent import LivePromptAgent
 from backend.services.broker import EventBroker
 from backend.services.collector import DouyinCollector
 from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
-from backend.services.local_memory_model import LocalMemoryExtractionModel
+from backend.services.memory_extractor_client import MemoryExtractorClient
 from backend.services.memory_extractor import ViewerMemoryExtractor
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -131,8 +131,8 @@ def ensure_runtime():
         agent = LivePromptAgent(settings, vector_memory, long_term_store)
     if memory_extractor is None:
         if getattr(settings, "memory_extractor_enabled", False):
-            local_memory_model = LocalMemoryExtractionModel(settings)
-            llm_memory_extractor = LLMBackedViewerMemoryExtractor(settings, local_memory_model)
+            memory_extractor_client = MemoryExtractorClient(settings)
+            llm_memory_extractor = LLMBackedViewerMemoryExtractor(settings, memory_extractor_client)
             memory_extractor = ViewerMemoryExtractor(settings=settings, llm_extractor=llm_memory_extractor)
         else:
             memory_extractor = ViewerMemoryExtractor(settings=settings)

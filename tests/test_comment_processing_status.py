@@ -77,7 +77,7 @@ class CommentProcessingStatusTests(unittest.TestCase):
             ), patch(
                 "backend.app.DouyinCollector", return_value=MagicMock()
             ), patch(
-                "backend.app.MemoryExtractorClient", create=True
+                "backend.app.MemoryExtractorClient"
             ) as memory_client_cls, patch(
                 "backend.app.LLMBackedViewerMemoryExtractor"
             ) as llm_extractor_cls, patch(
@@ -149,7 +149,7 @@ class CommentProcessingStatusTests(unittest.TestCase):
             ), patch(
                 "backend.app.DouyinCollector", return_value=MagicMock()
             ), patch(
-                "backend.app.MemoryExtractorClient", create=True
+                "backend.app.MemoryExtractorClient"
             ) as memory_client_cls, patch(
                 "backend.app.LLMBackedViewerMemoryExtractor"
             ) as llm_extractor_cls, patch(
