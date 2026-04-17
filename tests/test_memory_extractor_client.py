@@ -1,5 +1,7 @@
 import json
+import io
 import unittest
+import urllib.error
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -149,6 +151,63 @@ class MemoryExtractorClientTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "memory_extractor_timeout_seconds must be > 0"):
             MemoryExtractorClient(self._settings(memory_extractor_timeout_seconds=0))
+
+    def test_raises_value_error_for_missing_response_envelope_with_url_context(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            return_value=_FakeResponse(b"{}"),
+        ):
+            client = MemoryExtractorClient(self._settings())
+            with self.assertRaisesRegex(ValueError, "choices\\[0\\]\\.message\\.content"):
+                client.infer_json("system", "user")
+
+    def test_raises_value_error_for_non_json_assistant_content(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            return_value=_FakeResponse(b'{"choices":[{"message":{"content":"not-json"}}]}'),
+        ):
+            client = MemoryExtractorClient(self._settings())
+            with self.assertRaisesRegex(ValueError, "assistant message content is not valid JSON text"):
+                client.infer_json("system", "user")
+
+    def test_wraps_http_error_with_status_and_body_snippet(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        http_error = urllib.error.HTTPError(
+            "http://127.0.0.1:11434/v1/chat/completions",
+            503,
+            "Service Unavailable",
+            hdrs=None,
+            fp=io.BytesIO(b"temporary upstream failure"),
+        )
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            side_effect=http_error,
+        ):
+            client = MemoryExtractorClient(self._settings())
+            with self.assertRaisesRegex(
+                ValueError,
+                "chat/completions.*HTTP 503.*temporary upstream failure",
+            ):
+                client.infer_json("system", "user")
+
+    def test_wraps_url_error_with_url_context(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            side_effect=urllib.error.URLError("connection refused"),
+        ):
+            client = MemoryExtractorClient(self._settings())
+            with self.assertRaisesRegex(
+                ValueError,
+                "request failed.*chat/completions.*connection refused",
+            ):
+                client.infer_json("system", "user")
 
 
 if __name__ == "__main__":
