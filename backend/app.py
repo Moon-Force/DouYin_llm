@@ -151,9 +151,23 @@ def ensure_runtime():
         agent = LivePromptAgent(settings, vector_memory, long_term_store)
     if memory_extractor is None:
         if getattr(settings, "memory_extractor_enabled", False):
-            memory_extractor_client = MemoryExtractorClient(settings)
-            llm_memory_extractor = LLMBackedViewerMemoryExtractor(settings, memory_extractor_client)
-            memory_extractor = ViewerMemoryExtractor(settings=settings, llm_extractor=llm_memory_extractor)
+            mode = str(getattr(settings, "memory_extractor_mode", "") or "").strip().lower()
+            if mode == "ollama":
+                try:
+                    memory_extractor_client = MemoryExtractorClient(settings)
+                    llm_memory_extractor = LLMBackedViewerMemoryExtractor(settings, memory_extractor_client)
+                    memory_extractor = ViewerMemoryExtractor(settings=settings, llm_extractor=llm_memory_extractor)
+                except Exception:
+                    logging.exception(
+                        "Ollama memory extractor initialization failed; using rule-only memory extractor"
+                    )
+                    memory_extractor = ViewerMemoryExtractor(settings=settings)
+            else:
+                logging.warning(
+                    "Unsupported memory_extractor_mode=%r while memory extractor is enabled; using rule-only memory extractor",
+                    mode or "<empty>",
+                )
+                memory_extractor = ViewerMemoryExtractor(settings=settings)
         else:
             memory_extractor = ViewerMemoryExtractor(settings=settings)
     if collector is None:
