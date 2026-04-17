@@ -1,6 +1,8 @@
 import json
 import unittest
 from types import SimpleNamespace
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 from backend.schemas.live import LiveEvent
 
@@ -432,6 +434,55 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
         self.assertEqual(should_extract_false_extractor.extract(make_event()), [])
         self.assertEqual(unknown_certainty_extractor.extract(make_event()), [])
         self.assertEqual(invalid_memory_type_extractor.extract(make_event()), [])
+
+
+class ViewerMemoryExtractorCompositeTests(unittest.TestCase):
+    def test_composite_falls_back_to_rule_when_llm_raises(self):
+        from backend.services.memory_extractor import ViewerMemoryExtractor
+
+        llm_extractor = MagicMock()
+        llm_extractor.extract.side_effect = RuntimeError("llm failed")
+        rule_extractor = MagicMock()
+        rule_extractor.extract.return_value = [{"memory_text": "我喜欢拉面", "memory_type": "preference", "confidence": 0.8}]
+        extractor = ViewerMemoryExtractor(settings=None, llm_extractor=llm_extractor, rule_extractor=rule_extractor)
+
+        with patch("backend.services.memory_extractor.logger") as logger_mock:
+            result = extractor.extract(make_event(content="我喜欢拉面"))
+
+        self.assertEqual(result, [{"memory_text": "我喜欢拉面", "memory_type": "preference", "confidence": 0.8}])
+        llm_extractor.extract.assert_called_once()
+        rule_extractor.extract.assert_called_once()
+        logger_mock.exception.assert_called_once()
+
+    def test_composite_falls_back_to_rule_when_llm_returns_empty(self):
+        from backend.services.memory_extractor import ViewerMemoryExtractor
+
+        llm_extractor = MagicMock()
+        llm_extractor.extract.return_value = []
+        rule_extractor = MagicMock()
+        rule_extractor.extract.return_value = [{"memory_text": "我在杭州上班", "memory_type": "context", "confidence": 0.7}]
+        extractor = ViewerMemoryExtractor(settings=None, llm_extractor=llm_extractor, rule_extractor=rule_extractor)
+
+        result = extractor.extract(make_event(content="我在杭州上班"))
+
+        self.assertEqual(result, [{"memory_text": "我在杭州上班", "memory_type": "context", "confidence": 0.7}])
+        llm_extractor.extract.assert_called_once()
+        rule_extractor.extract.assert_called_once()
+
+    def test_composite_prefers_llm_candidates_over_rule_fallback(self):
+        from backend.services.memory_extractor import ViewerMemoryExtractor
+
+        llm_extractor = MagicMock()
+        llm_extractor.extract.return_value = [{"memory_text": "不喜欢辣", "memory_type": "preference", "confidence": 0.86}]
+        rule_extractor = MagicMock()
+        rule_extractor.extract.return_value = [{"memory_text": "喜欢辣", "memory_type": "preference", "confidence": 0.6}]
+        extractor = ViewerMemoryExtractor(settings=None, llm_extractor=llm_extractor, rule_extractor=rule_extractor)
+
+        result = extractor.extract(make_event(content="我不喜欢辣"))
+
+        self.assertEqual(result, [{"memory_text": "不喜欢辣", "memory_type": "preference", "confidence": 0.86}])
+        llm_extractor.extract.assert_called_once()
+        rule_extractor.extract.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 ﻿"""Heuristics for extracting reusable viewer memories from comments."""
 
+import logging
 import re
 
 from backend.schemas.live import LiveEvent
@@ -58,8 +59,10 @@ MEMORY_HINT_KEYWORDS = (
     "工作",
 )
 
+logger = logging.getLogger(__name__)
 
-class ViewerMemoryExtractor:
+
+class RuleFallbackMemoryExtractor:
     def _clean_text(self, text):
         cleaned = re.sub(r"\s+", " ", str(text or "")).strip()
         return cleaned.strip("，。！？!?,.~～")
@@ -115,3 +118,25 @@ class ViewerMemoryExtractor:
                 "confidence": self._confidence(content),
             }
         ]
+
+
+class ViewerMemoryExtractor:
+    def __init__(self, settings=None, llm_extractor=None, rule_extractor=None):
+        self._settings = settings
+        self._llm_extractor = llm_extractor
+        self._rule_extractor = rule_extractor or RuleFallbackMemoryExtractor()
+
+    def extract(self, event: LiveEvent):
+        if self._llm_extractor is None:
+            return self._rule_extractor.extract(event)
+
+        try:
+            llm_candidates = self._llm_extractor.extract(event)
+        except Exception:
+            logger.exception("LLM memory extraction failed and falling back to rules.")
+            return self._rule_extractor.extract(event)
+
+        if llm_candidates:
+            return llm_candidates
+
+        return self._rule_extractor.extract(event)
