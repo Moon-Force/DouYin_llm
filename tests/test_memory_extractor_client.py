@@ -29,6 +29,7 @@ class MemoryExtractorClientTests(unittest.TestCase):
             "memory_extractor_max_tokens": 256,
             "memory_extractor_timeout_seconds": 9.5,
             "memory_extractor_api_key": "",
+            "memory_extractor_reasoning_effort": "none",
         }
         values.update(overrides)
         return SimpleNamespace(**values)
@@ -96,6 +97,21 @@ class MemoryExtractorClientTests(unittest.TestCase):
         self.assertEqual(payload["model"], "llama3.1:8b")
         self.assertEqual(payload["max_tokens"], 777)
 
+    def test_uses_configured_reasoning_effort(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            return_value=_FakeResponse(b'{"choices":[{"message":{"content":"{}"}}]}'),
+        ) as urlopen:
+            client = MemoryExtractorClient(self._settings(memory_extractor_reasoning_effort="high"))
+
+            client.infer_json("system", "user")
+
+        request = urlopen.call_args.args[0]
+        payload = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(payload["reasoning_effort"], "high")
+
     def test_adds_authorization_header_when_api_key_present(self):
         from backend.services.memory_extractor_client import MemoryExtractorClient
 
@@ -153,6 +169,9 @@ class MemoryExtractorClientTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "memory_extractor_timeout_seconds must be > 0"):
             MemoryExtractorClient(self._settings(memory_extractor_timeout_seconds=0))
 
+        with self.assertRaisesRegex(ValueError, "memory_extractor_reasoning_effort must be one of"):
+            MemoryExtractorClient(self._settings(memory_extractor_reasoning_effort="ultra"))
+
     def test_raises_value_error_for_missing_response_envelope_with_url_context(self):
         from backend.services.memory_extractor_client import MemoryExtractorClient
 
@@ -162,6 +181,70 @@ class MemoryExtractorClientTests(unittest.TestCase):
         ):
             client = MemoryExtractorClient(self._settings())
             with self.assertRaisesRegex(ValueError, "choices\\[0\\]\\.message\\.content"):
+                client.infer_json("system", "user")
+
+    def test_rejects_reasoning_only_response_with_stable_error_code(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            return_value=_FakeResponse(
+                json.dumps(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": "",
+                                    "reasoning": "This is internal reasoning without final JSON.",
+                                },
+                                "finish_reason": "stop",
+                            }
+                        ]
+                    }
+                ).encode("utf-8")
+            ),
+        ):
+            client = MemoryExtractorClient(self._settings())
+            with self.assertRaisesRegex(ValueError, "reasoning_only"):
+                client.infer_json("system", "user")
+
+    def test_rejects_truncated_response_before_json_parsing(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            return_value=_FakeResponse(
+                json.dumps(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": "",
+                                },
+                                "finish_reason": "length",
+                            }
+                        ]
+                    }
+                ).encode("utf-8")
+            ),
+        ):
+            client = MemoryExtractorClient(self._settings())
+            with self.assertRaisesRegex(ValueError, "response_truncated"):
+                client.infer_json("system", "user")
+
+    def test_rejects_blank_content_with_stable_error_code(self):
+        from backend.services.memory_extractor_client import MemoryExtractorClient
+
+        with patch(
+            "backend.services.memory_extractor_client.urllib.request.urlopen",
+            return_value=_FakeResponse(
+                b'{"choices":[{"message":{"role":"assistant","content":"   "},"finish_reason":"stop"}]}'
+            ),
+        ):
+            client = MemoryExtractorClient(self._settings())
+            with self.assertRaisesRegex(ValueError, "empty_content"):
                 client.infer_json("system", "user")
 
     def test_returns_non_json_assistant_content_as_text(self):
@@ -220,6 +303,8 @@ class DocsCleanupTests(unittest.TestCase):
         self.assertIn("MEMORY_EXTRACTOR_MODE=ollama", content)
         self.assertIn("MEMORY_EXTRACTOR_BASE_URL=http://127.0.0.1:11434/v1", content)
         self.assertIn("MEMORY_EXTRACTOR_MODEL=", content)
+        self.assertIn("MEMORY_EXTRACTOR_REASONING_EFFORT=none", content)
+        self.assertIn("MEMORY_EXTRACTOR_PROMPT_VARIANT=cot", content)
 
     def test_env_example_no_longer_mentions_local_model_path_setting(self):
         env_example = Path(__file__).resolve().parents[1] / ".env.example"

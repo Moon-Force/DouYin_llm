@@ -1,0 +1,222 @@
+[
+  {
+    "label": "fact_two_cats_home",
+    "content": "我家里养了两只猫。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "家里养了两只猫",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "context_caregiver_suzhou",
+    "content": "我现在在苏州带娃。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "现在在苏州带娃",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "context_frontend_hangzhou",
+    "content": "我在杭州做前端开发。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在杭州做前端开发",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "fact_sleep_late_habit",
+    "content": "我平时都是凌晨一点以后才睡。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "平时凌晨一点以后才睡",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "fact_long_commute_subway",
+    "content": "我每天通勤都要坐一个小时地铁。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "每天通勤要坐一个小时地铁",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "preference_breakfast_americano",
+    "content": "我早餐基本都喝美式。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "早餐基本都喝美式",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "preference_android_only",
+    "content": "我一直都只用安卓手机。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "一直都只用安卓手机",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "negative_preference_cilantro",
+    "content": "我一点都不喜欢香菜。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不喜欢香菜",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "negative_preference_cannot_eat_spicy",
+    "content": "我不能吃辣，吃了胃会不舒服。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不能吃辣",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "fact_home_cooking_habit",
+    "content": "我平时很少吃外卖，基本都自己做饭。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "平时很少吃外卖，基本都自己做饭",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "short_term_trip_shanghai_two_weeks",
+    "content": "我最近两周都在上海出差。",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "short_term_hotpot_tonight",
+    "content": "今晚下班准备去吃火锅。",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "short_term_overtime_emotion_today",
+    "content": "今天加班累死了。",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "low_signal_greeting_lai_le",
+    "content": "来了哈哈哈。",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "transactional_price_and_link",
+    "content": "这个多少钱，链接在哪？",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "fact_weekend_westlake_run",
+    "content": "我周末一般都会去西湖边夜跑。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "周末一般都会去西湖边夜跑",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "negative_preference_low_sugar_milktea",
+    "content": "我不爱喝甜的，奶茶都点三分糖以下。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不爱喝甜的",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "context_rent_near_company",
+    "content": "我租房住在公司附近。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "租房住在公司附近",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "context_product_assistant_recent_grad",
+    "content": "我去年刚毕业，现在在做产品助理。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "现在在做产品助理",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "fact_cat_hair_allergy",
+    "content": "我不是不喜欢猫，我只是对猫毛过敏。",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "对猫毛过敏",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  }
+]

@@ -7,12 +7,7 @@ from unittest.mock import patch
 from backend.schemas.live import LiveEvent
 
 
-def make_event(
-    *,
-    event_type="comment",
-    content="我喜欢吃面",
-    user=None,
-):
+def make_event(*, event_type="comment", content="我喜欢吃面", user=None):
     return LiveEvent(
         event_id="evt-1",
         room_id="room-1",
@@ -41,7 +36,57 @@ class FakeRuntime:
 
 
 class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
-    def test_extract_returns_candidate_for_valid_long_term_preference(self):
+    def test_system_prompt_includes_few_shot_examples_for_boundary_cases(self):
+        from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
+
+        prompt = LLMBackedViewerMemoryExtractor(
+            settings=SimpleNamespace(memory_extractor_prompt_variant="cot"),
+            runtime=FakeRuntime("{}"),
+        )._system_prompt()
+
+        self.assertIn("少样本示例", prompt)
+        self.assertIn("示例1：一直喝无糖可乐", prompt)
+        self.assertIn("示例2：一点都不喜欢香菜", prompt)
+        self.assertIn("示例3：在杭州做前端开发", prompt)
+        self.assertIn("示例4：今晚下班准备去吃火锅", prompt)
+        self.assertIn("示例5：来了哈哈哈", prompt)
+        self.assertIn("示例6：这个多少钱，链接在哪", prompt)
+        self.assertIn("在作答前请先在内部逐步思考", prompt)
+        self.assertIn("不要暴露你的思考过程", prompt)
+        self.assertNotIn("certainty", prompt)
+
+    def test_system_prompt_includes_boundary_labeling_rules_and_new_examples(self):
+        from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
+
+        prompt = LLMBackedViewerMemoryExtractor(
+            settings=SimpleNamespace(memory_extractor_prompt_variant="cot"),
+            runtime=FakeRuntime("{}"),
+        )._system_prompt()
+
+        self.assertIn("标注规则", prompt)
+        self.assertIn("fact = 稳定客观事实", prompt)
+        self.assertIn("context = 稳定背景信息", prompt)
+        self.assertIn("preference = 明确的喜欢/不喜欢", prompt)
+        self.assertIn("对猫毛过敏", prompt)
+        self.assertIn("示例7：家里养了两只猫", prompt)
+        self.assertIn("示例8：平时凌晨一点以后才睡", prompt)
+        self.assertIn("示例9：一直都只用安卓手机", prompt)
+        self.assertIn("示例10：不是不喜欢猫，只是对猫毛过敏", prompt)
+        self.assertIn("示例16：现在在苏州带娃", prompt)
+        self.assertIn("示例17：不是很能吃辣", prompt)
+        self.assertIn("示例18：去年刚毕业，现在在做产品助理", prompt)
+
+    def test_system_prompt_uses_prompt_variant_from_settings(self):
+        from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
+
+        prompt = LLMBackedViewerMemoryExtractor(
+            settings=SimpleNamespace(memory_extractor_prompt_variant="baseline"),
+            runtime=FakeRuntime("{}"),
+        )._system_prompt()
+
+        self.assertNotIn("在作答前请先在内部逐步思考", prompt)
+
+    def test_extract_returns_candidate_for_valid_long_term_preference_without_model_certainty(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
 
         runtime = FakeRuntime(
@@ -52,7 +97,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "positive",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": "稳定偏好",
                 },
                 ensure_ascii=False,
@@ -71,6 +115,31 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
         self.assertEqual(prompt_payload["event"]["room_id"], "room-1")
         self.assertEqual(prompt_payload["event"]["viewer_id"], "id:user-1")
 
+    def test_extract_assigns_context_confidence_in_code(self):
+        from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
+
+        runtime = FakeRuntime(
+            json.dumps(
+                {
+                    "should_extract": True,
+                    "memory_text": "在杭州做前端开发",
+                    "memory_type": "context",
+                    "polarity": "neutral",
+                    "temporal_scope": "long_term",
+                    "reason": "稳定背景",
+                },
+                ensure_ascii=False,
+            )
+        )
+        extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=runtime)
+
+        result = extractor.extract(make_event(content="我在杭州做前端开发"))
+
+        self.assertEqual(
+            result,
+            [{"memory_text": "在杭州做前端开发", "memory_type": "context", "confidence": 0.78}],
+        )
+
     def test_extract_rejects_short_term_candidate(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
 
@@ -82,7 +151,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "context",
                     "polarity": "neutral",
                     "temporal_scope": "short_term",
-                    "certainty": "high",
                     "reason": "只对今晚有效",
                 },
                 ensure_ascii=False,
@@ -90,15 +158,12 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
         )
         extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=runtime)
 
-        result = extractor.extract(make_event(content="今晚加班"))
-
-        self.assertEqual(result, [])
+        self.assertEqual(extractor.extract(make_event(content="今晚加班")), [])
 
     def test_extract_raises_json_decode_error_for_invalid_json(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
 
-        runtime = FakeRuntime("{")
-        extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=runtime)
+        extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=FakeRuntime("{"))
 
         with self.assertRaises(json.JSONDecodeError):
             extractor.extract(make_event())
@@ -114,7 +179,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "negative",
                     "temporal_scope": "long_term",
-                    "certainty": "medium",
                     "reason": "明确长期口味偏好",
                 },
                 ensure_ascii=False,
@@ -122,11 +186,9 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
         )
         extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=runtime)
 
-        result = extractor.extract(make_event(content="我不喜欢辣"))
-
         self.assertEqual(
-            result,
-            [{"memory_text": "不喜欢辣", "memory_type": "preference", "confidence": 0.72}],
+            extractor.extract(make_event(content="我不喜欢辣")),
+            [{"memory_text": "不喜欢辣", "memory_type": "preference", "confidence": 0.86}],
         )
 
     def test_extract_returns_empty_for_non_comment_empty_content_or_missing_viewer(self):
@@ -140,7 +202,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "positive",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": "测试",
                 },
                 ensure_ascii=False,
@@ -167,7 +228,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_text": "喜欢喝无糖可乐",
                     "memory_type": "preference",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": "稳定偏好",
                 },
                 ensure_ascii=False,
@@ -188,7 +248,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "positive",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                 },
                 ensure_ascii=False,
             )
@@ -201,33 +260,36 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "positive",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": "   ",
                 },
                 ensure_ascii=False,
             )
         )
 
-        missing_reason_extractor = LLMBackedViewerMemoryExtractor(
-            settings=SimpleNamespace(), runtime=missing_reason_runtime
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=missing_reason_runtime).extract(
+                make_event()
+            ),
+            [],
         )
-        empty_reason_extractor = LLMBackedViewerMemoryExtractor(
-            settings=SimpleNamespace(), runtime=empty_reason_runtime
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=empty_reason_runtime).extract(
+                make_event()
+            ),
+            [],
         )
-
-        self.assertEqual(missing_reason_extractor.extract(make_event()), [])
-        self.assertEqual(empty_reason_extractor.extract(make_event()), [])
 
     def test_extract_rejects_non_dict_payload(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
 
-        list_runtime = FakeRuntime("[]")
-        int_runtime = FakeRuntime("1")
-        list_extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=list_runtime)
-        int_extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=int_runtime)
-
-        self.assertEqual(list_extractor.extract(make_event()), [])
-        self.assertEqual(int_extractor.extract(make_event()), [])
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=FakeRuntime("[]")).extract(make_event()),
+            [],
+        )
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=FakeRuntime("1")).extract(make_event()),
+            [],
+        )
 
     def test_extract_rejects_invalid_or_non_string_polarity(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
@@ -240,7 +302,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "mixed",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": "稳定偏好",
                 },
                 ensure_ascii=False,
@@ -254,19 +315,24 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": 1,
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": "稳定偏好",
                 },
                 ensure_ascii=False,
             )
         )
-        invalid_value_extractor = LLMBackedViewerMemoryExtractor(
-            settings=SimpleNamespace(), runtime=invalid_value_runtime
-        )
-        non_string_extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=non_string_runtime)
 
-        self.assertEqual(invalid_value_extractor.extract(make_event()), [])
-        self.assertEqual(non_string_extractor.extract(make_event()), [])
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=invalid_value_runtime).extract(
+                make_event()
+            ),
+            [],
+        )
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=non_string_runtime).extract(
+                make_event()
+            ),
+            [],
+        )
 
     def test_extract_rejects_non_string_memory_text_or_reason(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
@@ -279,7 +345,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "positive",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": "稳定偏好",
                 },
                 ensure_ascii=False,
@@ -293,21 +358,24 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "positive",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": 123,
                 },
                 ensure_ascii=False,
             )
         )
-        non_string_text_extractor = LLMBackedViewerMemoryExtractor(
-            settings=SimpleNamespace(), runtime=non_string_text_runtime
-        )
-        non_string_reason_extractor = LLMBackedViewerMemoryExtractor(
-            settings=SimpleNamespace(), runtime=non_string_reason_runtime
-        )
 
-        self.assertEqual(non_string_text_extractor.extract(make_event()), [])
-        self.assertEqual(non_string_reason_extractor.extract(make_event()), [])
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=non_string_text_runtime).extract(
+                make_event()
+            ),
+            [],
+        )
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=non_string_reason_runtime).extract(
+                make_event()
+            ),
+            [],
+        )
 
     def test_extract_rejects_negative_polarity_without_negative_text_signal(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
@@ -320,7 +388,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "negative",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": "长期口味偏好",
                 },
                 ensure_ascii=False,
@@ -329,27 +396,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
         extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=runtime)
 
         self.assertEqual(extractor.extract(make_event(content="我不喜欢辣")), [])
-
-    def test_extract_rejects_negative_polarity_for_ambiguous_words_like_wu_tang_or_te_bie(self):
-        from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
-
-        runtime = FakeRuntime(
-            json.dumps(
-                {
-                    "should_extract": True,
-                    "memory_text": "特别喜欢无糖可乐",
-                    "memory_type": "preference",
-                    "polarity": "negative",
-                    "temporal_scope": "long_term",
-                    "certainty": "high",
-                    "reason": "长期饮食偏好",
-                },
-                ensure_ascii=False,
-            )
-        )
-        extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=runtime)
-
-        self.assertEqual(extractor.extract(make_event(content="我喜欢无糖可乐")), [])
 
     def test_extract_accepts_negative_polarity_with_explicit_negative_phrase(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
@@ -362,7 +408,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "negative",
                     "temporal_scope": " LONG_TERM ",
-                    "certainty": "high",
                     "reason": "长期口味偏好",
                 },
                 ensure_ascii=False,
@@ -375,7 +420,7 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
             [{"memory_text": "不喜欢辣", "memory_type": "preference", "confidence": 0.86}],
         )
 
-    def test_extract_rejects_should_extract_false_unknown_certainty_and_invalid_memory_type(self):
+    def test_extract_rejects_should_extract_false_and_invalid_memory_type(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
 
         should_extract_false_runtime = FakeRuntime(
@@ -386,21 +431,6 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "preference",
                     "polarity": "positive",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
-                    "reason": "稳定偏好",
-                },
-                ensure_ascii=False,
-            )
-        )
-        unknown_certainty_runtime = FakeRuntime(
-            json.dumps(
-                {
-                    "should_extract": True,
-                    "memory_text": "喜欢喝无糖可乐",
-                    "memory_type": "preference",
-                    "polarity": "positive",
-                    "temporal_scope": "long_term",
-                    "certainty": "unknown",
                     "reason": "稳定偏好",
                 },
                 ensure_ascii=False,
@@ -414,26 +444,24 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_type": "plan",
                     "polarity": "positive",
                     "temporal_scope": "long_term",
-                    "certainty": "high",
                     "reason": "稳定偏好",
                 },
                 ensure_ascii=False,
             )
         )
 
-        should_extract_false_extractor = LLMBackedViewerMemoryExtractor(
-            settings=SimpleNamespace(), runtime=should_extract_false_runtime
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=should_extract_false_runtime).extract(
+                make_event()
+            ),
+            [],
         )
-        unknown_certainty_extractor = LLMBackedViewerMemoryExtractor(
-            settings=SimpleNamespace(), runtime=unknown_certainty_runtime
+        self.assertEqual(
+            LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=invalid_memory_type_runtime).extract(
+                make_event()
+            ),
+            [],
         )
-        invalid_memory_type_extractor = LLMBackedViewerMemoryExtractor(
-            settings=SimpleNamespace(), runtime=invalid_memory_type_runtime
-        )
-
-        self.assertEqual(should_extract_false_extractor.extract(make_event()), [])
-        self.assertEqual(unknown_certainty_extractor.extract(make_event()), [])
-        self.assertEqual(invalid_memory_type_extractor.extract(make_event()), [])
 
 
 class ViewerMemoryExtractorCompositeTests(unittest.TestCase):

@@ -13,8 +13,6 @@ def make_settings(**overrides):
         "embedding_base_url": "https://example.test/v1",
         "embedding_api_key": "test-key",
         "embedding_timeout_seconds": 10.0,
-        "local_embedding_device": "cpu",
-        "local_embedding_batch_size": 8,
         "embedding_strict": False,
     }
     defaults.update(overrides)
@@ -54,7 +52,15 @@ class EmbeddingServiceTests(unittest.TestCase):
         self.assertEqual(captured["timeout"], 10.0)
         self.assertEqual(vector, [0.1, 0.2, 0.3])
 
-    def test_local_mode_uses_sentence_transformer(self):
+    def test_local_mode_falls_back_to_hash_embedding_when_local_backend_is_removed(self):
+        service = EmbeddingService(make_settings(embedding_mode="local"), fallback_dimensions=8)
+
+        vector = service.embed_text("fallback text")
+
+        self.assertEqual(len(vector), 8)
+        self.assertTrue(any(value != 0.0 for value in vector))
+
+    def test_local_mode_does_not_use_sentence_transformer_even_if_available(self):
         fake_model = type(
             "FakeModel",
             (),
@@ -63,11 +69,13 @@ class EmbeddingServiceTests(unittest.TestCase):
             },
         )()
 
-        with patch("backend.memory.embedding_service.SentenceTransformer", return_value=fake_model):
-            service = EmbeddingService(make_settings(embedding_mode="local", embedding_model="bge-small-zh-v1.5"))
-            vector = service.embed_text("喜欢拉面")
+        with patch("backend.memory.embedding_service.SentenceTransformer", return_value=fake_model, create=True):
+            service = EmbeddingService(make_settings(embedding_mode="local"), fallback_dimensions=8)
+            vector = service.embed_text("fallback text")
 
-        self.assertEqual(vector, [0.4, 0.5, 0.6])
+        self.assertEqual(len(vector), 8)
+        self.assertTrue(any(value != 0.0 for value in vector))
+        self.assertNotEqual(vector, [0.4, 0.5, 0.6])
 
     def test_non_strict_mode_falls_back_to_hash_embedding_when_cloud_call_fails(self):
         service = EmbeddingService(make_settings(), fallback_dimensions=8)
@@ -85,18 +93,16 @@ class EmbeddingServiceTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "strict mode"):
                 service.embed_text("fallback text")
 
-    def test_strict_mode_raises_when_local_dependency_is_missing(self):
+    def test_strict_mode_raises_when_local_mode_is_requested(self):
         service = EmbeddingService(
             make_settings(
                 embedding_mode="local",
-                embedding_model="bge-small-zh-v1.5",
                 embedding_strict=True,
             )
         )
 
-        with patch("backend.memory.embedding_service.SentenceTransformer", None):
-            with self.assertRaisesRegex(RuntimeError, "strict mode"):
-                service.embed_text("喜欢拉面")
+        with self.assertRaisesRegex(RuntimeError, "strict mode"):
+            service.embed_text("x")
 
 
 if __name__ == "__main__":

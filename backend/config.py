@@ -98,8 +98,6 @@ class Settings:
         or os.getenv("DASHSCOPE_API_KEY", "")
     )
     embedding_timeout_seconds: float = field(default_factory=lambda: _env_float("EMBEDDING_TIMEOUT_SECONDS", 10.0))
-    local_embedding_device: str = field(default_factory=lambda: os.getenv("LOCAL_EMBEDDING_DEVICE", "cpu"))
-    local_embedding_batch_size: int = field(default_factory=lambda: _env_int("LOCAL_EMBEDDING_BATCH_SIZE", 32))
     semantic_memory_min_score: float = field(default_factory=lambda: _env_float("SEMANTIC_MEMORY_MIN_SCORE", 0.35))
     semantic_memory_query_limit: int = field(default_factory=lambda: _env_int("SEMANTIC_MEMORY_QUERY_LIMIT", 6))
     semantic_final_k: int = field(default_factory=lambda: _env_int("SEMANTIC_FINAL_K", 3))
@@ -113,6 +111,12 @@ class Settings:
     memory_extractor_max_tokens: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_MAX_TOKENS", 512))
     memory_extractor_timeout_seconds: float = field(
         default_factory=lambda: _env_float("MEMORY_EXTRACTOR_TIMEOUT_SECONDS", 30.0)
+    )
+    memory_extractor_reasoning_effort: str = field(
+        default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_REASONING_EFFORT", "none").strip().lower()
+    )
+    memory_extractor_prompt_variant: str = field(
+        default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_PROMPT_VARIANT", "cot").strip().lower()
     )
 
     def ensure_dirs(self):

@@ -1,0 +1,244 @@
+[
+  {
+    "label": "recent_two_weeks_trip",
+    "content": "我最近两周都在上海出差",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "recent_skin_dry",
+    "content": "最近这阵子脸特别干",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "long_term_nurse_shenzhen",
+    "content": "我这两年一直在深圳做护士",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "这两年一直在深圳做护士",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "negative_preference_cilantro_rephrase",
+    "content": "香菜我是真的接受不了",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "接受不了香菜",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "positive_preference_android",
+    "content": "我从大学开始就只用安卓",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "一直只用安卓",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "short_term_plan_shanghai",
+    "content": "过两天要去上海出差",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "transactional_link_only",
+    "content": "这款有链接吗",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "low_signal_praise",
+    "content": "哈哈哈主播好会说",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "stable_context_pet_shop",
+    "content": "我在宁波开宠物店",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在宁波开宠物店",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "positive_preference_latte",
+    "content": "我自己倒是每天都喝拿铁",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "每天都喝拿铁",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "short_term_diet_two_weeks",
+    "content": "最近这两周都在减脂，晚上不吃主食",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "negative_preference_frog",
+    "content": "我十多年都不吃牛蛙",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不吃牛蛙",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "stable_context_walk_to_work",
+    "content": "我住公司附近，平时走路上班",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "住公司附近，平时走路上班",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "short_term_sick_today",
+    "content": "今天有点感冒，声音都哑了",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "stable_context_finance_shenzhen",
+    "content": "我学会计的，现在在深圳做财务",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "学会计，现在在深圳做财务",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "short_term_plan_concert",
+    "content": "下个月准备去看演唱会",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "positive_preference_toothpaste",
+    "content": "我一直用薄荷味牙膏，别的都不习惯",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "一直用薄荷味牙膏",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "recent_skin_state_repeat",
+    "content": "最近老觉得皮肤干",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "transactional_launch_time",
+    "content": "主播这个几号上链接",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "stable_context_hometown_current_city",
+    "content": "我老家在哈尔滨，现在定居成都",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "老家在哈尔滨，现在定居成都",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "negative_preference_sweets",
+    "content": "我是真不爱吃甜的",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不爱吃甜的",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "stable_habit_badminton_weekend",
+    "content": "我周末一般都去羽毛球馆",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "周末一般都去羽毛球馆",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  }
+]

@@ -1,0 +1,717 @@
+[
+  {
+    "label": "greeting_came",
+    "content": "来了哈哈哈",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "price_inquiry",
+    "content": "这个多少钱链接在哪",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "tonight_dinner",
+    "content": "今晚去吃火锅",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "overtime_tired",
+    "content": "今天加班累死了",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "good_morning",
+    "content": "早上好主播",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "like_this_song",
+    "content": "这首歌好好听",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "buy_two",
+    "content": "我要买两件",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "weekend_rain",
+    "content": "周末好像要下雨",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "watching_while_eating",
+    "content": "边吃饭边看直播",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "first_time_here",
+    "content": "第一次来直播间",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "tomorrow_meeting",
+    "content": "明天早上九点开会",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "hair_dry",
+    "content": "最近头发好干",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "shanghai_business_trip",
+    "content": "最近两周在上海出差",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "skin_dry_recent",
+    "content": "最近皮肤很干",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "cold_today",
+    "content": "今天好冷啊",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "next_month_exam",
+    "content": "下个月要考试了",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "bought_yesterday",
+    "content": "昨天刚买了同款",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "wait_for_discount",
+    "content": "等打折再买",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "go_to_bed_early",
+    "content": "今晚要早点睡",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "happy_with_gift",
+    "content": "收到礼物超开心",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "like_no_sugar_cola",
+    "content": "我只喝无糖可乐",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "喜欢无糖可乐",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "hate_cilantro",
+    "content": "坚决不吃香菜",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不喜欢香菜",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "only_android_user",
+    "content": "我一直只用安卓手机",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "一直只用安卓手机",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "cannot_eat_spicy",
+    "content": "我一点辣都吃不了",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不能吃辣",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "prefer_mint_toothpaste",
+    "content": "牙膏我只买薄荷味的",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "一直用薄荷味牙膏",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "like_black_coffee",
+    "content": "每天必须来杯黑咖啡",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "喜欢每天喝黑咖啡",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "reject_delivery_food",
+    "content": "外卖我从来不点",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不喜欢点外卖",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "prefer_physical_book",
+    "content": "看书只买纸质书",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "喜欢买纸质书",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "hate_queuing",
+    "content": "最讨厌排队了",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不喜欢排队",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "like_iced_drink",
+    "content": "饮料我全要加冰",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "喜欢饮料加冰",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "reject_sweet_milktea",
+    "content": "奶茶我只喝无糖的",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "喜欢喝无糖奶茶",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "prefer_night_walk",
+    "content": "我习惯晚上去跑步",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "习惯晚上跑步",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "dislike_crowded_place",
+    "content": "人多的地方我待不住",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不喜欢人多的地方",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "only_cotton_clothes",
+    "content": "衣服我只穿纯棉的",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "只穿纯棉衣服",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "hate_bitter_medicine",
+    "content": "太苦的药我咽不下去",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不能吃苦药",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "like_seafood",
+    "content": "海鲜是我的最爱",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "喜欢海鲜",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "have_two_cats",
+    "content": "我家养了两只猫",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "家里养了两只猫",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "sleep_after_one_am",
+    "content": "我平时都凌晨一点后才睡",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "平时凌晨一点后才睡",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "commute_one_hour",
+    "content": "我每天上班要通勤一个小时",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "每天通勤一个小时",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "allergic_cat_hair",
+    "content": "我对猫毛过敏",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "对猫毛过敏",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "wear_glasses",
+    "content": "我近视五百度",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "近视五百度",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "only_son_family",
+    "content": "我是家里独生子",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "是家里独生子",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "graduate_last_year",
+    "content": "去年刚毕业现在在做产品助理",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "去年刚毕业，现在做产品助理",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "lactose_intolerant",
+    "content": "我喝牛奶会拉肚子",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "喝牛奶会拉肚子",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "no_car_license",
+    "content": "我还没考驾照",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "没有驾照",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "live_with_grandma",
+    "content": "我跟奶奶一起住",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "跟奶奶一起住",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "work_shift_night",
+    "content": "我是三班倒上夜班的",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "上夜班",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "have_driving_license",
+    "content": "我有十年驾龄了",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "有十年驾龄",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "sensitive_skin",
+    "content": "我皮肤比较敏感",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "皮肤敏感",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "only_eat_half_rice",
+    "content": "我吃饭只吃半碗",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "吃饭只吃半碗",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "weekend_night_run",
+    "content": "我周末都会去夜跑",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "周末夜跑",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "hangzhou_frontend_dev",
+    "content": "我在杭州做前端开发",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在杭州做前端开发",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "rent_near_company",
+    "content": "我租房子就在公司旁边",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "租房住在公司附近",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "suzhou_take_care_baby",
+    "content": "现在在苏州带孩子",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在苏州带娃",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "work_product_assistant",
+    "content": "我现在做产品助理",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "现在做产品助理",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "shenzhen_programmer",
+    "content": "在深圳当码农",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在深圳做程序员",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "live_dormitory",
+    "content": "我住学校宿舍",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "住学校宿舍",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "married_two_kids",
+    "content": "我结婚有两个孩子了",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "结婚有两个孩子",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "beijing_designer",
+    "content": "我在北京做设计师",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在北京做设计师",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "single_rent_apartment",
+    "content": "一个人租公寓住",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "一个人租公寓住",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "guangzhou_sales",
+    "content": "在广州跑业务",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在广州做销售",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "freelance_writer",
+    "content": "我现在是自由撰稿人",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "是自由撰稿人",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "live_with_parents",
+    "content": "我跟爸妈住一起",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "跟爸妈住一起",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "chengdu_teacher",
+    "content": "在成都当中学老师",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在成都做中学老师",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "own_house_loan",
+    "content": "我自己买的房还在还贷",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "自己买房在还贷",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  }
+]

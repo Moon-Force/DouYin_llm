@@ -21,5 +21,13 @@ logs/douyinlive_*.log
 frontend/*.err.log
 frontend/*.out.log
 
+# Local model artifacts
+model/*
+!model/.gitkeep
+!model/embedding/
+!model/embedding/.gitkeep
+!model/memory_extractor/
+!model/memory_extractor/.gitkeep
+
 # IDE configs
 .vscode/

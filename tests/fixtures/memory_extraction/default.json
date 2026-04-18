@@ -1,0 +1,134 @@
+[
+  {
+    "label": "long_term_positive_preference_cola",
+    "content": "我一直都喝无糖可乐",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "喜欢喝无糖可乐",
+      "memory_type": "preference",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "long_term_negative_preference_cilantro",
+    "content": "我一点都不喜欢香菜",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不喜欢香菜",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "stable_context_frontend_hangzhou",
+    "content": "我在杭州做前端开发",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在杭州做前端开发",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "stable_fact_two_cats",
+    "content": "我家里养了两只猫",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "家里养了两只猫",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "stable_habit_sleep_late",
+    "content": "我平时都是凌晨一点以后才睡",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "平时凌晨一点以后才睡",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "short_term_plan_hotpot",
+    "content": "今晚下班准备去吃火锅",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "short_term_emotion_overtime",
+    "content": "今天加班累死了",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "low_signal_greeting",
+    "content": "来了哈哈哈",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "transactional_price_link",
+    "content": "这个多少钱，链接在哪",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "low_signal_support",
+    "content": "支持支持",
+    "expected": {
+      "should_extract": false,
+      "memory_text": "",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "short_term"
+    }
+  },
+  {
+    "label": "negative_preference_spicy",
+    "content": "我不是很能吃辣",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "不太能吃辣",
+      "memory_type": "preference",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "stable_context_caregiver_suzhou",
+    "content": "我现在在苏州带娃",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "现在在苏州带娃",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  }
+]

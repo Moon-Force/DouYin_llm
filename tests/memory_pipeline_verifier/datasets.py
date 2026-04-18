@@ -86,6 +86,60 @@ def load_dataset_fixture(input_path: str | Path) -> list[dict]:
     return json.loads(Path(input_path).read_text(encoding="utf-8"))
 
 
+def validate_memory_extraction_cases(cases: list[dict]) -> None:
+    """Validate labeled memory extraction cases before offline evaluation."""
+
+    if not cases:
+        raise ValueError("memory extraction dataset is empty")
+
+    seen_labels = set()
+    allowed_memory_types = {"preference", "fact", "context"}
+    allowed_polarities = {"positive", "negative", "neutral"}
+    allowed_temporal_scopes = {"long_term", "short_term"}
+
+    for index, case in enumerate(cases, start=1):
+        label = str(case.get("label", "")).strip()
+        content = str(case.get("content", "")).strip()
+        expected = case.get("expected")
+
+        if not label:
+            raise ValueError(f"case {index} label is required")
+        if label in seen_labels:
+            raise ValueError(f"case {index} label must be unique")
+        seen_labels.add(label)
+        if not content:
+            raise ValueError(f"case {index} content is required")
+        if not isinstance(expected, dict):
+            raise ValueError(f"case {index} expected must be an object")
+
+        should_extract = expected.get("should_extract")
+        memory_text = expected.get("memory_text")
+        memory_type = str(expected.get("memory_type", "")).strip()
+        polarity = str(expected.get("polarity", "")).strip()
+        temporal_scope = str(expected.get("temporal_scope", "")).strip()
+
+        if not isinstance(should_extract, bool):
+            raise ValueError(f"case {index} expected.should_extract must be a boolean")
+        if not isinstance(memory_text, str):
+            raise ValueError(f"case {index} expected.memory_text must be a string")
+        if memory_type not in allowed_memory_types:
+            raise ValueError(f"case {index} expected.memory_type is invalid")
+        if polarity not in allowed_polarities:
+            raise ValueError(f"case {index} expected.polarity is invalid")
+        if temporal_scope not in allowed_temporal_scopes:
+            raise ValueError(f"case {index} expected.temporal_scope is invalid")
+        if should_extract and not memory_text.strip():
+            raise ValueError(f"case {index} expected.memory_text is required when should_extract is true")
+
+
+def load_memory_extraction_fixture(input_path: str | Path) -> list[dict]:
+    """Load and validate labeled memory extraction cases from disk."""
+
+    cases = json.loads(Path(input_path).read_text(encoding="utf-8"))
+    validate_memory_extraction_cases(cases)
+    return cases
+
+
 def validate_semantic_recall_cases(cases: list[dict]) -> None:
     """Validate semantic recall fixture cases before running evaluation."""
 

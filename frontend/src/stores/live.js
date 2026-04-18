@@ -5,16 +5,15 @@ import { translate } from "../i18n.js";
 const MAX_EVENTS = 30;
 const MAX_SUGGESTIONS = 12;
 
+const VISIBLE_EVENT_TYPES = ["comment", "gift", "member"];
 const EVENT_FILTERS = [
   { value: "comment", labelKey: "feed.eventType.comment" },
   { value: "gift", labelKey: "feed.eventType.gift" },
-  { value: "follow", labelKey: "feed.eventType.follow" },
   { value: "member", labelKey: "feed.eventType.member" },
-  { value: "like", labelKey: "feed.eventType.like" },
-  { value: "system", labelKey: "feed.eventType.system" },
 ];
 
 const DEFAULT_VISIBLE_EVENT_TYPES = EVENT_FILTERS.map((filter) => filter.value);
+const VISIBLE_EVENT_TYPE_SET = new Set(VISIBLE_EVENT_TYPES);
 const FILTER_STORAGE_KEY = "live-prompter:selected-event-types";
 const THEME_STORAGE_KEY = "live-prompter:theme";
 
@@ -70,6 +69,14 @@ function applyTheme(theme) {
   }
 
   document.documentElement.dataset.theme = theme;
+}
+
+function isVisibleEventType(eventType) {
+  return VISIBLE_EVENT_TYPE_SET.has(`${eventType ?? ""}`);
+}
+
+function sanitizeVisibleEvents(events) {
+  return Array.isArray(events) ? events.filter((event) => isVisibleEventType(event?.event_type)) : [];
 }
 
 export const useLiveStore = defineStore("live", () => {
@@ -195,7 +202,7 @@ export const useLiveStore = defineStore("live", () => {
       ready: payload.semantic_backend_ready !== false,
       reason: `${payload.semantic_backend_reason ?? ""}`,
     };
-    events.value = payload.recent_events || [];
+    events.value = sanitizeVisibleEvents(payload.recent_events);
     suggestions.value = payload.recent_suggestions || [];
     if (!roomId.value) {
       connectionState.value = "idle";
@@ -472,6 +479,10 @@ export const useLiveStore = defineStore("live", () => {
   }
 
   function ingestEvent(event) {
+    if (!isVisibleEventType(event?.event_type)) {
+      return;
+    }
+
     events.value = [event, ...events.value].slice(0, MAX_EVENTS);
   }
 

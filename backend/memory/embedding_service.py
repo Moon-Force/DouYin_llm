@@ -1,15 +1,10 @@
-"""Embedding service with local/cloud backends and hash fallback."""
+"""Embedding service with HTTP backend and hash fallback."""
 
 import json
 import logging
 import urllib.request
 
 from backend.memory.vector_store import HashEmbeddingFunction
-
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:  # pragma: no cover - optional dependency
-    SentenceTransformer = None
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +14,6 @@ class EmbeddingService:
     def __init__(self, settings, fallback_dimensions=256):
         self.settings = settings
         self.fallback = HashEmbeddingFunction(dimensions=fallback_dimensions)
-        self._local_model = None
         self._fallback_logged = False
 
     def _strict_mode_enabled(self) -> bool:
@@ -40,10 +34,9 @@ class EmbeddingService:
             return []
 
         try:
-            if self.settings.embedding_mode == "local":
-                return self._embed_local(normalized)
             if self.settings.embedding_mode == "cloud":
                 return self._embed_cloud(normalized)
+            raise RuntimeError(f"Unsupported embedding mode: {self.settings.embedding_mode}")
         except Exception as exc:
             if self._strict_mode_enabled():
                 logger.error(
@@ -63,32 +56,6 @@ class EmbeddingService:
                 self._fallback_logged = True
 
         return [self.fallback.embed_text(text) for text in normalized]
-
-    def _get_local_model(self):
-        if self._local_model is None:
-            if SentenceTransformer is None:
-                raise RuntimeError("sentence-transformers is not installed")
-            logger.info(
-                "Loading local embedding model: model=%s device=%s",
-                self.settings.embedding_model,
-                self.settings.local_embedding_device,
-            )
-            self._local_model = SentenceTransformer(
-                self.settings.embedding_model,
-                device=self.settings.local_embedding_device,
-            )
-        return self._local_model
-
-    def _embed_local(self, texts: list[str]) -> list[list[float]]:
-        model = self._get_local_model()
-        vectors = model.encode(
-            texts,
-            batch_size=self.settings.local_embedding_batch_size,
-            convert_to_numpy=False,
-            normalize_embeddings=True,
-        )
-        return [list(vector) for vector in vectors]
-
     def _embed_cloud(self, texts: list[str]) -> list[list[float]]:
         headers = {"Content-Type": "application/json"}
         if self.settings.embedding_api_key:

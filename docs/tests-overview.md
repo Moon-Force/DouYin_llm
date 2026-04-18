@@ -17,7 +17,7 @@
 用于测试 `backend.memory.embedding_service.EmbeddingService` 的嵌入生成逻辑，主要覆盖：
 
 - 云端模式是否正确请求 `/embeddings` 接口
-- 本地模式是否正确调用 `SentenceTransformer`
+- 非云端模式是否不再走应用内本地 embedding 直连
 - 云端调用失败时是否退回到 hash embedding fallback
 
 ### `tests/test_empty_room_bootstrap.py`

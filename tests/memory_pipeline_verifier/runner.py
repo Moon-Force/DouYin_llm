@@ -17,9 +17,12 @@ from backend.memory.embedding_service import EmbeddingService
 from backend.memory.long_term import LongTermStore
 from backend.memory.vector_store import VectorMemory
 from backend.schemas.live import LiveEvent
+from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
 from backend.services.memory_extractor import ViewerMemoryExtractor
+from backend.services.memory_extractor_client import MemoryExtractorClient
 from tests.memory_pipeline_verifier.datasets import build_memory_dataset
 from tests.memory_pipeline_verifier.datasets import load_dataset_fixture
+from tests.memory_pipeline_verifier.datasets import load_memory_extraction_fixture
 from tests.memory_pipeline_verifier.datasets import load_semantic_recall_fixture
 
 
@@ -56,7 +59,7 @@ def normalize_mode(mode):
 
 def normalize_task(task):
     normalized = str(task or "").strip().lower()
-    if normalized not in {"pipeline", "semantic-recall"}:
+    if normalized not in {"pipeline", "semantic-recall", "memory-extraction"}:
         raise ValueError(f"unsupported task: {task}")
     return normalized
 
@@ -119,6 +122,88 @@ def build_live_events(dataset=None, count=1):
     if int(count) > 1:
         return [LiveEvent(**payload) for payload in build_memory_dataset(count=count)]
     return [build_live_event()]
+
+
+def build_memory_extraction_event(case, index):
+    timestamp = int(time.time() * 1000) + index
+    room_id = str(case.get("room_id") or DEFAULT_ROOM_ID).strip()
+    user_id = str(case.get("user_id") or f"memory-extraction-viewer-{index:03d}").strip()
+    nickname = str(case.get("nickname") or f"MemoryEval{index:03d}").strip() or f"MemoryEval{index:03d}"
+    content = str(case.get("content") or "").strip()
+    return LiveEvent(
+        event_id=f"memory-extraction-{index:03d}",
+        room_id=room_id,
+        source_room_id=room_id,
+        session_id="memory-extraction-eval",
+        platform="douyin",
+        event_type="comment",
+        method="WebcastChatMessage",
+        livename=DEFAULT_NICKNAME,
+        ts=timestamp,
+        user={"id": user_id, "nickname": nickname},
+        content=content,
+        metadata={"dataset": "memory_extraction", "label": str(case.get("label") or f"case-{index}")},
+        raw={},
+    )
+
+
+def build_memory_extraction_evaluator(runtime_settings=None):
+    active_settings = runtime_settings or settings
+    client = MemoryExtractorClient(active_settings)
+    return LLMBackedViewerMemoryExtractor(active_settings, client)
+
+
+def classify_memory_extraction_error(exc):
+    message = str(exc or "")
+    for code in (
+        "reasoning_only",
+        "response_truncated",
+        "empty_content",
+        "invalid_response_shape",
+        "invalid_json_body",
+        "invalid_schema",
+    ):
+        if code in message:
+            return code
+    if isinstance(exc, json.JSONDecodeError):
+        return "invalid_json_body"
+    return exc.__class__.__name__.lower() or "unknown_error"
+
+
+def _safe_ratio(numerator, denominator):
+    if not denominator:
+        return 0.0
+    return float(numerator) / float(denominator)
+
+
+def _f1(precision, recall):
+    if not precision and not recall:
+        return 0.0
+    return 2 * precision * recall / (precision + recall)
+
+
+def validate_memory_extraction_payload(payload):
+    if not isinstance(payload, dict):
+        raise ValueError("invalid_schema payload must be an object")
+
+    required_string_fields = ("memory_text", "memory_type", "polarity", "temporal_scope", "reason")
+    if not isinstance(payload.get("should_extract"), bool):
+        raise ValueError("invalid_schema should_extract must be a boolean")
+    for field in required_string_fields:
+        if not isinstance(payload.get(field), str):
+            raise ValueError(f"invalid_schema {field} must be a string")
+
+    if payload["memory_type"] not in {"preference", "fact", "context"}:
+        raise ValueError("invalid_schema memory_type is invalid")
+    if payload["polarity"] not in {"positive", "negative", "neutral"}:
+        raise ValueError("invalid_schema polarity is invalid")
+    if payload["temporal_scope"] not in {"long_term", "short_term"}:
+        raise ValueError("invalid_schema temporal_scope is invalid")
+    if not payload["reason"].strip():
+        raise ValueError("invalid_schema reason must not be blank")
+    if payload["should_extract"] and not payload["memory_text"].strip():
+        raise ValueError("invalid_schema memory_text must not be blank when should_extract is true")
+    return payload
 
 
 def fetch_backend_health(base_url=DEFAULT_BASE_URL):
@@ -239,6 +324,23 @@ def build_semantic_recall_report_path(dataset_path, report_dir=None):
     return root / f"{dataset.stem}.md"
 
 
+def normalize_report_tag(value, default):
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        normalized = str(default or "").strip().lower()
+    normalized = normalized.replace("_", "-").replace(" ", "-")
+    normalized = "".join(ch for ch in normalized if ch.isalnum() or ch == "-").strip("-")
+    return normalized or str(default or "default").strip().lower()
+
+
+def build_memory_extraction_report_path(dataset_path, reasoning_effort="none", prompt_variant="cot", report_dir=None):
+    dataset = Path(dataset_path)
+    root = Path(report_dir) if report_dir else Path("artifacts") / "memory_extraction_reports"
+    reasoning_tag = normalize_report_tag(reasoning_effort, "none")
+    prompt_tag = normalize_report_tag(prompt_variant, "cot")
+    return root / f"{dataset.stem}.reasoning-{reasoning_tag}.prompt-{prompt_tag}.md"
+
+
 def render_semantic_recall_report_markdown(*, dataset_path, total_cases, top1_hits, top3_hits, case_results):
     top1_rate = (top1_hits / total_cases) if total_cases else 0.0
     top3_rate = (top3_hits / total_cases) if total_cases else 0.0
@@ -282,6 +384,60 @@ def render_semantic_recall_report_markdown(*, dataset_path, total_cases, top1_hi
             lines.append("")
             for idx, text in enumerate(top_texts[:3], start=1):
                 lines.append(f"{idx}. {text}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_memory_extraction_report_markdown(*, dataset_path, reasoning_effort, prompt_variant, metrics, failures):
+    lines = []
+    lines.append("# Memory Extraction Report")
+    lines.append("")
+    lines.append("## Summary")
+    lines.append("")
+    lines.append(f"- Dataset: `{dataset_path}`")
+    lines.append(f"- Reasoning Effort: {reasoning_effort}")
+    lines.append(f"- Prompt Variant: {prompt_variant}")
+    lines.append(f"- Cases: {metrics['case_count']}")
+    lines.append(f"- JSON Parse Rate: {metrics['json_parse_rate']:.4f}")
+    lines.append(f"- Schema Valid Rate: {metrics['schema_valid_rate']:.4f}")
+    lines.append(f"- Should Extract Precision: {metrics['should_extract_precision']:.4f}")
+    lines.append(f"- Should Extract Recall: {metrics['should_extract_recall']:.4f}")
+    lines.append(f"- Should Extract F1: {metrics['should_extract_f1']:.4f}")
+    lines.append(f"- Memory Type Accuracy: {metrics['memory_type_accuracy']:.4f}")
+    lines.append(f"- Polarity Accuracy: {metrics['polarity_accuracy']:.4f}")
+    lines.append(f"- Temporal Scope Accuracy: {metrics['temporal_scope_accuracy']:.4f}")
+    lines.append(f"- False Positives: {metrics['false_positive_count']}")
+    lines.append(f"- False Negatives: {metrics['false_negative_count']}")
+    lines.append(f"- Short-Term False Positives: {metrics['short_term_false_positive_count']}")
+    lines.append(f"- Negative Polarity Mismatches: {metrics['negative_polarity_mismatch_count']}")
+    lines.append("")
+
+    for case in failures:
+        label = str(case.get("label") or "").strip() or "unknown"
+        lines.append(f"## {label}")
+        lines.append("")
+        lines.append(f"- Error Type: {str(case.get('error_type') or 'unknown')}")
+        lines.append("")
+        content = str(case.get("content") or "").strip()
+        if content:
+            lines.append("**Content**")
+            lines.append("")
+            lines.append(f"> {content}")
+            lines.append("")
+        expected = case.get("expected") or {}
+        actual = case.get("actual") or {}
+        lines.append("**Expected**")
+        lines.append("")
+        lines.append("```json")
+        lines.append(json.dumps(expected, ensure_ascii=False, indent=2))
+        lines.append("```")
+        lines.append("")
+        lines.append("**Actual**")
+        lines.append("")
+        lines.append("```json")
+        lines.append(json.dumps(actual, ensure_ascii=False, indent=2))
+        lines.append("```")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
@@ -494,6 +650,156 @@ def run_semantic_recall_verification(dataset_path, report_dir=None):
         cleanup_temp_dir(temp_root)
 
 
+def run_memory_extraction_verification(dataset_path, report_dir=None):
+    print_header("Memory Pipeline Verify: memory extraction")
+    results = []
+    settings.ensure_dirs()
+    reasoning_effort = str(getattr(settings, "memory_extractor_reasoning_effort", "none") or "none").strip().lower() or "none"
+    prompt_variant = str(getattr(settings, "memory_extractor_prompt_variant", "cot") or "cot").strip().lower() or "cot"
+    cases = load_memory_extraction_fixture(dataset_path)
+    record_step(results, "dataset", True, f"path={dataset_path} cases={len(cases)}")
+
+    extractor = build_memory_extraction_evaluator()
+    parsed_count = 0
+    schema_valid_count = 0
+    predicted_positive_count = 0
+    expected_positive_count = 0
+    true_positive_count = 0
+    memory_type_match_count = 0
+    polarity_match_count = 0
+    temporal_scope_match_count = 0
+    false_positive_count = 0
+    false_negative_count = 0
+    short_term_false_positive_count = 0
+    negative_polarity_mismatch_count = 0
+    failures = []
+
+    for index, case in enumerate(cases, start=1):
+        label = str(case.get("label") or f"case-{index}").strip()
+        content = str(case.get("content") or "").strip()
+        expected = dict(case.get("expected") or {})
+        event = build_memory_extraction_event(case, index)
+        actual = None
+        error_type = ""
+
+        try:
+            raw_payload = extractor.extract_payload(event)
+            parsed_count += 1
+            actual = validate_memory_extraction_payload(raw_payload)
+            schema_valid_count += 1
+        except Exception as exc:
+            error_type = classify_memory_extraction_error(exc)
+
+        expected_should_extract = bool(expected.get("should_extract"))
+        actual_should_extract = bool(actual and actual.get("should_extract"))
+
+        if expected_should_extract:
+            expected_positive_count += 1
+        if actual_should_extract:
+            predicted_positive_count += 1
+        if expected_should_extract and actual_should_extract:
+            true_positive_count += 1
+
+        if actual_should_extract and not expected_should_extract:
+            false_positive_count += 1
+            if str(expected.get("temporal_scope") or "").strip() == "short_term":
+                short_term_false_positive_count += 1
+        if expected_should_extract and not actual_should_extract:
+            false_negative_count += 1
+
+        if expected_should_extract:
+            if actual_should_extract and actual.get("memory_type") == expected.get("memory_type"):
+                memory_type_match_count += 1
+            if actual_should_extract and actual.get("polarity") == expected.get("polarity"):
+                polarity_match_count += 1
+            if actual_should_extract and actual.get("temporal_scope") == expected.get("temporal_scope"):
+                temporal_scope_match_count += 1
+            if str(expected.get("polarity") or "").strip() == "negative":
+                if not actual_should_extract or actual.get("polarity") != "negative":
+                    negative_polarity_mismatch_count += 1
+
+        if error_type or actual_should_extract != expected_should_extract:
+            failures.append(
+                {
+                    "label": label,
+                    "content": content,
+                    "expected": expected,
+                    "actual": actual or {},
+                    "error_type": error_type or "label_mismatch",
+                }
+            )
+            continue
+
+        if expected_should_extract:
+            for field in ("memory_type", "polarity", "temporal_scope"):
+                if actual.get(field) != expected.get(field):
+                    failures.append(
+                        {
+                            "label": label,
+                            "content": content,
+                            "expected": expected,
+                            "actual": actual,
+                            "error_type": f"{field}_mismatch",
+                        }
+                    )
+                    break
+
+    precision = _safe_ratio(true_positive_count, predicted_positive_count)
+    recall = _safe_ratio(true_positive_count, expected_positive_count)
+    metrics = {
+        "case_count": len(cases),
+        "json_parse_rate": _safe_ratio(parsed_count, len(cases)),
+        "schema_valid_rate": _safe_ratio(schema_valid_count, len(cases)),
+        "should_extract_precision": precision,
+        "should_extract_recall": recall,
+        "should_extract_f1": _f1(precision, recall),
+        "memory_type_accuracy": _safe_ratio(memory_type_match_count, expected_positive_count),
+        "polarity_accuracy": _safe_ratio(polarity_match_count, expected_positive_count),
+        "temporal_scope_accuracy": _safe_ratio(temporal_scope_match_count, expected_positive_count),
+        "false_positive_count": false_positive_count,
+        "false_negative_count": false_negative_count,
+        "short_term_false_positive_count": short_term_false_positive_count,
+        "negative_polarity_mismatch_count": negative_polarity_mismatch_count,
+    }
+    evaluation_ok = metrics["json_parse_rate"] == 1.0 and metrics["schema_valid_rate"] == 1.0
+    record_step(
+        results,
+        "memory_extraction",
+        evaluation_ok,
+        (
+            f"cases={metrics['case_count']} "
+            f"parse={metrics['json_parse_rate']:.4f} "
+            f"schema={metrics['schema_valid_rate']:.4f} "
+            f"f1={metrics['should_extract_f1']:.4f} "
+            f"type_acc={metrics['memory_type_accuracy']:.4f} "
+            f"polarity_acc={metrics['polarity_accuracy']:.4f} "
+            f"temporal_acc={metrics['temporal_scope_accuracy']:.4f}"
+        ),
+    )
+    for failure in failures[:5]:
+        print(json.dumps({"memory_extraction_failure": failure}, ensure_ascii=False))
+    try:
+        report_path = build_memory_extraction_report_path(
+            dataset_path,
+            reasoning_effort=reasoning_effort,
+            prompt_variant=prompt_variant,
+            report_dir=report_dir,
+        )
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_text = render_memory_extraction_report_markdown(
+            dataset_path=dataset_path,
+            reasoning_effort=reasoning_effort,
+            prompt_variant=prompt_variant,
+            metrics=metrics,
+            failures=failures,
+        )
+        report_path.write_text(report_text, encoding="utf-8")
+        record_step(results, "report", True, f"path={report_path.as_posix()}")
+    except Exception as exc:
+        record_step(results, "report", False, str(exc))
+    return results, metrics
+
+
 def post_json(url, payload):
     request = urllib.request.Request(
         url,
@@ -567,7 +873,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--task",
         default="pipeline",
-        choices=["pipeline", "semantic-recall"],
+        choices=["pipeline", "semantic-recall", "memory-extraction"],
         help="Verification task to run.",
     )
     parser.add_argument(
@@ -596,6 +902,12 @@ def main(argv=None):
         if not args.dataset:
             raise ValueError("--dataset is required for semantic-recall")
         results, _ = run_semantic_recall_verification(args.dataset)
+    elif task == "memory-extraction":
+        if mode != "internal":
+            raise ValueError("memory-extraction only supports internal mode")
+        if not args.dataset:
+            raise ValueError("--dataset is required for memory-extraction")
+        results, _ = run_memory_extraction_verification(args.dataset)
     elif mode == "internal":
         dataset = load_dataset_fixture(args.dataset) if args.dataset else None
         results, _ = run_internal_verification(dataset=dataset, count=args.count)

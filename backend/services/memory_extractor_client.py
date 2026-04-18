@@ -14,10 +14,13 @@ class MemoryExtractorSettings(Protocol):
     memory_extractor_max_tokens: int
     memory_extractor_timeout_seconds: float
     memory_extractor_api_key: str
+    memory_extractor_reasoning_effort: str
 
 
 class MemoryExtractorClient:
     """Thin HTTP wrapper around an OpenAI-compatible chat completions endpoint."""
+
+    _ALLOWED_REASONING_EFFORTS = {"none", "low", "medium", "high"}
 
     def __init__(self, settings: MemoryExtractorSettings):
         self._base_url = str(settings.memory_extractor_base_url or "").strip().rstrip("/")
@@ -25,6 +28,7 @@ class MemoryExtractorClient:
         self._max_tokens = int(settings.memory_extractor_max_tokens)
         self._timeout_seconds = float(settings.memory_extractor_timeout_seconds)
         self._api_key = str(settings.memory_extractor_api_key or "").strip()
+        self._reasoning_effort = str(getattr(settings, "memory_extractor_reasoning_effort", "none") or "").strip().lower()
 
         if not self._base_url:
             raise ValueError("memory_extractor_base_url must not be blank")
@@ -34,6 +38,9 @@ class MemoryExtractorClient:
             raise ValueError("memory_extractor_max_tokens must be > 0")
         if self._timeout_seconds <= 0:
             raise ValueError("memory_extractor_timeout_seconds must be > 0")
+        if self._reasoning_effort not in self._ALLOWED_REASONING_EFFORTS:
+            allowed = ", ".join(sorted(self._ALLOWED_REASONING_EFFORTS))
+            raise ValueError(f"memory_extractor_reasoning_effort must be one of: {allowed}")
 
     def infer_json(self, system_prompt: str, user_prompt: str) -> str:
         endpoint = f"{self._base_url}/chat/completions"
@@ -45,6 +52,7 @@ class MemoryExtractorClient:
             ],
             "max_tokens": self._max_tokens,
             "temperature": 0,
+            "reasoning_effort": self._reasoning_effort,
         }
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
@@ -80,20 +88,48 @@ class MemoryExtractorClient:
             response_payload = json.loads(raw_body)
         except json.JSONDecodeError as exc:
             raise ValueError(
-                f"memory extractor response was not valid JSON for {endpoint}; body: {self._snippet(raw_body)}"
+                f"memory extractor invalid_json_body for {endpoint}; body: {self._snippet(raw_body)}"
             ) from exc
 
         try:
-            content = response_payload["choices"][0]["message"]["content"]
+            choice = response_payload["choices"][0]
+            message = choice["message"]
         except (KeyError, IndexError, TypeError) as exc:
             raise ValueError(
-                f"memory extractor response missing choices[0].message.content for {endpoint}; "
+                f"memory extractor invalid_response_shape missing choices[0].message.content for {endpoint}; "
                 f"body: {self._snippet(raw_body)}"
             ) from exc
 
+        if not isinstance(choice, dict) or not isinstance(message, dict):
+            raise ValueError(
+                f"memory extractor invalid_response_shape missing choices[0].message.content for {endpoint}; "
+                f"body: {self._snippet(raw_body)}"
+            )
+
+        finish_reason = str(choice.get("finish_reason") or "").strip().lower()
+        content = message.get("content")
+        reasoning = message.get("reasoning")
+
+        if finish_reason == "length":
+            raise ValueError(
+                f"memory extractor response_truncated for {endpoint}; "
+                f"finish_reason=length; body: {self._snippet(raw_body)}"
+            )
+
         if not isinstance(content, str):
             raise ValueError(
-                f"memory extractor response missing choices[0].message.content for {endpoint}; "
+                f"memory extractor invalid_response_shape missing choices[0].message.content for {endpoint}; "
+                f"body: {self._snippet(raw_body)}"
+            )
+
+        if not content.strip():
+            if isinstance(reasoning, str) and reasoning.strip():
+                raise ValueError(
+                    f"memory extractor reasoning_only for {endpoint}; "
+                    f"body: {self._snippet(raw_body)}"
+                )
+            raise ValueError(
+                f"memory extractor empty_content for {endpoint}; "
                 f"body: {self._snippet(raw_body)}"
             )
 

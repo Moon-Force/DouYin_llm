@@ -17,7 +17,9 @@ from tests.memory_pipeline_verifier.datasets import (
     DEFAULT_DATASET_SIZE,
     build_memory_dataset,
     export_dataset_fixture,
+    load_memory_extraction_fixture,
     load_semantic_recall_fixture,
+    validate_memory_extraction_cases,
     validate_semantic_recall_cases,
 )
 from tests.memory_pipeline_verifier.runner import (
@@ -25,6 +27,7 @@ from tests.memory_pipeline_verifier.runner import (
     DEFAULT_QUERY_TEXT,
     StepResult,
     backend_ready_after_attempts,
+    build_memory_extraction_report_path,
     build_semantic_recall_report_path,
     build_test_event_payload,
     cleanup_temp_dir,
@@ -34,6 +37,7 @@ from tests.memory_pipeline_verifier.runner import (
     parse_args,
     query_batch_sqlite_counts,
     run_internal_verification,
+    run_memory_extraction_verification,
     run_semantic_recall_verification,
     should_start_backend,
     summarize_results,
@@ -252,6 +256,43 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
                 ]
             )
 
+    def test_validate_memory_extraction_cases_accepts_minimal_labeled_case(self):
+        validate_memory_extraction_cases(
+            [
+                {
+                    "label": "negative-preference",
+                    "content": "我一点都不喜欢香菜",
+                    "expected": {
+                        "should_extract": True,
+                        "memory_text": "不喜欢香菜",
+                        "memory_type": "preference",
+                        "polarity": "negative",
+                        "temporal_scope": "long_term",
+                    },
+                }
+            ]
+        )
+
+    def test_load_memory_extraction_fixture_returns_cases(self):
+        fixture_path = Path("tests/fixtures/memory_extraction/default.json")
+
+        cases = load_memory_extraction_fixture(fixture_path)
+
+        self.assertGreaterEqual(len(cases), 10)
+        self.assertIn("content", cases[0])
+        self.assertIn("expected", cases[0])
+
+    def test_load_memory_extraction_boundary_fixture_returns_twenty_cases(self):
+        fixture_path = Path("tests/fixtures/memory_extraction/boundary_20.json")
+
+        cases = load_memory_extraction_fixture(fixture_path)
+
+        self.assertEqual(len(cases), 20)
+        self.assertEqual(len({case["label"] for case in cases}), 20)
+        self.assertTrue(any(case["expected"]["memory_type"] == "fact" for case in cases))
+        self.assertTrue(any(case["expected"]["memory_type"] == "context" for case in cases))
+        self.assertTrue(any(case["expected"]["memory_type"] == "preference" for case in cases))
+
     def test_parse_args_accepts_dataset_and_count(self):
         args = parse_args(["--mode", "internal", "--count", "50", "--dataset", "tests/fixtures/demo.json"])
 
@@ -259,9 +300,10 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
         self.assertEqual(args.count, 50)
         self.assertEqual(args.dataset, "tests/fixtures/demo.json")
 
-    def test_normalize_task_accepts_pipeline_and_semantic_recall(self):
+    def test_normalize_task_accepts_pipeline_semantic_recall_and_memory_extraction(self):
         self.assertEqual(normalize_task("pipeline"), "pipeline")
         self.assertEqual(normalize_task("semantic-recall"), "semantic-recall")
+        self.assertEqual(normalize_task("memory-extraction"), "memory-extraction")
         with self.assertRaises(ValueError):
             normalize_task("unknown")
 
@@ -406,6 +448,18 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             "artifacts/semantic_recall_reports/blind_100.md",
         )
 
+    def test_memory_extraction_report_path_uses_dataset_name(self):
+        report_path = build_memory_extraction_report_path(
+            "tests/fixtures/memory_extraction/hard.json",
+            reasoning_effort="high",
+            prompt_variant="cot",
+        )
+
+        self.assertEqual(
+            report_path.as_posix(),
+            "artifacts/memory_extraction_reports/hard.reasoning-high.prompt-cot.md",
+        )
+
     def test_run_semantic_recall_verification_reports_top1_and_top3(self):
         dataset = [
             {
@@ -534,6 +588,139 @@ class VerifyMemoryPipelineTests(unittest.TestCase):
             removed = cleanup_temp_dir(Path("C:/temp/semantic-recall"), retries=1, delay_seconds=0)
 
         self.assertFalse(removed)
+
+    def test_run_memory_extraction_verification_reports_metrics(self):
+        cases = [
+            {
+                "label": "positive-preference",
+                "content": "我一直都喝无糖可乐",
+                "expected": {
+                    "should_extract": True,
+                    "memory_text": "喜欢喝无糖可乐",
+                    "memory_type": "preference",
+                    "polarity": "positive",
+                    "temporal_scope": "long_term",
+                },
+            },
+            {
+                "label": "short-term-plan",
+                "content": "今晚下班准备去吃火锅",
+                "expected": {
+                    "should_extract": False,
+                    "memory_text": "",
+                    "memory_type": "context",
+                    "polarity": "neutral",
+                    "temporal_scope": "short_term",
+                },
+            },
+        ]
+        fake_evaluator = MagicMock()
+        fake_evaluator.extract_payload.side_effect = [
+            {
+                "should_extract": True,
+                "memory_text": "喜欢喝无糖可乐",
+                "memory_type": "preference",
+                "polarity": "positive",
+                "temporal_scope": "long_term",
+                "reason": "稳定偏好",
+            },
+            {
+                "should_extract": False,
+                "memory_text": "",
+                "memory_type": "context",
+                "polarity": "neutral",
+                "temporal_scope": "short_term",
+                "reason": "短期计划",
+            },
+        ]
+
+        fake_settings = SimpleNamespace(
+            ensure_dirs=MagicMock(),
+            memory_extractor_reasoning_effort="none",
+        )
+
+        with patch("tests.memory_pipeline_verifier.runner.settings", fake_settings), patch(
+            "tests.memory_pipeline_verifier.runner.load_memory_extraction_fixture", return_value=cases
+        ), patch("tests.memory_pipeline_verifier.runner.build_memory_extraction_evaluator", return_value=fake_evaluator):
+            results, metrics = run_memory_extraction_verification("tests/fixtures/memory_extraction/default.json")
+
+        self.assertEqual(results[0].name, "dataset")
+        self.assertEqual(results[1].name, "memory_extraction")
+        self.assertEqual(metrics["case_count"], 2)
+        self.assertEqual(metrics["json_parse_rate"], 1.0)
+        self.assertEqual(metrics["schema_valid_rate"], 1.0)
+        self.assertEqual(metrics["should_extract_precision"], 1.0)
+        self.assertEqual(metrics["should_extract_recall"], 1.0)
+
+    def test_run_memory_extraction_verification_writes_markdown_report(self):
+        cases = [
+            {
+                "label": "positive-preference",
+                "content": "我一直都喝无糖可乐",
+                "expected": {
+                    "should_extract": True,
+                    "memory_text": "喜欢喝无糖可乐",
+                    "memory_type": "preference",
+                    "polarity": "positive",
+                    "temporal_scope": "long_term",
+                },
+            },
+            {
+                "label": "recent-trip",
+                "content": "我最近两周都在上海出差",
+                "expected": {
+                    "should_extract": False,
+                    "memory_text": "",
+                    "memory_type": "context",
+                    "polarity": "neutral",
+                    "temporal_scope": "short_term",
+                },
+            },
+        ]
+        fake_evaluator = MagicMock()
+        fake_evaluator.extract_payload.side_effect = [
+            {
+                "should_extract": True,
+                "memory_text": "喜欢喝无糖可乐",
+                "memory_type": "preference",
+                "polarity": "positive",
+                "temporal_scope": "long_term",
+                "reason": "稳定偏好",
+            },
+            ValueError("response_truncated"),
+        ]
+        fake_settings = SimpleNamespace(
+            ensure_dirs=MagicMock(),
+            memory_extractor_reasoning_effort="high",
+            memory_extractor_prompt_variant="cot",
+        )
+
+        with tempfile.TemporaryDirectory(prefix="memory-extraction-report-") as tempdir:
+            with patch("tests.memory_pipeline_verifier.runner.settings", fake_settings), patch(
+                "tests.memory_pipeline_verifier.runner.load_memory_extraction_fixture", return_value=cases
+            ), patch(
+                "tests.memory_pipeline_verifier.runner.build_memory_extraction_evaluator",
+                return_value=fake_evaluator,
+            ):
+                results, metrics = run_memory_extraction_verification(
+                    "tests/fixtures/memory_extraction/default.json",
+                    report_dir=Path(tempdir),
+                )
+
+            report_step = next((step for step in results if step.name == "report"), None)
+            self.assertIsNotNone(report_step, "missing report step in results")
+            self.assertTrue(report_step.ok)
+            report_path = Path(report_step.details.removeprefix("path="))
+            self.assertTrue(report_path.exists())
+            report_text = report_path.read_text(encoding="utf-8")
+            self.assertEqual(metrics["case_count"], 2)
+            self.assertEqual(report_path.name, "default.reasoning-high.prompt-cot.md")
+            self.assertIn("# Memory Extraction Report", report_text)
+            self.assertIn("## Summary", report_text)
+            self.assertIn("- Reasoning Effort: high", report_text)
+            self.assertIn("- Prompt Variant: cot", report_text)
+            self.assertIn("## recent-trip", report_text)
+            self.assertIn("response_truncated", report_text)
 
 
 if __name__ == "__main__":
