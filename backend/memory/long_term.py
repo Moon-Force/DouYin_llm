@@ -6,6 +6,10 @@ import time
 import uuid
 
 from backend.schemas.live import Actor, LiveEvent, SessionSnapshot, SessionStats, Suggestion, ViewerMemory
+from backend.services.memory_confidence_service import MemoryConfidenceService
+
+
+memory_confidence_service = MemoryConfidenceService()
 
 
 def current_millis():
@@ -183,7 +187,11 @@ class LongTermStore:
                     first_confirmed_at INTEGER NOT NULL DEFAULT 0,
                     last_confirmed_at INTEGER NOT NULL DEFAULT 0,
                     superseded_by TEXT NOT NULL DEFAULT '',
-                    merge_parent_id TEXT NOT NULL DEFAULT ''
+                    merge_parent_id TEXT NOT NULL DEFAULT '',
+                    stability_score REAL NOT NULL DEFAULT 0,
+                    interaction_value_score REAL NOT NULL DEFAULT 0,
+                    clarity_score REAL NOT NULL DEFAULT 0,
+                    evidence_score REAL NOT NULL DEFAULT 0
                 );
 
                 CREATE TABLE IF NOT EXISTS viewer_memory_logs (
@@ -262,6 +270,10 @@ class LongTermStore:
             "last_confirmed_at": "INTEGER NOT NULL DEFAULT 0",
             "superseded_by": "TEXT NOT NULL DEFAULT ''",
             "merge_parent_id": "TEXT NOT NULL DEFAULT ''",
+            "stability_score": "REAL NOT NULL DEFAULT 0",
+            "interaction_value_score": "REAL NOT NULL DEFAULT 0",
+            "clarity_score": "REAL NOT NULL DEFAULT 0",
+            "evidence_score": "REAL NOT NULL DEFAULT 0",
         }
         for column_name, column_type in required_columns.items():
             if column_name not in existing_columns:
@@ -756,6 +768,10 @@ class LongTermStore:
             last_confirmed_at=row["last_confirmed_at"] or 0,
             superseded_by=row["superseded_by"] or "",
             merge_parent_id=row["merge_parent_id"] or "",
+            stability_score=row["stability_score"] or 0.0,
+            interaction_value_score=row["interaction_value_score"] or 0.0,
+            clarity_score=row["clarity_score"] or 0.0,
+            evidence_score=row["evidence_score"] or 0.0,
         )
 
     def list_all_viewer_memories(self, limit=5000):
@@ -767,7 +783,8 @@ class LongTermStore:
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
                        last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
-                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id
+                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
+                       stability_score, interaction_value_score, clarity_score, evidence_score
                 FROM viewer_memories
                 WHERE status <> 'deleted'
                 ORDER BY updated_at DESC LIMIT ?
@@ -787,7 +804,8 @@ class LongTermStore:
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
                        last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
-                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id
+                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
+                       stability_score, interaction_value_score, clarity_score, evidence_score
                 FROM viewer_memories
                 WHERE room_id = ? AND viewer_id = ? AND status <> 'deleted'
                 ORDER BY is_pinned DESC, updated_at DESC LIMIT ?
@@ -804,7 +822,8 @@ class LongTermStore:
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
                        last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
-                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id
+                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
+                       stability_score, interaction_value_score, clarity_score, evidence_score
                 FROM viewer_memories WHERE memory_id = ?
                 """,
                 (memory_id,),
@@ -877,6 +896,10 @@ class LongTermStore:
         last_confirmed_at=0,
         superseded_by="",
         merge_parent_id="",
+        stability_score=0.0,
+        interaction_value_score=0.0,
+        clarity_score=0.0,
+        evidence_score=0.0,
     ):
         room_id = safe_text(room_id)
         viewer_id = safe_text(viewer_id)
@@ -899,6 +922,22 @@ class LongTermStore:
         except (TypeError, ValueError):
             confidence = 0.0
         confidence = max(0.0, min(confidence, 1.0))
+        try:
+            stability_score = max(0.0, min(float(stability_score), 1.0))
+        except (TypeError, ValueError):
+            stability_score = 0.0
+        try:
+            interaction_value_score = max(0.0, min(float(interaction_value_score), 1.0))
+        except (TypeError, ValueError):
+            interaction_value_score = 0.0
+        try:
+            clarity_score = max(0.0, min(float(clarity_score), 1.0))
+        except (TypeError, ValueError):
+            clarity_score = 0.0
+        try:
+            evidence_score = max(0.0, min(float(evidence_score), 1.0))
+        except (TypeError, ValueError):
+            evidence_score = 0.0
         evidence_count = max(0, safe_int(evidence_count, 1))
         timestamp = current_millis()
         first_confirmed_at = safe_int(first_confirmed_at, timestamp if evidence_count else 0)
@@ -909,7 +948,8 @@ class LongTermStore:
                 """
                 SELECT memory_id, created_at, last_recalled_at, recall_count,
                        memory_text_raw_latest, evidence_count, first_confirmed_at,
-                       last_confirmed_at, superseded_by, merge_parent_id
+                       last_confirmed_at, superseded_by, merge_parent_id,
+                       stability_score, interaction_value_score, clarity_score, evidence_score
                 FROM viewer_memories
                 WHERE room_id = ? AND viewer_id = ? AND source_event_id = ? AND memory_text = ?
                 LIMIT 1
@@ -936,6 +976,22 @@ class LongTermStore:
             )
             persisted_superseded_by = superseded_by if superseded_by else (existing["superseded_by"] if existing else "")
             persisted_merge_parent_id = merge_parent_id if merge_parent_id else (existing["merge_parent_id"] if existing else "")
+            persisted_stability_score = stability_score if existing is None else max(
+                stability_score,
+                float(existing["stability_score"] or 0.0),
+            )
+            persisted_interaction_value_score = interaction_value_score if existing is None else max(
+                interaction_value_score,
+                float(existing["interaction_value_score"] or 0.0),
+            )
+            persisted_clarity_score = clarity_score if existing is None else max(
+                clarity_score,
+                float(existing["clarity_score"] or 0.0),
+            )
+            persisted_evidence_score = evidence_score if existing is None else max(
+                evidence_score,
+                float(existing["evidence_score"] or 0.0),
+            )
             connection.execute(
                 """
                 INSERT OR REPLACE INTO viewer_memories (
@@ -943,8 +999,9 @@ class LongTermStore:
                     confidence, created_at, updated_at, last_recalled_at, recall_count,
                     source_kind, status, is_pinned, correction_reason, corrected_by,
                     last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
-                    first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
+                    stability_score, interaction_value_score, clarity_score, evidence_score
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -971,6 +1028,10 @@ class LongTermStore:
                     persisted_last_confirmed_at,
                     persisted_superseded_by,
                     persisted_merge_parent_id,
+                    persisted_stability_score,
+                    persisted_interaction_value_score,
+                    persisted_clarity_score,
+                    persisted_evidence_score,
                 ),
             )
             self._append_viewer_memory_log(
@@ -1045,24 +1106,36 @@ class LongTermStore:
 
         timestamp = current_millis()
         next_raw_text = safe_text(raw_memory_text) or existing.memory_text_raw_latest
-        try:
-            next_confidence = max(float(confidence), float(existing.confidence))
-        except (TypeError, ValueError):
-            next_confidence = existing.confidence
+        scores = memory_confidence_service.score_existing_memory_update(
+            existing,
+            evidence_increment=1,
+            candidate={
+                "memory_text": existing.memory_text,
+                "memory_text_canonical": existing.memory_text,
+                "memory_text_raw": next_raw_text,
+                "memory_type": existing.memory_type,
+                "temporal_scope": "long_term",
+            },
+        )
 
         with self._connect() as connection:
             connection.execute(
                 """
                 UPDATE viewer_memories
                 SET memory_text_raw_latest = ?, confidence = ?, evidence_count = ?, last_confirmed_at = ?,
+                    stability_score = ?, interaction_value_score = ?, clarity_score = ?, evidence_score = ?,
                     updated_at = ?, last_operation = ?, last_operation_at = ?
                 WHERE memory_id = ?
                 """,
                 (
                     next_raw_text,
-                    next_confidence,
+                    scores["confidence"],
                     max(1, existing.evidence_count) + 1,
                     timestamp,
+                    scores["stability_score"],
+                    scores["interaction_value_score"],
+                    scores["clarity_score"],
+                    scores["evidence_score"],
                     timestamp,
                     "merged",
                     timestamp,
@@ -1096,25 +1169,38 @@ class LongTermStore:
         timestamp = current_millis()
         next_text = safe_text(memory_text) or existing.memory_text
         next_raw_text = safe_text(raw_memory_text) or existing.memory_text_raw_latest
-        try:
-            next_confidence = max(float(confidence), float(existing.confidence))
-        except (TypeError, ValueError):
-            next_confidence = existing.confidence
+        scores = memory_confidence_service.score_existing_memory_update(
+            existing,
+            evidence_increment=1,
+            candidate={
+                "memory_text": next_text,
+                "memory_text_canonical": next_text,
+                "memory_text_raw": next_raw_text,
+                "memory_type": existing.memory_type,
+                "temporal_scope": "long_term",
+            },
+            upgraded_text=next_text,
+        )
 
         with self._connect() as connection:
             connection.execute(
                 """
                 UPDATE viewer_memories
                 SET memory_text = ?, memory_text_raw_latest = ?, confidence = ?, evidence_count = ?, last_confirmed_at = ?,
+                    stability_score = ?, interaction_value_score = ?, clarity_score = ?, evidence_score = ?,
                     updated_at = ?, last_operation = ?, last_operation_at = ?
                 WHERE memory_id = ?
                 """,
                 (
                     next_text,
                     next_raw_text,
-                    next_confidence,
+                    scores["confidence"],
                     max(1, existing.evidence_count) + 1,
                     timestamp,
+                    scores["stability_score"],
+                    scores["interaction_value_score"],
+                    scores["clarity_score"],
+                    scores["evidence_score"],
                     timestamp,
                     "upgraded",
                     timestamp,

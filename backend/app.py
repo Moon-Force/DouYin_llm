@@ -22,6 +22,7 @@ from backend.services.agent import LivePromptAgent
 from backend.services.broker import EventBroker
 from backend.services.collector import DouyinCollector
 from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
+from backend.services.memory_confidence_service import MemoryConfidenceService
 from backend.services.memory_extractor_client import MemoryExtractorClient
 from backend.services.memory_extractor import ViewerMemoryExtractor
 from backend.services.memory_merge_service import ViewerMemoryMergeService
@@ -37,6 +38,7 @@ agent = None
 memory_extractor = None
 collector = None
 memory_merge_service = None
+memory_confidence_service = None
 
 
 class RoomSwitchRequest(BaseModel):
@@ -171,11 +173,11 @@ def _existing_memory_candidates(room_id, viewer_id):
 
 
 def ensure_runtime():
-    global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service
+    global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service
 
     if all(
         component is not None
-        for component in (broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service)
+        for component in (broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service)
     ):
         return
 
@@ -222,6 +224,8 @@ def ensure_runtime():
         collector = DouyinCollector(settings, event_handler=process_event)
     if memory_merge_service is None:
         memory_merge_service = ViewerMemoryMergeService()
+    if memory_confidence_service is None:
+        memory_confidence_service = MemoryConfidenceService()
 
 
 def event_envelope(kind, data):
@@ -354,13 +358,14 @@ async def process_event(event: LiveEvent):
                         saved_memory_ids.append(new_memory.memory_id)
                     continue
 
+                scores = memory_confidence_service.score_new_memory(candidate)
                 memory = long_term_store.save_viewer_memory(
                     room_id=event.room_id,
                     viewer_id=event.user.viewer_id,
                     memory_text=candidate["memory_text"],
                     source_event_id=event.event_id,
                     memory_type=candidate["memory_type"],
-                    confidence=candidate["confidence"],
+                    confidence=scores["confidence"],
                     source_kind="auto",
                     status="active",
                     is_pinned=False,
@@ -373,6 +378,10 @@ async def process_event(event: LiveEvent):
                     last_confirmed_at=event.ts,
                     superseded_by="",
                     merge_parent_id="",
+                    stability_score=scores["stability_score"],
+                    interaction_value_score=scores["interaction_value_score"],
+                    clarity_score=scores["clarity_score"],
+                    evidence_score=scores["evidence_score"],
                 )
                 if memory:
                     vector_memory.sync_memory(memory)

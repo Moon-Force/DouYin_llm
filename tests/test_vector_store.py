@@ -131,6 +131,10 @@ class VectorMemoryTests(unittest.TestCase):
             status="active",
             source_kind="manual",
             is_pinned=True,
+            stability_score=0.9,
+            interaction_value_score=0.85,
+            clarity_score=0.8,
+            evidence_score=0.5,
         )
 
         store.add_memory(memory)
@@ -139,6 +143,8 @@ class VectorMemoryTests(unittest.TestCase):
         self.assertEqual(upsert_kwargs["metadatas"][0]["status"], "active")
         self.assertEqual(upsert_kwargs["metadatas"][0]["source_kind"], "manual")
         self.assertEqual(upsert_kwargs["metadatas"][0]["is_pinned"], 1)
+        self.assertEqual(upsert_kwargs["metadatas"][0]["interaction_value_score"], 0.85)
+        self.assertEqual(upsert_kwargs["metadatas"][0]["evidence_score"], 0.5)
 
     def test_sync_memory_removes_deleted_or_invalid_entries(self):
         fake_embedding = MagicMock()
@@ -288,6 +294,10 @@ class VectorMemoryTests(unittest.TestCase):
                     "status": "active",
                     "source_kind": "auto",
                     "is_pinned": 0,
+                    "stability_score": 0.0,
+                    "interaction_value_score": 0.0,
+                    "clarity_score": 0.0,
+                    "evidence_score": 0.0,
                 },
                 {
                     "room_id": "room-1",
@@ -300,6 +310,10 @@ class VectorMemoryTests(unittest.TestCase):
                     "status": "active",
                     "source_kind": "manual",
                     "is_pinned": 1,
+                    "stability_score": 0.0,
+                    "interaction_value_score": 0.0,
+                    "clarity_score": 0.0,
+                    "evidence_score": 0.0,
                 },
             ],
         }
@@ -321,6 +335,10 @@ class VectorMemoryTests(unittest.TestCase):
                 status="active",
                 source_kind="auto",
                 is_pinned=False,
+                stability_score=0.0,
+                interaction_value_score=0.0,
+                clarity_score=0.0,
+                evidence_score=0.0,
             ),
             SimpleNamespace(
                 memory_id="mem-2",
@@ -335,6 +353,10 @@ class VectorMemoryTests(unittest.TestCase):
                 status="active",
                 source_kind="manual",
                 is_pinned=True,
+                stability_score=0.0,
+                interaction_value_score=0.0,
+                clarity_score=0.0,
+                evidence_score=0.0,
             ),
         ]
 
@@ -368,6 +390,10 @@ class VectorMemoryTests(unittest.TestCase):
                 status="active",
                 source_kind="auto",
                 is_pinned=False,
+                stability_score=0.0,
+                interaction_value_score=0.0,
+                clarity_score=0.0,
+                evidence_score=0.0,
             ),
             SimpleNamespace(
                 memory_id="mem-2",
@@ -382,6 +408,10 @@ class VectorMemoryTests(unittest.TestCase):
                 status="active",
                 source_kind="manual",
                 is_pinned=True,
+                stability_score=0.0,
+                interaction_value_score=0.0,
+                clarity_score=0.0,
+                evidence_score=0.0,
             ),
         ]
 
@@ -410,6 +440,10 @@ class VectorMemoryTests(unittest.TestCase):
                     "status": "active",
                     "source_kind": "auto",
                     "is_pinned": 0,
+                    "stability_score": 0.0,
+                    "interaction_value_score": 0.0,
+                    "clarity_score": 0.0,
+                    "evidence_score": 0.0,
                 }
             ],
         }
@@ -433,6 +467,10 @@ class VectorMemoryTests(unittest.TestCase):
                 status="active",
                 source_kind="auto",
                 is_pinned=False,
+                stability_score=0.0,
+                interaction_value_score=0.0,
+                clarity_score=0.0,
+                evidence_score=0.0,
             ),
             SimpleNamespace(
                 memory_id="mem-2",
@@ -447,6 +485,10 @@ class VectorMemoryTests(unittest.TestCase):
                 status="active",
                 source_kind="manual",
                 is_pinned=True,
+                stability_score=0.0,
+                interaction_value_score=0.0,
+                clarity_score=0.0,
+                evidence_score=0.0,
             ),
         ]
 
@@ -456,6 +498,51 @@ class VectorMemoryTests(unittest.TestCase):
         store._client.delete_collection.assert_called_once()
         fake_embedding.embed_texts.assert_called_once_with(["likes ramen", "likes noodles"])
         fake_collection.upsert.assert_called_once()
+
+    def test_similar_memories_prefers_higher_interaction_value_when_scores_are_close(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.return_value = {
+            "ids": [["m-low", "m-high"]],
+            "documents": [["刚下班看到直播", "不太能吃辣"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "context",
+                    "confidence": 0.8,
+                    "updated_at": 100,
+                    "recall_count": 2,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.2,
+                    "evidence_score": 0.2,
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": 90,
+                    "recall_count": 2,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.9,
+                    "evidence_score": 0.5,
+                },
+            ]],
+            "distances": [[0.4, 0.4]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("吃辣", "room-1", "viewer-1", limit=2)
+
+        self.assertEqual(result[0]["memory_id"], "m-high")
 
 
 if __name__ == "__main__":

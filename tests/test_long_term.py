@@ -216,6 +216,7 @@ class ViewerMemoryCorrectionStoreTests(unittest.TestCase):
         self.assertEqual(merged.first_confirmed_at, 100)
         self.assertGreaterEqual(merged.last_confirmed_at, 100)
         self.assertEqual(merged.last_operation, "merged")
+        self.assertGreater(merged.evidence_score, 0.0)
 
     def test_upgrade_viewer_memory_replaces_text_and_refreshes_metadata(self):
         memory = self.store.save_viewer_memory(
@@ -229,6 +230,7 @@ class ViewerMemoryCorrectionStoreTests(unittest.TestCase):
             evidence_count=1,
             first_confirmed_at=100,
             last_confirmed_at=100,
+            clarity_score=0.2,
         )
 
         upgraded = self.store.upgrade_viewer_memory(
@@ -246,7 +248,8 @@ class ViewerMemoryCorrectionStoreTests(unittest.TestCase):
         self.assertEqual(upgraded.first_confirmed_at, 100)
         self.assertGreaterEqual(upgraded.last_confirmed_at, 100)
         self.assertEqual(upgraded.last_operation, "upgraded")
-        self.assertEqual(upgraded.confidence, 0.86)
+        self.assertGreater(upgraded.confidence, 0.74)
+        self.assertGreater(upgraded.clarity_score, 0.2)
 
     def test_supersede_viewer_memory_marks_old_invalid_and_links_new_id(self):
         old_memory = self.store.save_viewer_memory(
@@ -278,6 +281,56 @@ class ViewerMemoryCorrectionStoreTests(unittest.TestCase):
         self.assertEqual(new.memory_text_raw_latest, "我平时不太能吃辣")
         self.assertEqual(new.evidence_count, 1)
         self.assertEqual(new.status, "active")
+
+    def test_save_viewer_memory_persists_confidence_subscores(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="不太能吃辣",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.82,
+            stability_score=0.95,
+            interaction_value_score=0.9,
+            clarity_score=0.8,
+            evidence_score=0.4,
+        )
+
+        self.assertEqual(memory.stability_score, 0.95)
+        self.assertEqual(memory.interaction_value_score, 0.9)
+        self.assertEqual(memory.clarity_score, 0.8)
+        self.assertEqual(memory.evidence_score, 0.4)
+
+        fetched = self.store.get_viewer_memory(memory.memory_id)
+        self.assertEqual(fetched.stability_score, 0.95)
+        self.assertEqual(fetched.interaction_value_score, 0.9)
+        self.assertEqual(fetched.clarity_score, 0.8)
+        self.assertEqual(fetched.evidence_score, 0.4)
+
+    def test_existing_rows_default_confidence_subscores_to_zero(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="喜欢拉面",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.88,
+        )
+
+        with self.store._connect() as connection:
+            connection.execute("UPDATE viewer_memories SET stability_score = 0 WHERE memory_id = ?", (memory.memory_id,))
+            connection.execute(
+                "UPDATE viewer_memories SET interaction_value_score = 0 WHERE memory_id = ?",
+                (memory.memory_id,),
+            )
+            connection.execute("UPDATE viewer_memories SET clarity_score = 0 WHERE memory_id = ?", (memory.memory_id,))
+            connection.execute("UPDATE viewer_memories SET evidence_score = 0 WHERE memory_id = ?", (memory.memory_id,))
+
+        fetched = self.store.get_viewer_memory(memory.memory_id)
+        self.assertEqual(fetched.stability_score, 0.0)
+        self.assertEqual(fetched.interaction_value_score, 0.0)
+        self.assertEqual(fetched.clarity_score, 0.0)
+        self.assertEqual(fetched.evidence_score, 0.0)
 
 
 if __name__ == "__main__":

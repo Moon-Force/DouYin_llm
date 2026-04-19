@@ -133,6 +133,10 @@ class VectorMemory:
             "status": getattr(memory, "status", "active"),
             "source_kind": getattr(memory, "source_kind", "auto"),
             "is_pinned": 1 if getattr(memory, "is_pinned", False) else 0,
+            "stability_score": float(getattr(memory, "stability_score", 0.0) or 0.0),
+            "interaction_value_score": float(getattr(memory, "interaction_value_score", 0.0) or 0.0),
+            "clarity_score": float(getattr(memory, "clarity_score", 0.0) or 0.0),
+            "evidence_score": float(getattr(memory, "evidence_score", 0.0) or 0.0),
         }
 
     def _active_memory_records(self, memories):
@@ -252,6 +256,8 @@ class VectorMemory:
         metadata = item.get("metadata") or {}
         contains_query = 1 if query_text and query_text in text else 0
         confidence = float(metadata.get("confidence") or 0.0)
+        interaction_value_score = float(metadata.get("interaction_value_score") or 0.0)
+        evidence_score = float(metadata.get("evidence_score") or 0.0)
         recall_count = int(metadata.get("recall_count") or 0)
         updated_at = int(metadata.get("updated_at") or 0)
         source_kind = str(metadata.get("source_kind") or "auto")
@@ -259,6 +265,8 @@ class VectorMemory:
         reranked_score = (
             float(item.get("score", 0.0))
             + (0.1 * confidence)
+            + (0.03 * interaction_value_score)
+            + (0.02 * evidence_score)
             + (0.02 * contains_query)
             + (0.01 * min(recall_count, 10))
             + (0.03 if source_kind == "manual" else 0.0)

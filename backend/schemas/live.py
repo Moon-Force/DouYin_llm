@@ -89,6 +89,10 @@ class ViewerMemory(BaseModel):
     last_confirmed_at: int = 0
     superseded_by: str = ""
     merge_parent_id: str = ""
+    stability_score: float = 0.0
+    interaction_value_score: float = 0.0
+    clarity_score: float = 0.0
+    evidence_score: float = 0.0
 
 
 class ViewerMemoryLog(BaseModel):

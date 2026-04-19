@@ -335,6 +335,7 @@ class CommentProcessingStatusTests(unittest.TestCase):
         original_memory_extractor = app_module.memory_extractor
         original_vector_memory = app_module.vector_memory
         original_broker = app_module.broker
+        original_memory_confidence_service = getattr(app_module, "memory_confidence_service", None)
         try:
             app_module.session_memory = MagicMock()
             app_module.session_memory.recent_events.return_value = [event]
@@ -374,6 +375,14 @@ class CommentProcessingStatusTests(unittest.TestCase):
             ]
 
             app_module.vector_memory = MagicMock()
+            app_module.memory_confidence_service = MagicMock()
+            app_module.memory_confidence_service.score_new_memory.return_value = {
+                "stability_score": 0.45,
+                "interaction_value_score": 0.35,
+                "clarity_score": 0.75,
+                "evidence_score": 0.35,
+                "confidence": 0.445,
+            }
             app_module.broker = MagicMock()
             app_module.broker.publish = AsyncMock()
 
@@ -385,7 +394,7 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 memory_text="likes ramen",
                 source_event_id="evt-1",
                 memory_type="preference",
-                confidence=0.91,
+                confidence=0.445,
                 source_kind="auto",
                 status="active",
                 is_pinned=False,
@@ -398,6 +407,10 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 last_confirmed_at=1234567890,
                 superseded_by="",
                 merge_parent_id="",
+                stability_score=0.45,
+                interaction_value_score=0.35,
+                clarity_score=0.75,
+                evidence_score=0.35,
             )
 
             published_event = app_module.broker.publish.await_args_list[0].args[0]
@@ -423,6 +436,124 @@ class CommentProcessingStatusTests(unittest.TestCase):
             app_module.memory_extractor = original_memory_extractor
             app_module.vector_memory = original_vector_memory
             app_module.broker = original_broker
+            app_module.memory_confidence_service = original_memory_confidence_service
+
+    def test_process_event_persists_new_memory_with_confidence_subscores(self):
+        event = make_event()
+        memory = SimpleNamespace(memory_id="mem-1")
+
+        original_session_memory = app_module.session_memory
+        original_long_term_store = app_module.long_term_store
+        original_agent = app_module.agent
+        original_memory_extractor = app_module.memory_extractor
+        original_vector_memory = app_module.vector_memory
+        original_broker = app_module.broker
+        original_memory_merge_service = getattr(app_module, "memory_merge_service", None)
+        original_memory_confidence_service = getattr(app_module, "memory_confidence_service", None)
+        try:
+            app_module.session_memory = MagicMock()
+            app_module.session_memory.recent_events.return_value = [event]
+            app_module.session_memory.stats.return_value = SimpleNamespace(
+                model_dump=lambda: {"room_id": "room-1", "total_events": 1}
+            )
+
+            app_module.long_term_store = MagicMock()
+            app_module.long_term_store.list_viewer_memories.return_value = []
+            app_module.long_term_store.save_viewer_memory.return_value = memory
+
+            app_module.agent = MagicMock()
+            app_module.agent.maybe_generate.return_value = None
+            app_module.agent.consume_last_generation_metadata.return_value = {
+                "memory_recall_attempted": False,
+                "memory_recalled": False,
+                "recalled_memory_ids": [],
+                "suggestion_status": "skipped",
+                "suggestion_block_reason": "",
+                "suggestion_block_detail": "",
+            }
+            app_module.agent.current_status.return_value = {
+                "mode": "qwen",
+                "model": "qwen3.5-flash",
+                "backend": "https://example.test/v1",
+                "last_result": "ok",
+                "last_error": "",
+                "updated_at": 1,
+            }
+
+            app_module.memory_extractor = MagicMock()
+            app_module.memory_extractor.extract.return_value = [
+                {
+                    "memory_text": "likes ramen",
+                    "memory_text_raw": "I really like ramen",
+                    "memory_text_canonical": "likes ramen",
+                    "memory_type": "preference",
+                    "confidence": 0.91,
+                }
+            ]
+            app_module.memory_extractor.consume_last_extraction_metadata.return_value = {
+                "memory_prefiltered": False,
+                "memory_llm_attempted": True,
+                "memory_refined": True,
+                "fallback_used": False,
+            }
+
+            app_module.vector_memory = MagicMock()
+            app_module.vector_memory.similar_memories.return_value = []
+
+            app_module.memory_merge_service = MagicMock()
+            app_module.memory_merge_service.decide.return_value = SimpleNamespace(
+                action="create",
+                target_memory_id="",
+                reason="no_close_match",
+            )
+
+            app_module.memory_confidence_service = MagicMock()
+            app_module.memory_confidence_service.score_new_memory.return_value = {
+                "stability_score": 0.95,
+                "interaction_value_score": 0.9,
+                "clarity_score": 0.8,
+                "evidence_score": 0.35,
+                "confidence": 0.8225,
+            }
+
+            app_module.broker = MagicMock()
+            app_module.broker.publish = AsyncMock()
+
+            asyncio.run(app_module.process_event(event))
+
+            app_module.long_term_store.save_viewer_memory.assert_called_with(
+                room_id="room-1",
+                viewer_id="id:user-1",
+                memory_text="likes ramen",
+                source_event_id="evt-1",
+                memory_type="preference",
+                confidence=0.8225,
+                source_kind="auto",
+                status="active",
+                is_pinned=False,
+                correction_reason="",
+                corrected_by="system",
+                operation="created",
+                raw_memory_text="I really like ramen",
+                evidence_count=1,
+                first_confirmed_at=1234567890,
+                last_confirmed_at=1234567890,
+                superseded_by="",
+                merge_parent_id="",
+                stability_score=0.95,
+                interaction_value_score=0.9,
+                clarity_score=0.8,
+                evidence_score=0.35,
+            )
+        finally:
+            app_module.session_memory = original_session_memory
+            app_module.long_term_store = original_long_term_store
+            app_module.agent = original_agent
+            app_module.memory_extractor = original_memory_extractor
+            app_module.vector_memory = original_vector_memory
+            app_module.broker = original_broker
+            app_module.memory_merge_service = original_memory_merge_service
+            app_module.memory_confidence_service = original_memory_confidence_service
 
     def test_process_event_sets_skipped_suggestion_status_when_no_suggestion_generated(self):
         event = make_event()
