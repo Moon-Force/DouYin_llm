@@ -114,22 +114,31 @@ def validate_memory_extraction_cases(cases: list[dict]) -> None:
 
         should_extract = expected.get("should_extract")
         memory_text = expected.get("memory_text")
+        memory_text_raw = expected.get("memory_text_raw")
+        memory_text_canonical = expected.get("memory_text_canonical")
         memory_type = str(expected.get("memory_type", "")).strip()
         polarity = str(expected.get("polarity", "")).strip()
         temporal_scope = str(expected.get("temporal_scope", "")).strip()
 
         if not isinstance(should_extract, bool):
             raise ValueError(f"case {index} expected.should_extract must be a boolean")
-        if not isinstance(memory_text, str):
+        if memory_text is not None and not isinstance(memory_text, str):
             raise ValueError(f"case {index} expected.memory_text must be a string")
+        if memory_text_raw is not None and not isinstance(memory_text_raw, str):
+            raise ValueError(f"case {index} expected.memory_text_raw must be a string")
+        if memory_text_canonical is not None and not isinstance(memory_text_canonical, str):
+            raise ValueError(f"case {index} expected.memory_text_canonical must be a string")
         if memory_type not in allowed_memory_types:
             raise ValueError(f"case {index} expected.memory_type is invalid")
         if polarity not in allowed_polarities:
             raise ValueError(f"case {index} expected.polarity is invalid")
         if temporal_scope not in allowed_temporal_scopes:
             raise ValueError(f"case {index} expected.temporal_scope is invalid")
-        if should_extract and not memory_text.strip():
-            raise ValueError(f"case {index} expected.memory_text is required when should_extract is true")
+        expected_effective_text = str(memory_text_canonical or memory_text or "").strip()
+        if should_extract and not expected_effective_text:
+            raise ValueError(
+                f"case {index} expected.memory_text_canonical or expected.memory_text is required when should_extract is true"
+            )
 
 
 def load_memory_extraction_fixture(input_path: str | Path) -> list[dict]:

@@ -186,12 +186,20 @@ def validate_memory_extraction_payload(payload):
     if not isinstance(payload, dict):
         raise ValueError("invalid_schema payload must be an object")
 
-    required_string_fields = ("memory_text", "memory_type", "polarity", "temporal_scope", "reason")
+    required_string_fields = ("memory_type", "polarity", "temporal_scope", "reason")
     if not isinstance(payload.get("should_extract"), bool):
         raise ValueError("invalid_schema should_extract must be a boolean")
     for field in required_string_fields:
         if not isinstance(payload.get(field), str):
             raise ValueError(f"invalid_schema {field} must be a string")
+
+    raw_text = payload.get("memory_text_raw")
+    canonical_text = payload.get("memory_text_canonical")
+    legacy_text = payload.get("memory_text")
+    if not isinstance(raw_text, str):
+        raw_text = legacy_text if isinstance(legacy_text, str) else ""
+    if not isinstance(canonical_text, str):
+        canonical_text = legacy_text if isinstance(legacy_text, str) else ""
 
     if payload["memory_type"] not in {"preference", "fact", "context"}:
         raise ValueError("invalid_schema memory_type is invalid")
@@ -201,9 +209,16 @@ def validate_memory_extraction_payload(payload):
         raise ValueError("invalid_schema temporal_scope is invalid")
     if not payload["reason"].strip():
         raise ValueError("invalid_schema reason must not be blank")
-    if payload["should_extract"] and not payload["memory_text"].strip():
-        raise ValueError("invalid_schema memory_text must not be blank when should_extract is true")
-    return payload
+    if payload["should_extract"] and not raw_text.strip():
+        raise ValueError("invalid_schema memory_text_raw must not be blank when should_extract is true")
+    if payload["should_extract"] and not canonical_text.strip():
+        raise ValueError("invalid_schema memory_text_canonical must not be blank when should_extract is true")
+    return {
+        **payload,
+        "memory_text_raw": raw_text,
+        "memory_text_canonical": canonical_text,
+        "memory_text": canonical_text,
+    }
 
 
 def fetch_backend_health(base_url=DEFAULT_BASE_URL):
@@ -717,6 +732,20 @@ def run_memory_extraction_verification(dataset_path, report_dir=None):
             if str(expected.get("polarity") or "").strip() == "negative":
                 if not actual_should_extract or actual.get("polarity") != "negative":
                     negative_polarity_mismatch_count += 1
+            expected_canonical = str(
+                expected.get("memory_text_canonical") or expected.get("memory_text") or ""
+            ).strip()
+            if expected_canonical and actual_should_extract and actual.get("memory_text_canonical") != expected_canonical:
+                failures.append(
+                    {
+                        "label": label,
+                        "content": content,
+                        "expected": expected,
+                        "actual": actual,
+                        "error_type": "canonical_mismatch",
+                    }
+                )
+                continue
 
         if error_type or actual_should_extract != expected_should_extract:
             failures.append(

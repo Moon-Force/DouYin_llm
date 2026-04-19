@@ -129,6 +129,156 @@ class ViewerMemoryCorrectionStoreTests(unittest.TestCase):
             ["deleted", "reactivated", "invalidated", "edited", "created"],
         )
 
+    def test_save_viewer_memory_persists_merge_metadata_defaults(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="租房住在公司附近",
+            source_event_id="evt-1",
+            memory_type="context",
+            confidence=0.78,
+            source_kind="auto",
+            status="active",
+            raw_memory_text="我租房住在公司附近，这样通勤方便点",
+            evidence_count=1,
+            first_confirmed_at=111,
+            last_confirmed_at=111,
+            superseded_by="",
+            merge_parent_id="",
+        )
+
+        self.assertEqual(memory.memory_text_raw_latest, "我租房住在公司附近，这样通勤方便点")
+        self.assertEqual(memory.evidence_count, 1)
+        self.assertEqual(memory.first_confirmed_at, 111)
+        self.assertEqual(memory.last_confirmed_at, 111)
+        self.assertEqual(memory.superseded_by, "")
+        self.assertEqual(memory.merge_parent_id, "")
+
+        fetched = self.store.get_viewer_memory(memory.memory_id)
+        self.assertEqual(fetched.memory_text_raw_latest, "我租房住在公司附近，这样通勤方便点")
+        self.assertEqual(fetched.evidence_count, 1)
+        self.assertEqual(fetched.first_confirmed_at, 111)
+        self.assertEqual(fetched.last_confirmed_at, 111)
+        self.assertEqual(fetched.superseded_by, "")
+        self.assertEqual(fetched.merge_parent_id, "")
+
+    def test_existing_viewer_memory_rows_get_merge_metadata_defaults(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="喜欢拉面",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.88,
+        )
+
+        with self.store._connect() as connection:
+            connection.execute("UPDATE viewer_memories SET memory_text_raw_latest = '' WHERE memory_id = ?", (memory.memory_id,))
+            connection.execute("UPDATE viewer_memories SET evidence_count = 0 WHERE memory_id = ?", (memory.memory_id,))
+            connection.execute("UPDATE viewer_memories SET first_confirmed_at = 0 WHERE memory_id = ?", (memory.memory_id,))
+            connection.execute("UPDATE viewer_memories SET last_confirmed_at = 0 WHERE memory_id = ?", (memory.memory_id,))
+            connection.execute("UPDATE viewer_memories SET superseded_by = '' WHERE memory_id = ?", (memory.memory_id,))
+            connection.execute("UPDATE viewer_memories SET merge_parent_id = '' WHERE memory_id = ?", (memory.memory_id,))
+
+        fetched = self.store.get_viewer_memory(memory.memory_id)
+        self.assertEqual(fetched.memory_text_raw_latest, "")
+        self.assertEqual(fetched.evidence_count, 0)
+        self.assertEqual(fetched.first_confirmed_at, 0)
+        self.assertEqual(fetched.last_confirmed_at, 0)
+        self.assertEqual(fetched.superseded_by, "")
+        self.assertEqual(fetched.merge_parent_id, "")
+
+    def test_merge_viewer_memory_evidence_updates_evidence_and_raw_text(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="喜欢拉面",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.74,
+            raw_memory_text="我喜欢拉面",
+            evidence_count=1,
+            first_confirmed_at=100,
+            last_confirmed_at=100,
+        )
+
+        merged = self.store.merge_viewer_memory_evidence(
+            memory.memory_id,
+            raw_memory_text="我还是很喜欢拉面",
+            confidence=0.86,
+            source_event_id="evt-2",
+        )
+
+        self.assertEqual(merged.memory_id, memory.memory_id)
+        self.assertEqual(merged.memory_text, "喜欢拉面")
+        self.assertEqual(merged.memory_text_raw_latest, "我还是很喜欢拉面")
+        self.assertEqual(merged.evidence_count, 2)
+        self.assertEqual(merged.first_confirmed_at, 100)
+        self.assertGreaterEqual(merged.last_confirmed_at, 100)
+        self.assertEqual(merged.last_operation, "merged")
+
+    def test_upgrade_viewer_memory_replaces_text_and_refreshes_metadata(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="喜欢拉面",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.74,
+            raw_memory_text="我喜欢拉面",
+            evidence_count=1,
+            first_confirmed_at=100,
+            last_confirmed_at=100,
+        )
+
+        upgraded = self.store.upgrade_viewer_memory(
+            memory.memory_id,
+            memory_text="喜欢豚骨拉面",
+            raw_memory_text="我超爱豚骨拉面",
+            confidence=0.86,
+            source_event_id="evt-2",
+        )
+
+        self.assertEqual(upgraded.memory_id, memory.memory_id)
+        self.assertEqual(upgraded.memory_text, "喜欢豚骨拉面")
+        self.assertEqual(upgraded.memory_text_raw_latest, "我超爱豚骨拉面")
+        self.assertEqual(upgraded.evidence_count, 2)
+        self.assertEqual(upgraded.first_confirmed_at, 100)
+        self.assertGreaterEqual(upgraded.last_confirmed_at, 100)
+        self.assertEqual(upgraded.last_operation, "upgraded")
+        self.assertEqual(upgraded.confidence, 0.86)
+
+    def test_supersede_viewer_memory_marks_old_invalid_and_links_new_id(self):
+        old_memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="喜欢吃辣",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.74,
+            raw_memory_text="我喜欢吃辣",
+        )
+
+        old, new = self.store.supersede_viewer_memory(
+            old_memory.memory_id,
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="不太能吃辣",
+            raw_memory_text="我平时不太能吃辣",
+            memory_type="preference",
+            confidence=0.86,
+            source_event_id="evt-2",
+        )
+
+        self.assertEqual(old.memory_id, old_memory.memory_id)
+        self.assertEqual(old.status, "invalid")
+        self.assertEqual(old.last_operation, "superseded")
+        self.assertEqual(old.superseded_by, new.memory_id)
+        self.assertEqual(new.memory_text, "不太能吃辣")
+        self.assertEqual(new.memory_text_raw_latest, "我平时不太能吃辣")
+        self.assertEqual(new.evidence_count, 1)
+        self.assertEqual(new.status, "active")
+
 
 if __name__ == "__main__":
     unittest.main()

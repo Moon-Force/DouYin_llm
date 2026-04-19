@@ -392,6 +392,12 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 correction_reason="",
                 corrected_by="system",
                 operation="created",
+                raw_memory_text="",
+                evidence_count=1,
+                first_confirmed_at=1234567890,
+                last_confirmed_at=1234567890,
+                superseded_by="",
+                merge_parent_id="",
             )
 
             published_event = app_module.broker.publish.await_args_list[0].args[0]

@@ -83,6 +83,12 @@ class ViewerMemory(BaseModel):
     corrected_by: str = ""
     last_operation: str = "created"
     last_operation_at: int = 0
+    memory_text_raw_latest: str = ""
+    evidence_count: int = 1
+    first_confirmed_at: int = 0
+    last_confirmed_at: int = 0
+    superseded_by: str = ""
+    merge_parent_id: str = ""
 
 
 class ViewerMemoryLog(BaseModel):
@@ -112,6 +118,11 @@ class CommentProcessingStatus(BaseModel):
     received: bool = False
     persisted: bool = False
     memory_extraction_attempted: bool = False
+    memory_prefiltered: bool = False
+    memory_llm_attempted: bool = False
+    memory_refined: bool = False
+    memory_used_for_current_suggestion: bool = False
+    memory_persisted: bool = False
     memory_saved: bool = False
     saved_memory_ids: list[str] = Field(default_factory=list)
     memory_recall_attempted: bool = False

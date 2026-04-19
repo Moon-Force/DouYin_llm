@@ -24,6 +24,7 @@ from backend.services.collector import DouyinCollector
 from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
 from backend.services.memory_extractor_client import MemoryExtractorClient
 from backend.services.memory_extractor import ViewerMemoryExtractor
+from backend.services.memory_merge_service import ViewerMemoryMergeService
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -35,6 +36,7 @@ vector_memory = None
 agent = None
 memory_extractor = None
 collector = None
+memory_merge_service = None
 
 
 class RoomSwitchRequest(BaseModel):
@@ -122,12 +124,58 @@ def _normalize_recalled_memory_ids(raw_ids):
     return normalized_ids
 
 
+def _consume_extraction_metadata(extractor):
+    consume = getattr(extractor, "consume_last_extraction_metadata", None)
+    if not callable(consume):
+        return {
+            "memory_prefiltered": False,
+            "memory_llm_attempted": False,
+            "memory_refined": False,
+            "fallback_used": False,
+        }
+    metadata = consume()
+    if not isinstance(metadata, dict):
+        return {
+            "memory_prefiltered": False,
+            "memory_llm_attempted": False,
+            "memory_refined": False,
+            "fallback_used": False,
+        }
+    return metadata
+
+
+def _candidate_is_suggestion_ready(candidate):
+    if not isinstance(candidate, dict):
+        return False
+    memory_text = str(candidate.get("memory_text") or "").strip()
+    memory_type = str(candidate.get("memory_type") or "").strip().lower()
+    if not memory_text or memory_type not in {"preference", "fact", "context"}:
+        return False
+    if any(token in memory_text for token in ("?", "？")):
+        return False
+    return True
+
+
+def _candidate_raw_text(candidate):
+    return str(candidate.get("memory_text_raw") or "").strip()
+
+
+def _existing_memory_candidates(room_id, viewer_id):
+    if long_term_store is None:
+        return []
+    try:
+        return list(long_term_store.list_viewer_memories(room_id, viewer_id, limit=20) or [])
+    except Exception:
+        logging.exception("Failed to load viewer memory merge candidates for room_id=%s viewer_id=%s", room_id, viewer_id)
+        return []
+
+
 def ensure_runtime():
-    global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector
+    global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service
 
     if all(
         component is not None
-        for component in (broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector)
+        for component in (broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service)
     ):
         return
 
@@ -172,6 +220,8 @@ def ensure_runtime():
             memory_extractor = ViewerMemoryExtractor(settings=settings)
     if collector is None:
         collector = DouyinCollector(settings, event_handler=process_event)
+    if memory_merge_service is None:
+        memory_merge_service = ViewerMemoryMergeService()
 
 
 def event_envelope(kind, data):
@@ -200,7 +250,30 @@ async def process_event(event: LiveEvent):
     processing_status.persisted = True
 
     recent_events = session_memory.recent_events(event.room_id, limit=15)
-    suggestion = agent.maybe_generate(event, recent_events)
+    saved_memory_ids = []
+    extracted_candidates = []
+    extract_method = getattr(memory_extractor, "extract", None)
+    processing_status.memory_extraction_attempted = bool(event.event_type == "comment" and callable(extract_method))
+
+    if processing_status.memory_extraction_attempted:
+        try:
+            extracted_candidates = list(extract_method(event) or [])
+        except Exception:
+            extracted_candidates = []
+            logging.exception("Memory extraction pipeline failed for event_id=%s", event.event_id)
+        extraction_metadata = _consume_extraction_metadata(memory_extractor)
+        processing_status.memory_prefiltered = bool(extraction_metadata.get("memory_prefiltered"))
+        processing_status.memory_llm_attempted = bool(extraction_metadata.get("memory_llm_attempted"))
+        processing_status.memory_refined = bool(extraction_metadata.get("memory_refined"))
+
+    current_comment_memories = [
+        candidate for candidate in extracted_candidates if _candidate_is_suggestion_ready(candidate)
+    ]
+    suggestion = agent.maybe_generate(
+        event,
+        recent_events,
+        current_comment_memories=current_comment_memories,
+    )
     generation_metadata = agent.consume_last_generation_metadata()
     processing_status.suggestion_status = str(generation_metadata.get("suggestion_status") or "")
     processing_status.suggestion_block_reason = str(generation_metadata.get("suggestion_block_reason") or "")
@@ -211,6 +284,9 @@ async def process_event(event: LiveEvent):
     )
     processing_status.memory_recalled = bool(
         generation_metadata.get("memory_recalled") or processing_status.recalled_memory_ids
+    )
+    processing_status.memory_used_for_current_suggestion = bool(
+        generation_metadata.get("current_comment_memory_used")
     )
     if suggestion:
         session_memory.add_suggestion(suggestion)
@@ -223,13 +299,61 @@ async def process_event(event: LiveEvent):
         processing_status.suggestion_generated = False
         processing_status.suggestion_id = ""
 
-    saved_memory_ids = []
-    extract_method = getattr(memory_extractor, "extract", None)
-    processing_status.memory_extraction_attempted = bool(event.event_type == "comment" and callable(extract_method))
-
-    if processing_status.memory_extraction_attempted:
+    if extracted_candidates:
         try:
-            for candidate in extract_method(event):
+            for candidate in extracted_candidates:
+                existing_memories = _existing_memory_candidates(event.room_id, event.user.viewer_id)
+                similar_memories = vector_memory.similar_memories(
+                    candidate["memory_text"],
+                    event.room_id,
+                    event.user.viewer_id,
+                    limit=5,
+                )
+                decision = memory_merge_service.decide(candidate, existing_memories, similar_memories)
+
+                if decision.action == "merge":
+                    memory = long_term_store.merge_viewer_memory_evidence(
+                        decision.target_memory_id,
+                        raw_memory_text=_candidate_raw_text(candidate),
+                        confidence=candidate["confidence"],
+                        source_event_id=event.event_id,
+                    )
+                    if memory:
+                        vector_memory.sync_memory(memory)
+                        saved_memory_ids.append(memory.memory_id)
+                    continue
+
+                if decision.action == "upgrade":
+                    memory = long_term_store.upgrade_viewer_memory(
+                        decision.target_memory_id,
+                        memory_text=candidate["memory_text"],
+                        raw_memory_text=_candidate_raw_text(candidate),
+                        confidence=candidate["confidence"],
+                        source_event_id=event.event_id,
+                    )
+                    if memory:
+                        vector_memory.sync_memory(memory)
+                        saved_memory_ids.append(memory.memory_id)
+                    continue
+
+                if decision.action == "supersede":
+                    old_memory, new_memory = long_term_store.supersede_viewer_memory(
+                        decision.target_memory_id,
+                        room_id=event.room_id,
+                        viewer_id=event.user.viewer_id,
+                        memory_text=candidate["memory_text"],
+                        raw_memory_text=_candidate_raw_text(candidate),
+                        source_event_id=event.event_id,
+                        memory_type=candidate["memory_type"],
+                        confidence=candidate["confidence"],
+                    )
+                    if old_memory:
+                        vector_memory.sync_memory(old_memory)
+                    if new_memory:
+                        vector_memory.sync_memory(new_memory)
+                        saved_memory_ids.append(new_memory.memory_id)
+                    continue
+
                 memory = long_term_store.save_viewer_memory(
                     room_id=event.room_id,
                     viewer_id=event.user.viewer_id,
@@ -243,14 +367,21 @@ async def process_event(event: LiveEvent):
                     correction_reason="",
                     corrected_by="system",
                     operation="created",
+                    raw_memory_text=_candidate_raw_text(candidate),
+                    evidence_count=1,
+                    first_confirmed_at=event.ts,
+                    last_confirmed_at=event.ts,
+                    superseded_by="",
+                    merge_parent_id="",
                 )
                 if memory:
                     vector_memory.sync_memory(memory)
                     saved_memory_ids.append(memory.memory_id)
         except Exception:
             saved_memory_ids = []
-            logging.exception("Memory extraction pipeline failed for event_id=%s", event.event_id)
+            logging.exception("Memory persistence pipeline failed for event_id=%s", event.event_id)
 
+    processing_status.memory_persisted = bool(saved_memory_ids)
     processing_status.memory_saved = bool(saved_memory_ids)
     processing_status.saved_memory_ids = saved_memory_ids
     event.processing_status = processing_status

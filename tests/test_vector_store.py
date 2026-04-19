@@ -184,6 +184,49 @@ class VectorMemoryTests(unittest.TestCase):
         self.assertEqual(store._memory_items, [])
         fake_collection.delete.assert_called_once_with(ids=["mem-1"])
 
+    def test_similar_memories_filters_invalid_superseded_entries(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.return_value = {
+            "ids": [["m-old", "m-new"]],
+            "documents": [["likes spicy food", "cannot eat spicy food"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.9,
+                    "updated_at": 100,
+                    "recall_count": 2,
+                    "status": "invalid",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "superseded_by": "m-new",
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.9,
+                    "updated_at": 110,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "superseded_by": "",
+                },
+            ]],
+            "distances": [[0.2, 0.25]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("cannot eat spicy food", "room-1", "viewer-1", limit=2)
+
+        self.assertEqual([item["memory_id"] for item in result], ["m-new"])
+
     def test_similar_memories_prefers_manual_and_pinned_when_scores_are_close(self):
         fake_embedding = MagicMock()
         fake_embedding.embed_text.return_value = [0.1, 0.2]

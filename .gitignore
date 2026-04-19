@@ -31,3 +31,8 @@ model/*
 
 # IDE configs
 .vscode/
+
+# Evaluation artifacts
+artifacts/memory_extraction_reports/
+artifacts/semantic_recall_reports/*.md
+!artifacts/semantic_recall_reports/blind_100.md

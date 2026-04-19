@@ -82,6 +82,7 @@ class LivePromptAgent:
         memory_recall_attempted=False,
         memory_recalled=False,
         recalled_memory_ids=None,
+        current_comment_memory_used=False,
     ):
         return {
             "suggestion_status": suggestion_status,
@@ -90,6 +91,7 @@ class LivePromptAgent:
             "memory_recall_attempted": bool(memory_recall_attempted),
             "memory_recalled": bool(memory_recalled),
             "recalled_memory_ids": list(recalled_memory_ids or []),
+            "current_comment_memory_used": bool(current_comment_memory_used),
         }
 
     @staticmethod
@@ -112,7 +114,7 @@ class LivePromptAgent:
             ordered.append(text)
         return ordered
 
-    def build_context(self, event, recent_events):
+    def build_context(self, event, recent_events, current_comment_memories=None):
         viewer_memories = self.vector_memory.similar_memories(
             event.content,
             room_id=event.room_id,
@@ -120,15 +122,21 @@ class LivePromptAgent:
             limit=2,
         )
         profile = self._compact_user_profile(self.long_term_store.get_user_profile(event.room_id, event.user))
+        current_comment_texts = self._dedupe_preserve_order(
+            [item.get("memory_text") for item in (current_comment_memories or [])]
+        )
+        recalled_memory_texts = [item["memory_text"] for item in viewer_memories[:2]]
         return {
             "recent_events": [self._compact_recent_event(item) for item in recent_events[:3]],
             "user_profile": profile,
             "viewer_memories": viewer_memories,
-            "viewer_memory_texts": [item["memory_text"] for item in viewer_memories[:2]],
+            "current_comment_memories": list(current_comment_memories or []),
+            "current_comment_memory_texts": current_comment_texts,
+            "viewer_memory_texts": self._dedupe_preserve_order(current_comment_texts + recalled_memory_texts),
             "recalled_memory_ids": [item["memory_id"] for item in viewer_memories[:2] if item.get("memory_id")],
         }
 
-    def maybe_generate(self, event, recent_events):
+    def maybe_generate(self, event, recent_events, current_comment_memories=None):
         if event.event_type not in {"comment", "gift", "follow"}:
             self._mark_status("idle")
             self._last_generation_metadata = self._build_generation_metadata(
@@ -151,6 +159,8 @@ class LivePromptAgent:
             "recent_events": [],
             "user_profile": {},
             "viewer_memories": [],
+            "current_comment_memories": [],
+            "current_comment_memory_texts": [],
             "viewer_memory_texts": [],
             "recalled_memory_ids": [],
         }
@@ -159,7 +169,7 @@ class LivePromptAgent:
             payload = self._generate_heuristic(event, context, source="heuristic")
         else:
             try:
-                context = self.build_context(event, recent_events)
+                context = self.build_context(event, recent_events, current_comment_memories=current_comment_memories)
             except RuntimeError as exc:
                 if not self._is_strict_vector_recall_runtime_error(exc):
                     raise
@@ -178,6 +188,7 @@ class LivePromptAgent:
                 memory_recall_attempted=True,
                 memory_recalled=bool(context["recalled_memory_ids"]),
                 recalled_memory_ids=context["recalled_memory_ids"],
+                current_comment_memory_used=bool(context["current_comment_memory_texts"]),
             )
             payload = self._generate_payload(event, context)
         self._last_generation_metadata = generation_metadata

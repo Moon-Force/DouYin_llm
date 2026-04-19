@@ -177,7 +177,13 @@ class LongTermStore:
                     correction_reason TEXT NOT NULL DEFAULT '',
                     corrected_by TEXT NOT NULL DEFAULT '',
                     last_operation TEXT NOT NULL DEFAULT 'created',
-                    last_operation_at INTEGER NOT NULL DEFAULT 0
+                    last_operation_at INTEGER NOT NULL DEFAULT 0,
+                    memory_text_raw_latest TEXT NOT NULL DEFAULT '',
+                    evidence_count INTEGER NOT NULL DEFAULT 1,
+                    first_confirmed_at INTEGER NOT NULL DEFAULT 0,
+                    last_confirmed_at INTEGER NOT NULL DEFAULT 0,
+                    superseded_by TEXT NOT NULL DEFAULT '',
+                    merge_parent_id TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS viewer_memory_logs (
@@ -250,6 +256,12 @@ class LongTermStore:
             "corrected_by": "TEXT NOT NULL DEFAULT ''",
             "last_operation": "TEXT NOT NULL DEFAULT 'created'",
             "last_operation_at": "INTEGER NOT NULL DEFAULT 0",
+            "memory_text_raw_latest": "TEXT NOT NULL DEFAULT ''",
+            "evidence_count": "INTEGER NOT NULL DEFAULT 1",
+            "first_confirmed_at": "INTEGER NOT NULL DEFAULT 0",
+            "last_confirmed_at": "INTEGER NOT NULL DEFAULT 0",
+            "superseded_by": "TEXT NOT NULL DEFAULT ''",
+            "merge_parent_id": "TEXT NOT NULL DEFAULT ''",
         }
         for column_name, column_type in required_columns.items():
             if column_name not in existing_columns:
@@ -738,6 +750,12 @@ class LongTermStore:
             corrected_by=row["corrected_by"] or "",
             last_operation=row["last_operation"] or "created",
             last_operation_at=row["last_operation_at"] or row["updated_at"],
+            memory_text_raw_latest=row["memory_text_raw_latest"] or "",
+            evidence_count=row["evidence_count"] or 0,
+            first_confirmed_at=row["first_confirmed_at"] or 0,
+            last_confirmed_at=row["last_confirmed_at"] or 0,
+            superseded_by=row["superseded_by"] or "",
+            merge_parent_id=row["merge_parent_id"] or "",
         )
 
     def list_all_viewer_memories(self, limit=5000):
@@ -748,7 +766,8 @@ class LongTermStore:
                 SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
-                       last_operation, last_operation_at
+                       last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
+                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id
                 FROM viewer_memories
                 WHERE status <> 'deleted'
                 ORDER BY updated_at DESC LIMIT ?
@@ -767,7 +786,8 @@ class LongTermStore:
                 SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
-                       last_operation, last_operation_at
+                       last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
+                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id
                 FROM viewer_memories
                 WHERE room_id = ? AND viewer_id = ? AND status <> 'deleted'
                 ORDER BY is_pinned DESC, updated_at DESC LIMIT ?
@@ -783,7 +803,8 @@ class LongTermStore:
                 SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
-                       last_operation, last_operation_at
+                       last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
+                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id
                 FROM viewer_memories WHERE memory_id = ?
                 """,
                 (memory_id,),
@@ -850,6 +871,12 @@ class LongTermStore:
         correction_reason="",
         corrected_by="",
         operation="created",
+        raw_memory_text="",
+        evidence_count=1,
+        first_confirmed_at=0,
+        last_confirmed_at=0,
+        superseded_by="",
+        merge_parent_id="",
     ):
         room_id = safe_text(room_id)
         viewer_id = safe_text(viewer_id)
@@ -861,6 +888,9 @@ class LongTermStore:
         correction_reason = safe_text(correction_reason)
         corrected_by = safe_text(corrected_by)
         operation = safe_text(operation) or "created"
+        raw_memory_text = safe_text(raw_memory_text)
+        superseded_by = safe_text(superseded_by)
+        merge_parent_id = safe_text(merge_parent_id)
         if not room_id or not viewer_id or not memory_text:
             return None
 
@@ -869,12 +899,17 @@ class LongTermStore:
         except (TypeError, ValueError):
             confidence = 0.0
         confidence = max(0.0, min(confidence, 1.0))
+        evidence_count = max(0, safe_int(evidence_count, 1))
         timestamp = current_millis()
+        first_confirmed_at = safe_int(first_confirmed_at, timestamp if evidence_count else 0)
+        last_confirmed_at = safe_int(last_confirmed_at, timestamp if evidence_count else 0)
 
         with self._connect() as connection:
             existing = connection.execute(
                 """
-                SELECT memory_id, created_at, last_recalled_at, recall_count
+                SELECT memory_id, created_at, last_recalled_at, recall_count,
+                       memory_text_raw_latest, evidence_count, first_confirmed_at,
+                       last_confirmed_at, superseded_by, merge_parent_id
                 FROM viewer_memories
                 WHERE room_id = ? AND viewer_id = ? AND source_event_id = ? AND memory_text = ?
                 LIMIT 1
@@ -885,14 +920,31 @@ class LongTermStore:
             created_at = existing["created_at"] if existing else timestamp
             last_recalled_at = existing["last_recalled_at"] if existing else None
             recall_count = existing["recall_count"] if existing else 0
+            memory_text_raw_latest = raw_memory_text if raw_memory_text else (
+                existing["memory_text_raw_latest"] if existing else ""
+            )
+            persisted_evidence_count = evidence_count if existing is None else max(
+                evidence_count,
+                safe_int(existing["evidence_count"], evidence_count),
+            )
+            persisted_first_confirmed_at = first_confirmed_at if existing is None else safe_int(
+                existing["first_confirmed_at"], first_confirmed_at
+            )
+            persisted_last_confirmed_at = last_confirmed_at if existing is None else max(
+                last_confirmed_at,
+                safe_int(existing["last_confirmed_at"], last_confirmed_at),
+            )
+            persisted_superseded_by = superseded_by if superseded_by else (existing["superseded_by"] if existing else "")
+            persisted_merge_parent_id = merge_parent_id if merge_parent_id else (existing["merge_parent_id"] if existing else "")
             connection.execute(
                 """
                 INSERT OR REPLACE INTO viewer_memories (
                     memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
                     confidence, created_at, updated_at, last_recalled_at, recall_count,
                     source_kind, status, is_pinned, correction_reason, corrected_by,
-                    last_operation, last_operation_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
+                    first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -913,6 +965,12 @@ class LongTermStore:
                     corrected_by,
                     operation,
                     timestamp,
+                    memory_text_raw_latest,
+                    persisted_evidence_count,
+                    persisted_first_confirmed_at,
+                    persisted_last_confirmed_at,
+                    persisted_superseded_by,
+                    persisted_merge_parent_id,
                 ),
             )
             self._append_viewer_memory_log(
@@ -979,6 +1037,182 @@ class LongTermStore:
                 new_is_pinned=next_is_pinned,
             )
         return self.get_viewer_memory(memory_id)
+
+    def merge_viewer_memory_evidence(self, memory_id, raw_memory_text="", confidence=0.0, source_event_id=""):
+        existing = self.get_viewer_memory(memory_id)
+        if not existing or existing.status != "active":
+            return None
+
+        timestamp = current_millis()
+        next_raw_text = safe_text(raw_memory_text) or existing.memory_text_raw_latest
+        try:
+            next_confidence = max(float(confidence), float(existing.confidence))
+        except (TypeError, ValueError):
+            next_confidence = existing.confidence
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE viewer_memories
+                SET memory_text_raw_latest = ?, confidence = ?, evidence_count = ?, last_confirmed_at = ?,
+                    updated_at = ?, last_operation = ?, last_operation_at = ?
+                WHERE memory_id = ?
+                """,
+                (
+                    next_raw_text,
+                    next_confidence,
+                    max(1, existing.evidence_count) + 1,
+                    timestamp,
+                    timestamp,
+                    "merged",
+                    timestamp,
+                    memory_id,
+                ),
+            )
+            self._append_viewer_memory_log(
+                connection,
+                memory_id=existing.memory_id,
+                room_id=existing.room_id,
+                viewer_id=existing.viewer_id,
+                operation="merged",
+                operator="system",
+                reason=safe_text(source_event_id),
+                old_memory_text=existing.memory_text,
+                new_memory_text=existing.memory_text,
+                old_memory_type=existing.memory_type,
+                new_memory_type=existing.memory_type,
+                old_status=existing.status,
+                new_status=existing.status,
+                old_is_pinned=existing.is_pinned,
+                new_is_pinned=existing.is_pinned,
+            )
+        return self.get_viewer_memory(memory_id)
+
+    def upgrade_viewer_memory(self, memory_id, memory_text="", raw_memory_text="", confidence=0.0, source_event_id=""):
+        existing = self.get_viewer_memory(memory_id)
+        if not existing or existing.status != "active":
+            return None
+
+        timestamp = current_millis()
+        next_text = safe_text(memory_text) or existing.memory_text
+        next_raw_text = safe_text(raw_memory_text) or existing.memory_text_raw_latest
+        try:
+            next_confidence = max(float(confidence), float(existing.confidence))
+        except (TypeError, ValueError):
+            next_confidence = existing.confidence
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE viewer_memories
+                SET memory_text = ?, memory_text_raw_latest = ?, confidence = ?, evidence_count = ?, last_confirmed_at = ?,
+                    updated_at = ?, last_operation = ?, last_operation_at = ?
+                WHERE memory_id = ?
+                """,
+                (
+                    next_text,
+                    next_raw_text,
+                    next_confidence,
+                    max(1, existing.evidence_count) + 1,
+                    timestamp,
+                    timestamp,
+                    "upgraded",
+                    timestamp,
+                    memory_id,
+                ),
+            )
+            self._append_viewer_memory_log(
+                connection,
+                memory_id=existing.memory_id,
+                room_id=existing.room_id,
+                viewer_id=existing.viewer_id,
+                operation="upgraded",
+                operator="system",
+                reason=safe_text(source_event_id),
+                old_memory_text=existing.memory_text,
+                new_memory_text=next_text,
+                old_memory_type=existing.memory_type,
+                new_memory_type=existing.memory_type,
+                old_status=existing.status,
+                new_status=existing.status,
+                old_is_pinned=existing.is_pinned,
+                new_is_pinned=existing.is_pinned,
+            )
+        return self.get_viewer_memory(memory_id)
+
+    def supersede_viewer_memory(
+        self,
+        memory_id,
+        room_id,
+        viewer_id,
+        memory_text,
+        raw_memory_text="",
+        source_event_id="",
+        memory_type="fact",
+        confidence=0.0,
+    ):
+        existing = self.get_viewer_memory(memory_id)
+        if not existing or existing.status != "active":
+            return None, None
+
+        timestamp = current_millis()
+        new_memory = self.save_viewer_memory(
+            room_id=room_id,
+            viewer_id=viewer_id,
+            memory_text=memory_text,
+            source_event_id=source_event_id,
+            memory_type=memory_type,
+            confidence=confidence,
+            source_kind="auto",
+            status="active",
+            is_pinned=False,
+            correction_reason="",
+            corrected_by="system",
+            operation="created",
+            raw_memory_text=raw_memory_text,
+            evidence_count=1,
+            first_confirmed_at=timestamp,
+            last_confirmed_at=timestamp,
+            superseded_by="",
+            merge_parent_id="",
+        )
+        if new_memory is None:
+            return None, None
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE viewer_memories
+                SET status = ?, is_pinned = 0, superseded_by = ?, updated_at = ?, last_operation = ?, last_operation_at = ?
+                WHERE memory_id = ?
+                """,
+                (
+                    "invalid",
+                    new_memory.memory_id,
+                    timestamp,
+                    "superseded",
+                    timestamp,
+                    memory_id,
+                ),
+            )
+            self._append_viewer_memory_log(
+                connection,
+                memory_id=existing.memory_id,
+                room_id=existing.room_id,
+                viewer_id=existing.viewer_id,
+                operation="superseded",
+                operator="system",
+                reason=f"superseded_by:{new_memory.memory_id}",
+                old_memory_text=existing.memory_text,
+                new_memory_text=existing.memory_text,
+                old_memory_type=existing.memory_type,
+                new_memory_type=existing.memory_type,
+                old_status=existing.status,
+                new_status="invalid",
+                old_is_pinned=existing.is_pinned,
+                new_is_pinned=False,
+            )
+        return self.get_viewer_memory(memory_id), self.get_viewer_memory(new_memory.memory_id)
 
     def _set_viewer_memory_status(self, memory_id, status, reason="", corrected_by="主播", operation="invalidated"):
         existing = self.get_viewer_memory(memory_id)
