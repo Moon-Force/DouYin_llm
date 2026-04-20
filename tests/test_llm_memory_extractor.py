@@ -107,6 +107,8 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
                     "memory_text_raw": "我平时很少吃外卖，基本都是自己做饭",
                     "memory_text_canonical": "平时很少吃外卖，基本自己做饭",
                     "memory_type": "fact",
+                    "polarity": "neutral",
+                    "temporal_scope": "long_term",
                     "confidence": 0.74,
                     "extraction_source": "llm",
                 }

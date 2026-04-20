@@ -370,6 +370,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 {
                     "memory_text": "likes ramen",
                     "memory_type": "preference",
+                    "polarity": "neutral",
+                    "temporal_scope": "long_term",
                     "confidence": 0.91,
                 }
             ]
@@ -394,6 +396,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 memory_text="likes ramen",
                 source_event_id="evt-1",
                 memory_type="preference",
+                polarity="neutral",
+                temporal_scope="long_term",
                 confidence=0.445,
                 source_kind="auto",
                 status="active",
@@ -487,6 +491,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
                     "memory_text_raw": "I really like ramen",
                     "memory_text_canonical": "likes ramen",
                     "memory_type": "preference",
+                    "polarity": "positive",
+                    "temporal_scope": "long_term",
                     "confidence": 0.91,
                 }
             ]
@@ -527,6 +533,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 memory_text="likes ramen",
                 source_event_id="evt-1",
                 memory_type="preference",
+                polarity="positive",
+                temporal_scope="long_term",
                 confidence=0.8225,
                 source_kind="auto",
                 status="active",

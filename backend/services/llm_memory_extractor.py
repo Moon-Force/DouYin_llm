@@ -159,6 +159,8 @@ class LLMBackedViewerMemoryExtractor:
                 "memory_text_raw": raw_text,
                 "memory_text_canonical": canonical_text,
                 "memory_type": memory_type,
+                "polarity": polarity,
+                "temporal_scope": temporal_scope,
                 "confidence": confidence,
                 "extraction_source": "llm",
             }

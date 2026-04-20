@@ -71,6 +71,8 @@ class ViewerMemory(BaseModel):
     source_event_id: str = ""
     memory_text: str
     memory_type: str = "fact"
+    polarity: str = "neutral"
+    temporal_scope: str = "long_term"
     confidence: float = 0.0
     created_at: int
     updated_at: int

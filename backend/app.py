@@ -365,6 +365,8 @@ async def process_event(event: LiveEvent):
                     memory_text=candidate["memory_text"],
                     source_event_id=event.event_id,
                     memory_type=candidate["memory_type"],
+                    polarity=str(candidate.get("polarity") or "neutral"),
+                    temporal_scope=str(candidate.get("temporal_scope") or "long_term"),
                     confidence=scores["confidence"],
                     source_kind="auto",
                     status="active",

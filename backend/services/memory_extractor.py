@@ -155,6 +155,8 @@ class RuleFallbackMemoryExtractor:
                 "memory_text_raw": content,
                 "memory_text_canonical": content,
                 "memory_type": self._memory_type(content),
+                "polarity": "neutral",
+                "temporal_scope": "long_term",
                 "confidence": self._confidence(content),
                 "extraction_source": "rule",
             }
@@ -182,6 +184,8 @@ class RuleFallbackMemoryExtractor:
                     "memory_text_raw": content,
                     "memory_text_canonical": content,
                     "memory_type": memory_type,
+                    "polarity": "neutral",
+                    "temporal_scope": "long_term",
                     "confidence": max(self._confidence(content), 0.88),
                     "extraction_source": "rule_fallback",
                 }

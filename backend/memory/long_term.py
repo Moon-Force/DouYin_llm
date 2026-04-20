@@ -170,6 +170,8 @@ class LongTermStore:
                     source_event_id TEXT,
                     memory_text TEXT NOT NULL,
                     memory_type TEXT NOT NULL,
+                    polarity TEXT NOT NULL DEFAULT 'neutral',
+                    temporal_scope TEXT NOT NULL DEFAULT 'long_term',
                     confidence REAL NOT NULL DEFAULT 0,
                     created_at INTEGER NOT NULL,
                     updated_at INTEGER NOT NULL,
@@ -270,6 +272,8 @@ class LongTermStore:
             "last_confirmed_at": "INTEGER NOT NULL DEFAULT 0",
             "superseded_by": "TEXT NOT NULL DEFAULT ''",
             "merge_parent_id": "TEXT NOT NULL DEFAULT ''",
+            "polarity": "TEXT NOT NULL DEFAULT 'neutral'",
+            "temporal_scope": "TEXT NOT NULL DEFAULT 'long_term'",
             "stability_score": "REAL NOT NULL DEFAULT 0",
             "interaction_value_score": "REAL NOT NULL DEFAULT 0",
             "clarity_score": "REAL NOT NULL DEFAULT 0",
@@ -750,6 +754,8 @@ class LongTermStore:
             source_event_id=row["source_event_id"] or "",
             memory_text=row["memory_text"],
             memory_type=row["memory_type"] or "fact",
+            polarity=row["polarity"] or "neutral",
+            temporal_scope=row["temporal_scope"] or "long_term",
             confidence=row["confidence"] or 0.0,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
@@ -780,6 +786,7 @@ class LongTermStore:
             rows = connection.execute(
                 """
                 SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                       polarity, temporal_scope,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
                        last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
@@ -801,6 +808,7 @@ class LongTermStore:
             rows = connection.execute(
                 """
                 SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                       polarity, temporal_scope,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
                        last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
@@ -819,6 +827,7 @@ class LongTermStore:
             row = connection.execute(
                 """
                 SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                       polarity, temporal_scope,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
                        last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
@@ -883,6 +892,8 @@ class LongTermStore:
         memory_text,
         source_event_id="",
         memory_type="fact",
+        polarity="neutral",
+        temporal_scope="long_term",
         confidence=0.0,
         source_kind="auto",
         status="active",
@@ -906,6 +917,8 @@ class LongTermStore:
         memory_text = safe_text(memory_text)
         source_event_id = safe_text(source_event_id)
         memory_type = safe_text(memory_type) or "fact"
+        polarity = safe_text(polarity) or "neutral"
+        temporal_scope = safe_text(temporal_scope) or "long_term"
         source_kind = safe_text(source_kind) or "auto"
         status = safe_text(status) or "active"
         correction_reason = safe_text(correction_reason)
@@ -947,6 +960,7 @@ class LongTermStore:
             existing = connection.execute(
                 """
                 SELECT memory_id, created_at, last_recalled_at, recall_count,
+                       polarity, temporal_scope,
                        memory_text_raw_latest, evidence_count, first_confirmed_at,
                        last_confirmed_at, superseded_by, merge_parent_id,
                        stability_score, interaction_value_score, clarity_score, evidence_score
@@ -996,12 +1010,13 @@ class LongTermStore:
                 """
                 INSERT OR REPLACE INTO viewer_memories (
                     memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                    polarity, temporal_scope,
                     confidence, created_at, updated_at, last_recalled_at, recall_count,
                     source_kind, status, is_pinned, correction_reason, corrected_by,
                     last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
                     first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
                     stability_score, interaction_value_score, clarity_score, evidence_score
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -1010,6 +1025,8 @@ class LongTermStore:
                     source_event_id,
                     memory_text,
                     memory_type,
+                    polarity,
+                    temporal_scope,
                     confidence,
                     created_at,
                     timestamp,

@@ -332,6 +332,43 @@ class ViewerMemoryCorrectionStoreTests(unittest.TestCase):
         self.assertEqual(fetched.clarity_score, 0.0)
         self.assertEqual(fetched.evidence_score, 0.0)
 
+    def test_save_viewer_memory_persists_polarity_and_temporal_scope(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="不太能吃辣",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.82,
+            polarity="negative",
+            temporal_scope="long_term",
+        )
+
+        self.assertEqual(memory.polarity, "negative")
+        self.assertEqual(memory.temporal_scope, "long_term")
+
+        fetched = self.store.get_viewer_memory(memory.memory_id)
+        self.assertEqual(fetched.polarity, "negative")
+        self.assertEqual(fetched.temporal_scope, "long_term")
+
+    def test_existing_rows_default_polarity_and_temporal_scope(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="喜欢拉面",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.88,
+        )
+
+        with self.store._connect() as connection:
+            connection.execute("UPDATE viewer_memories SET polarity = 'neutral' WHERE memory_id = ?", (memory.memory_id,))
+            connection.execute("UPDATE viewer_memories SET temporal_scope = 'long_term' WHERE memory_id = ?", (memory.memory_id,))
+
+        fetched = self.store.get_viewer_memory(memory.memory_id)
+        self.assertEqual(fetched.polarity, "neutral")
+        self.assertEqual(fetched.temporal_scope, "long_term")
+
 
 if __name__ == "__main__":
     unittest.main()
