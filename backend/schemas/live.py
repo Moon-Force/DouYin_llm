@@ -95,6 +95,8 @@ class ViewerMemory(BaseModel):
     interaction_value_score: float = 0.0
     clarity_score: float = 0.0
     evidence_score: float = 0.0
+    lifecycle_kind: str = "long_term"
+    expires_at: int = 0
 
 
 class ViewerMemoryLog(BaseModel):

@@ -193,7 +193,9 @@ class LongTermStore:
                     stability_score REAL NOT NULL DEFAULT 0,
                     interaction_value_score REAL NOT NULL DEFAULT 0,
                     clarity_score REAL NOT NULL DEFAULT 0,
-                    evidence_score REAL NOT NULL DEFAULT 0
+                    evidence_score REAL NOT NULL DEFAULT 0,
+                    lifecycle_kind TEXT NOT NULL DEFAULT 'long_term',
+                    expires_at INTEGER NOT NULL DEFAULT 0
                 );
 
                 CREATE TABLE IF NOT EXISTS viewer_memory_logs (
@@ -278,6 +280,8 @@ class LongTermStore:
             "interaction_value_score": "REAL NOT NULL DEFAULT 0",
             "clarity_score": "REAL NOT NULL DEFAULT 0",
             "evidence_score": "REAL NOT NULL DEFAULT 0",
+            "lifecycle_kind": "TEXT NOT NULL DEFAULT 'long_term'",
+            "expires_at": "INTEGER NOT NULL DEFAULT 0",
         }
         for column_name, column_type in required_columns.items():
             if column_name not in existing_columns:
@@ -778,10 +782,13 @@ class LongTermStore:
             interaction_value_score=row["interaction_value_score"] or 0.0,
             clarity_score=row["clarity_score"] or 0.0,
             evidence_score=row["evidence_score"] or 0.0,
+            lifecycle_kind=row["lifecycle_kind"] or "long_term",
+            expires_at=row["expires_at"] or 0,
         )
 
-    def list_all_viewer_memories(self, limit=5000):
+    def list_all_viewer_memories(self, limit=5000, now_ms=None):
         limit = max(1, min(int(limit), 20000))
+        now_ms = safe_int(now_ms, current_millis())
         with self._connect() as connection:
             rows = connection.execute(
                 """
@@ -791,19 +798,21 @@ class LongTermStore:
                        source_kind, status, is_pinned, correction_reason, corrected_by,
                        last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
                        first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
-                       stability_score, interaction_value_score, clarity_score, evidence_score
+                       stability_score, interaction_value_score, clarity_score, evidence_score,
+                       lifecycle_kind, expires_at
                 FROM viewer_memories
-                WHERE status <> 'deleted'
+                WHERE status <> 'deleted' AND (expires_at = 0 OR expires_at > ?)
                 ORDER BY updated_at DESC LIMIT ?
                 """,
-                (limit,),
+                (now_ms, limit),
             ).fetchall()
         return [self._viewer_memory_from_row(row) for row in rows if row]
 
-    def list_viewer_memories(self, room_id, viewer_id, limit=20):
+    def list_viewer_memories(self, room_id, viewer_id, limit=20, now_ms=None):
         if not viewer_id:
             return []
         limit = max(1, min(int(limit), 200))
+        now_ms = safe_int(now_ms, current_millis())
         with self._connect() as connection:
             rows = connection.execute(
                 """
@@ -813,12 +822,13 @@ class LongTermStore:
                        source_kind, status, is_pinned, correction_reason, corrected_by,
                        last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
                        first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
-                       stability_score, interaction_value_score, clarity_score, evidence_score
+                       stability_score, interaction_value_score, clarity_score, evidence_score,
+                       lifecycle_kind, expires_at
                 FROM viewer_memories
-                WHERE room_id = ? AND viewer_id = ? AND status <> 'deleted'
+                WHERE room_id = ? AND viewer_id = ? AND status <> 'deleted' AND (expires_at = 0 OR expires_at > ?)
                 ORDER BY is_pinned DESC, updated_at DESC LIMIT ?
                 """,
-                (room_id, viewer_id, limit),
+                (room_id, viewer_id, now_ms, limit),
             ).fetchall()
         return [dict(row) for row in rows]
 
@@ -832,7 +842,8 @@ class LongTermStore:
                        source_kind, status, is_pinned, correction_reason, corrected_by,
                        last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
                        first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
-                       stability_score, interaction_value_score, clarity_score, evidence_score
+                       stability_score, interaction_value_score, clarity_score, evidence_score,
+                       lifecycle_kind, expires_at
                 FROM viewer_memories WHERE memory_id = ?
                 """,
                 (memory_id,),
@@ -911,6 +922,8 @@ class LongTermStore:
         interaction_value_score=0.0,
         clarity_score=0.0,
         evidence_score=0.0,
+        lifecycle_kind="long_term",
+        expires_at=0,
     ):
         room_id = safe_text(room_id)
         viewer_id = safe_text(viewer_id)
@@ -927,6 +940,7 @@ class LongTermStore:
         raw_memory_text = safe_text(raw_memory_text)
         superseded_by = safe_text(superseded_by)
         merge_parent_id = safe_text(merge_parent_id)
+        lifecycle_kind = safe_text(lifecycle_kind) or "long_term"
         if not room_id or not viewer_id or not memory_text:
             return None
 
@@ -951,6 +965,7 @@ class LongTermStore:
             evidence_score = max(0.0, min(float(evidence_score), 1.0))
         except (TypeError, ValueError):
             evidence_score = 0.0
+        expires_at = max(0, safe_int(expires_at, 0))
         evidence_count = max(0, safe_int(evidence_count, 1))
         timestamp = current_millis()
         first_confirmed_at = safe_int(first_confirmed_at, timestamp if evidence_count else 0)
@@ -963,7 +978,8 @@ class LongTermStore:
                        polarity, temporal_scope,
                        memory_text_raw_latest, evidence_count, first_confirmed_at,
                        last_confirmed_at, superseded_by, merge_parent_id,
-                       stability_score, interaction_value_score, clarity_score, evidence_score
+                       stability_score, interaction_value_score, clarity_score, evidence_score,
+                       lifecycle_kind, expires_at
                 FROM viewer_memories
                 WHERE room_id = ? AND viewer_id = ? AND source_event_id = ? AND memory_text = ?
                 LIMIT 1
@@ -1006,6 +1022,8 @@ class LongTermStore:
                 evidence_score,
                 float(existing["evidence_score"] or 0.0),
             )
+            persisted_lifecycle_kind = lifecycle_kind if existing is None else (existing["lifecycle_kind"] or lifecycle_kind)
+            persisted_expires_at = expires_at if existing is None else max(expires_at, safe_int(existing["expires_at"], expires_at))
             connection.execute(
                 """
                 INSERT OR REPLACE INTO viewer_memories (
@@ -1015,8 +1033,9 @@ class LongTermStore:
                     source_kind, status, is_pinned, correction_reason, corrected_by,
                     last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
                     first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
-                    stability_score, interaction_value_score, clarity_score, evidence_score
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    stability_score, interaction_value_score, clarity_score, evidence_score,
+                    lifecycle_kind, expires_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -1049,6 +1068,8 @@ class LongTermStore:
                     persisted_interaction_value_score,
                     persisted_clarity_score,
                     persisted_evidence_score,
+                    persisted_lifecycle_kind,
+                    persisted_expires_at,
                 ),
             )
             self._append_viewer_memory_log(

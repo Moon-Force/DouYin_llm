@@ -369,6 +369,86 @@ class ViewerMemoryCorrectionStoreTests(unittest.TestCase):
         self.assertEqual(fetched.polarity, "neutral")
         self.assertEqual(fetched.temporal_scope, "long_term")
 
+    def test_save_viewer_memory_defaults_to_long_term_lifecycle(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="租房住在公司附近",
+            source_event_id="evt-1",
+            memory_type="context",
+            confidence=0.78,
+        )
+
+        self.assertEqual(memory.lifecycle_kind, "long_term")
+        self.assertEqual(memory.expires_at, 0)
+
+    def test_save_viewer_memory_persists_short_term_expiry(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="这周都在上海出差",
+            source_event_id="evt-1",
+            memory_type="context",
+            confidence=0.5,
+            lifecycle_kind="short_term",
+            expires_at=999999,
+        )
+
+        self.assertEqual(memory.lifecycle_kind, "short_term")
+        self.assertEqual(memory.expires_at, 999999)
+
+    def test_list_viewer_memories_excludes_expired_records(self):
+        active = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="租房住在公司附近",
+            source_event_id="evt-1",
+            memory_type="context",
+            confidence=0.78,
+            lifecycle_kind="long_term",
+            expires_at=0,
+        )
+        self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="这周都在上海出差",
+            source_event_id="evt-2",
+            memory_type="context",
+            confidence=0.5,
+            lifecycle_kind="short_term",
+            expires_at=1,
+        )
+
+        memories = self.store.list_viewer_memories("room-1", "viewer-1", limit=10, now_ms=1000)
+
+        self.assertEqual([item["memory_id"] for item in memories], [active.memory_id])
+
+    def test_list_all_viewer_memories_excludes_expired_records(self):
+        active = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="租房住在公司附近",
+            source_event_id="evt-1",
+            memory_type="context",
+            confidence=0.78,
+            lifecycle_kind="long_term",
+            expires_at=0,
+        )
+        self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="这周都在上海出差",
+            source_event_id="evt-2",
+            memory_type="context",
+            confidence=0.5,
+            lifecycle_kind="short_term",
+            expires_at=1,
+        )
+
+        memories = self.store.list_all_viewer_memories(limit=100, now_ms=1000)
+
+        self.assertEqual([item.memory_id for item in memories], [active.memory_id])
+
 
 if __name__ == "__main__":
     unittest.main()

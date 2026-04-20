@@ -415,6 +415,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 interaction_value_score=0.35,
                 clarity_score=0.75,
                 evidence_score=0.35,
+                lifecycle_kind="long_term",
+                expires_at=0,
             )
 
             published_event = app_module.broker.publish.await_args_list[0].args[0]
@@ -552,6 +554,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 interaction_value_score=0.9,
                 clarity_score=0.8,
                 evidence_score=0.35,
+                lifecycle_kind="long_term",
+                expires_at=0,
             )
         finally:
             app_module.session_memory = original_session_memory

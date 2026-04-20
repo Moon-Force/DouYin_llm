@@ -4,6 +4,7 @@ import hashlib
 import logging
 import math
 import re
+import time
 
 from backend.schemas.live import ViewerMemory
 
@@ -112,6 +113,13 @@ class VectorMemory:
     def _memory_min_score(self):
         return getattr(self.settings, "semantic_memory_min_score", 0.0) if self.settings else 0.0
 
+    def _decay_halflife(self):
+        value = getattr(self.settings, "memory_decay_halflife_hours", 0.0) if self.settings else 0.0
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
     def _memory_query_limit(self, limit):
         base = getattr(self.settings, "semantic_memory_query_limit", limit) if self.settings else limit
         return max(int(limit), int(base))
@@ -137,20 +145,30 @@ class VectorMemory:
             "interaction_value_score": float(getattr(memory, "interaction_value_score", 0.0) or 0.0),
             "clarity_score": float(getattr(memory, "clarity_score", 0.0) or 0.0),
             "evidence_score": float(getattr(memory, "evidence_score", 0.0) or 0.0),
+            "expires_at": int(getattr(memory, "expires_at", 0) or 0),
         }
 
+    @staticmethod
+    def _is_expired(metadata, now_ms):
+        expires_at = int((metadata or {}).get("expires_at") or 0)
+        return expires_at > 0 and now_ms >= expires_at
+
     def _active_memory_records(self, memories):
+        now_ms = int(time.time() * 1000)
         records = []
         for memory in memories or []:
             if not memory or not getattr(memory, "memory_text", "") or not getattr(memory, "viewer_id", ""):
                 continue
             if str(getattr(memory, "status", "active") or "active") != "active":
                 continue
+            metadata = self._memory_metadata(memory)
+            if self._is_expired(metadata, now_ms):
+                continue
             records.append(
                 {
                     "id": memory.memory_id,
                     "document": memory.memory_text,
-                    "metadata": self._memory_metadata(memory),
+                    "metadata": metadata,
                 }
             )
         return records
@@ -251,7 +269,7 @@ class VectorMemory:
             )
 
     @staticmethod
-    def _memory_rank_key(item, query_text):
+    def _memory_rank_key(item, query_text, decay_halflife_hours=0):
         text = str(item.get("memory_text") or "")
         metadata = item.get("metadata") or {}
         contains_query = 1 if query_text and query_text in text else 0
@@ -260,8 +278,18 @@ class VectorMemory:
         evidence_score = float(metadata.get("evidence_score") or 0.0)
         recall_count = int(metadata.get("recall_count") or 0)
         updated_at = int(metadata.get("updated_at") or 0)
+        last_recalled_at = int(metadata.get("last_recalled_at") or 0)
         source_kind = str(metadata.get("source_kind") or "auto")
         is_pinned = int(metadata.get("is_pinned") or 0)
+
+        time_decay = 1.0
+        if decay_halflife_hours > 0 and not is_pinned:
+            ref_time = max(updated_at, last_recalled_at) if last_recalled_at else updated_at
+            if ref_time > 0:
+                age_hours = (int(time.time() * 1000) - ref_time) / (1000.0 * 3600.0)
+                if age_hours > 0:
+                    time_decay = math.pow(2.0, -age_hours / decay_halflife_hours)
+
         reranked_score = (
             float(item.get("score", 0.0))
             + (0.1 * confidence)
@@ -271,7 +299,7 @@ class VectorMemory:
             + (0.01 * min(recall_count, 10))
             + (0.03 if source_kind == "manual" else 0.0)
             + (0.05 if is_pinned else 0.0)
-        )
+        ) * time_decay
         return (reranked_score, updated_at)
 
     @staticmethod
@@ -331,6 +359,7 @@ class VectorMemory:
         viewer_id = str(viewer_id or "").strip()
         if not query_text or not room_id or not viewer_id:
             return []
+        now_ms = int(time.time() * 1000)
         self._ensure_semantic_backend()
         query_limit = self._memory_query_limit(limit)
         min_score = self._memory_min_score()
@@ -352,6 +381,8 @@ class VectorMemory:
                     metadata = metadatas[index] if index < len(metadatas) else {}
                     if str(metadata.get("status") or "active") != "active":
                         continue
+                    if self._is_expired(metadata, now_ms):
+                        continue
                     score = self._distance_to_score(distances[index] if index < len(distances) else None)
                     if score < min_score:
                         continue
@@ -363,7 +394,7 @@ class VectorMemory:
                             "metadata": metadata,
                         }
                     )
-                items.sort(key=lambda item: self._memory_rank_key(item, query_text), reverse=True)
+                items.sort(key=lambda item: self._memory_rank_key(item, query_text, self._decay_halflife()), reverse=True)
                 return items[:final_k]
             except Exception as exc:
                 if self._strict_mode_enabled():
@@ -378,6 +409,8 @@ class VectorMemory:
                 continue
             if str(metadata.get("status") or "active") != "active":
                 continue
+            if self._is_expired(metadata, now_ms):
+                continue
             target_text = item["document"]
             target_tokens = set(tokenize_text(target_text))
             score = self._score_tokens(query_tokens, target_tokens, query_text, target_text)
@@ -391,5 +424,5 @@ class VectorMemory:
                     }
                 )
 
-        scored.sort(key=lambda item: self._memory_rank_key(item, query_text), reverse=True)
+        scored.sort(key=lambda item: self._memory_rank_key(item, query_text, self._decay_halflife()), reverse=True)
         return scored[:final_k]

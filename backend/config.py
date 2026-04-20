@@ -101,7 +101,7 @@ class Settings:
     semantic_memory_min_score: float = field(default_factory=lambda: _env_float("SEMANTIC_MEMORY_MIN_SCORE", 0.35))
     semantic_memory_query_limit: int = field(default_factory=lambda: _env_int("SEMANTIC_MEMORY_QUERY_LIMIT", 6))
     semantic_final_k: int = field(default_factory=lambda: _env_int("SEMANTIC_FINAL_K", 3))
-    memory_extractor_enabled: bool = field(default_factory=lambda: _env_bool("MEMORY_EXTRACTOR_ENABLED", False))
+    memory_extractor_enabled: bool = field(default_factory=lambda: _env_bool("MEMORY_EXTRACTOR_ENABLED", True))
     memory_extractor_mode: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODE", "ollama").strip().lower())
     memory_extractor_base_url: str = field(
         default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_BASE_URL", "http://127.0.0.1:11434/v1").strip().rstrip("/")
@@ -117,6 +117,12 @@ class Settings:
     )
     memory_extractor_prompt_variant: str = field(
         default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_PROMPT_VARIANT", "cot").strip().lower()
+    )
+    memory_decay_halflife_hours: float = field(
+        default_factory=lambda: _env_float("MEMORY_DECAY_HALFLIFE_HOURS", 168.0)
+    )
+    memory_short_term_ttl_hours: float = field(
+        default_factory=lambda: _env_float("MEMORY_SHORT_TERM_TTL_HOURS", 72.0)
     )
 
     def ensure_dirs(self):

@@ -172,6 +172,14 @@ def _existing_memory_candidates(room_id, viewer_id):
         return []
 
 
+def _candidate_lifecycle(candidate, created_at, settings_obj):
+    temporal_scope = str(candidate.get("temporal_scope") or "long_term").strip().lower()
+    if temporal_scope == "short_term":
+        ttl_hours = float(getattr(settings_obj, "memory_short_term_ttl_hours", 72.0) or 72.0)
+        return "short_term", created_at + int(ttl_hours * 3600 * 1000)
+    return "long_term", 0
+
+
 def ensure_runtime():
     global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service
 
@@ -359,6 +367,7 @@ async def process_event(event: LiveEvent):
                     continue
 
                 scores = memory_confidence_service.score_new_memory(candidate)
+                lifecycle_kind, expires_at = _candidate_lifecycle(candidate, event.ts, settings)
                 memory = long_term_store.save_viewer_memory(
                     room_id=event.room_id,
                     viewer_id=event.user.viewer_id,
@@ -384,6 +393,8 @@ async def process_event(event: LiveEvent):
                     interaction_value_score=scores["interaction_value_score"],
                     clarity_score=scores["clarity_score"],
                     evidence_score=scores["evidence_score"],
+                    lifecycle_kind=lifecycle_kind,
+                    expires_at=expires_at,
                 )
                 if memory:
                     vector_memory.sync_memory(memory)

@@ -1,3 +1,4 @@
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -6,13 +7,14 @@ from unittest.mock import patch
 from backend.memory.vector_store import VectorMemory
 
 
-def make_settings(signature="cloud_text_embedding_3_small", strict=False):
+def make_settings(signature="cloud_text_embedding_3_small", strict=False, decay_halflife_hours=0):
     return SimpleNamespace(
         embedding_signature=lambda: signature,
         embedding_strict=strict,
         semantic_memory_min_score=0.35,
         semantic_memory_query_limit=6,
         semantic_final_k=3,
+        memory_decay_halflife_hours=decay_halflife_hours,
     )
 
 
@@ -298,6 +300,7 @@ class VectorMemoryTests(unittest.TestCase):
                     "interaction_value_score": 0.0,
                     "clarity_score": 0.0,
                     "evidence_score": 0.0,
+                    "expires_at": 0,
                 },
                 {
                     "room_id": "room-1",
@@ -314,6 +317,7 @@ class VectorMemoryTests(unittest.TestCase):
                     "interaction_value_score": 0.0,
                     "clarity_score": 0.0,
                     "evidence_score": 0.0,
+                    "expires_at": 0,
                 },
             ],
         }
@@ -339,6 +343,7 @@ class VectorMemoryTests(unittest.TestCase):
                 interaction_value_score=0.0,
                 clarity_score=0.0,
                 evidence_score=0.0,
+                expires_at=0,
             ),
             SimpleNamespace(
                 memory_id="mem-2",
@@ -357,6 +362,7 @@ class VectorMemoryTests(unittest.TestCase):
                 interaction_value_score=0.0,
                 clarity_score=0.0,
                 evidence_score=0.0,
+                expires_at=0,
             ),
         ]
 
@@ -543,6 +549,325 @@ class VectorMemoryTests(unittest.TestCase):
         result = store.similar_memories("吃辣", "room-1", "viewer-1", limit=2)
 
         self.assertEqual(result[0]["memory_id"], "m-high")
+
+    def test_prime_memory_index_skips_expired_memories(self):
+        fake_embedding = MagicMock()
+        fake_collection = MagicMock()
+        fake_collection.count.return_value = 1
+        fake_collection.get.return_value = {
+            "ids": ["m-live"],
+            "documents": ["likes ramen"],
+            "metadatas": [
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "source_event_id": "evt-1",
+                    "confidence": 0.8,
+                    "updated_at": 10,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "stability_score": 0.0,
+                    "interaction_value_score": 0.0,
+                    "clarity_score": 0.0,
+                    "evidence_score": 0.0,
+                    "expires_at": 0,
+                }
+            ],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        memories = [
+            SimpleNamespace(
+                memory_id="m-live",
+                room_id="room-1",
+                viewer_id="viewer-1",
+                source_event_id="evt-1",
+                memory_text="likes ramen",
+                memory_type="preference",
+                confidence=0.8,
+                updated_at=10,
+                recall_count=1,
+                status="active",
+                source_kind="auto",
+                is_pinned=False,
+                stability_score=0.0,
+                interaction_value_score=0.0,
+                clarity_score=0.0,
+                evidence_score=0.0,
+                expires_at=0,
+            ),
+            SimpleNamespace(
+                memory_id="m-expired",
+                room_id="room-1",
+                viewer_id="viewer-1",
+                source_event_id="evt-2",
+                memory_text="on a trip",
+                memory_type="context",
+                confidence=0.5,
+                updated_at=10,
+                recall_count=1,
+                status="active",
+                source_kind="auto",
+                is_pinned=False,
+                stability_score=0.0,
+                interaction_value_score=0.0,
+                clarity_score=0.0,
+                evidence_score=0.0,
+                expires_at=1,
+            ),
+        ]
+
+        with patch("backend.memory.vector_store.time.time", return_value=10):
+            store.prime_memory_index(memories)
+
+        self.assertEqual([item["id"] for item in store._memory_items], ["m-live"])
+
+    def test_similar_memories_excludes_expired_metadata(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.return_value = {
+            "ids": [["m-expired", "m-live"]],
+            "documents": [["on a trip", "likes ramen"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "context",
+                    "confidence": 0.5,
+                    "updated_at": 10,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                    "expires_at": 1,
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": 10,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                    "expires_at": 0,
+                },
+            ]],
+            "distances": [[0.4, 0.4]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        with patch("backend.memory.vector_store.time.time", return_value=10):
+            result = store.similar_memories("trip", "room-1", "viewer-1", limit=2)
+
+        self.assertEqual([item["memory_id"] for item in result], ["m-live"])
+
+    def test_decay_makes_older_memory_rank_lower_than_recent_one(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        now_ms = int(time.time() * 1000)
+        one_week_ago_ms = now_ms - (7 * 24 * 3600 * 1000)
+        fake_collection.query.return_value = {
+            "ids": [["m-old", "m-recent"]],
+            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": one_week_ago_ms,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": now_ms,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                },
+            ]],
+            "distances": [[0.4, 0.4]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(decay_halflife_hours=168.0), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("拉面", "room-1", "viewer-1", limit=2)
+
+        self.assertEqual(result[0]["memory_id"], "m-recent")
+
+    def test_pinned_memory_is_exempt_from_decay(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        now_ms = int(time.time() * 1000)
+        one_week_ago_ms = now_ms - (7 * 24 * 3600 * 1000)
+        fake_collection.query.return_value = {
+            "ids": [["m-old-pinned", "m-recent"]],
+            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": one_week_ago_ms,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "manual",
+                    "is_pinned": 1,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": now_ms,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                },
+            ]],
+            "distances": [[0.4, 0.4]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(decay_halflife_hours=168.0), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("拉面", "room-1", "viewer-1", limit=2)
+
+        self.assertEqual(result[0]["memory_id"], "m-old-pinned")
+
+    def test_no_decay_when_halflife_is_zero(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        now_ms = int(time.time() * 1000)
+        one_week_ago_ms = now_ms - (7 * 24 * 3600 * 1000)
+        fake_collection.query.return_value = {
+            "ids": [["m-old", "m-recent"]],
+            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": one_week_ago_ms,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": now_ms,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                },
+            ]],
+            "distances": [[0.4, 0.4]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(decay_halflife_hours=0), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("拉面", "room-1", "viewer-1", limit=2)
+
+        # When no decay, both have same reranked_score so updated_at breaks the tie;
+        # the key point is that old memory is NOT penalised by time decay.
+        old_score = store._memory_rank_key(result[0] if result[0]["memory_id"] == "m-old" else result[1], "拉面", 0)
+        recent_score = store._memory_rank_key(result[0] if result[0]["memory_id"] == "m-recent" else result[1], "拉面", 0)
+        self.assertEqual(old_score[0], recent_score[0])
+
+    def test_last_recalled_at_slows_decay(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        now_ms = int(time.time() * 1000)
+        one_week_ago_ms = now_ms - (7 * 24 * 3600 * 1000)
+        fake_collection.query.return_value = {
+            "ids": [["m-old-recalled", "m-old-not-recalled"]],
+            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": one_week_ago_ms,
+                    "last_recalled_at": now_ms,
+                    "recall_count": 3,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": one_week_ago_ms,
+                    "last_recalled_at": 0,
+                    "recall_count": 0,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.0,
+                    "evidence_score": 0.0,
+                },
+            ]],
+            "distances": [[0.4, 0.4]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(decay_halflife_hours=168.0), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("拉面", "room-1", "viewer-1", limit=2)
+
+        self.assertEqual(result[0]["memory_id"], "m-old-recalled")
 
 
 if __name__ == "__main__":
