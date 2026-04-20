@@ -269,19 +269,44 @@ class VectorMemory:
             )
 
     @staticmethod
-    def _memory_rank_key(item, query_text, decay_halflife_hours=0):
+    def _semantic_score(item):
+        return float(item.get("score", 0.0))
+
+    @staticmethod
+    def _business_rerank_score(item, query_text):
         text = str(item.get("memory_text") or "")
         metadata = item.get("metadata") or {}
         contains_query = 1 if query_text and query_text in text else 0
         confidence = float(metadata.get("confidence") or 0.0)
         interaction_value_score = float(metadata.get("interaction_value_score") or 0.0)
+        stability_score = float(metadata.get("stability_score") or 0.0)
         evidence_score = float(metadata.get("evidence_score") or 0.0)
         recall_count = int(metadata.get("recall_count") or 0)
-        updated_at = int(metadata.get("updated_at") or 0)
-        last_recalled_at = int(metadata.get("last_recalled_at") or 0)
         source_kind = str(metadata.get("source_kind") or "auto")
         is_pinned = int(metadata.get("is_pinned") or 0)
+        manual_bonus = 1.0 if source_kind == "manual" else 0.0
+        pin_bonus = 1.0 if is_pinned else 0.0
+        recall_bonus = min(recall_count, 10) / 10.0
 
+        return (
+            (0.35 * interaction_value_score)
+            + (0.20 * evidence_score)
+            + (0.15 * stability_score)
+            + (0.10 * confidence)
+            + (0.08 * manual_bonus)
+            + (0.07 * pin_bonus)
+            + (0.05 * recall_bonus)
+            + (0.02 * contains_query)
+        )
+
+    @classmethod
+    def _final_rank_key(cls, item, query_text, decay_halflife_hours=0):
+        metadata = item.get("metadata") or {}
+        updated_at = int(metadata.get("updated_at") or 0)
+        last_recalled_at = int(metadata.get("last_recalled_at") or 0)
+        is_pinned = int(metadata.get("is_pinned") or 0)
+        semantic_score = cls._semantic_score(item)
+        business_rerank_score = cls._business_rerank_score(item, query_text)
         time_decay = 1.0
         if decay_halflife_hours > 0 and not is_pinned:
             ref_time = max(updated_at, last_recalled_at) if last_recalled_at else updated_at
@@ -290,17 +315,8 @@ class VectorMemory:
                 if age_hours > 0:
                     time_decay = math.pow(2.0, -age_hours / decay_halflife_hours)
 
-        reranked_score = (
-            float(item.get("score", 0.0))
-            + (0.1 * confidence)
-            + (0.03 * interaction_value_score)
-            + (0.02 * evidence_score)
-            + (0.02 * contains_query)
-            + (0.01 * min(recall_count, 10))
-            + (0.03 if source_kind == "manual" else 0.0)
-            + (0.05 if is_pinned else 0.0)
-        ) * time_decay
-        return (reranked_score, updated_at)
+        final_score = ((0.55 * semantic_score) + (0.45 * business_rerank_score)) * time_decay
+        return (final_score, updated_at)
 
     @staticmethod
     def _score_tokens(query_tokens, target_tokens, query_text, target_text):
@@ -394,7 +410,7 @@ class VectorMemory:
                             "metadata": metadata,
                         }
                     )
-                items.sort(key=lambda item: self._memory_rank_key(item, query_text, self._decay_halflife()), reverse=True)
+                items.sort(key=lambda item: self._final_rank_key(item, query_text, self._decay_halflife()), reverse=True)
                 return items[:final_k]
             except Exception as exc:
                 if self._strict_mode_enabled():
@@ -424,5 +440,5 @@ class VectorMemory:
                     }
                 )
 
-        scored.sort(key=lambda item: self._memory_rank_key(item, query_text, self._decay_halflife()), reverse=True)
+        scored.sort(key=lambda item: self._final_rank_key(item, query_text, self._decay_halflife()), reverse=True)
         return scored[:final_k]

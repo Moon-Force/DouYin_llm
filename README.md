@@ -318,8 +318,8 @@ python backend/memory/rebuild_embeddings.py
 5. 记忆合并对近义和弱冲突的覆盖不够
    当前 `ViewerMemoryMergeService` 能处理同 canonical 精确匹配（merge）、更具体表达（upgrade）、方向冲突（supersede），但对近义但不完全相同的表达、弱冲突偏好变化的覆盖还不够，长期仍可能出现冗余记忆。
 
-6. 召回排序已经开始利用质量信号，但还不够充分
-   当前召回排序已经开始使用 `confidence`、`interaction_value_score`、`evidence_score` 和时间衰减等信号做 rerank，不再只依赖纯向量相似度。但这套排序还没有充分吸收"是否人工确认过、是否最近再次被证实、是否更稳定、是否更适合继续聊天"等更细粒度的业务信号。
+6. 召回排序已经系统利用质量信号，但当前仍以 feature rerank 为主
+   当前召回排序已经把 `semantic_score` 与业务特征分开处理，并系统使用 `interaction_value_score`、`evidence_score`、`stability_score`、`confidence`、`source_kind`、`is_pinned` 和时间衰减等信号做 feature rerank，不再只依赖纯向量相似度。但这套排序仍然主要依赖人工设计特征和权重，尚未接入更强的业务反馈或专门 reranker model。
 
 7. 抽取评测缺少自动化持续验证
    当前已经有抽取相关测试和离线验证（`tests/fixtures/memory_extraction/`、`artifacts/memory_extraction_reports/`），但还缺少问句误入库率、短期状态误入库率、负向偏好识别准确率、canonical 过长率、重复记忆生成率等业务指标，以及把这些指标集成到持续验证流程的机制。

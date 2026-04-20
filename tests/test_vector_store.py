@@ -1,4 +1,4 @@
-import time
+﻿import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -30,6 +30,51 @@ class VectorMemoryTests(unittest.TestCase):
 
         fake_client.get_or_create_collection.assert_called_once_with("viewer_memories_cloud_text_embedding_3_small")
         self.assertIsNone(store.collection)
+
+    def test_final_rank_key_combines_semantic_and_business_scores(self):
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=MagicMock())
+        item = {
+            "memory_id": "m1",
+            "memory_text": "不太能吃辣",
+            "score": 0.8,
+            "metadata": {
+                "confidence": 0.9,
+                "interaction_value_score": 0.95,
+                "evidence_score": 0.7,
+                "stability_score": 0.85,
+                "source_kind": "manual",
+                "is_pinned": 1,
+                "updated_at": 100,
+                "recall_count": 2,
+            },
+        }
+
+        rank_key = store._final_rank_key(item, query_text="鍚冭荆", decay_halflife_hours=0)
+
+        self.assertIsInstance(rank_key[0], float)
+        self.assertEqual(len(rank_key), 2)
+
+    def test_business_rerank_score_uses_interaction_evidence_and_stability(self):
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=MagicMock())
+        item = {
+            "memory_id": "m1",
+            "memory_text": "不太能吃辣",
+            "score": 0.8,
+            "metadata": {
+                "confidence": 0.9,
+                "interaction_value_score": 0.95,
+                "evidence_score": 0.7,
+                "stability_score": 0.85,
+                "source_kind": "manual",
+                "is_pinned": 1,
+                "updated_at": 100,
+                "recall_count": 2,
+            },
+        }
+
+        score = store._business_rerank_score(item, query_text="鍚冭荆")
+
+        self.assertGreater(score, 0.0)
 
     def test_similar_memories_prefers_higher_confidence_when_scores_are_close(self):
         fake_embedding = MagicMock()
@@ -125,7 +170,7 @@ class VectorMemoryTests(unittest.TestCase):
             room_id="room-1",
             viewer_id="viewer-1",
             source_event_id="evt-1",
-            memory_text="喜欢豚骨拉面",
+            memory_text="鍠滄璞氶鎷夐潰",
             memory_type="preference",
             confidence=0.91,
             updated_at=123,
@@ -158,7 +203,7 @@ class VectorMemoryTests(unittest.TestCase):
         store._memory_items = [
             {
                 "id": "mem-1",
-                "document": "喜欢拉面",
+                "document": "鍠滄鎷夐潰",
                 "metadata": {
                     "room_id": "room-1",
                     "viewer_id": "viewer-1",
@@ -178,7 +223,7 @@ class VectorMemoryTests(unittest.TestCase):
                 room_id="room-1",
                 viewer_id="viewer-1",
                 source_event_id="evt-1",
-                memory_text="喜欢拉面",
+                memory_text="鍠滄鎷夐潰",
                 memory_type="preference",
                 confidence=0.8,
                 updated_at=20,
@@ -241,7 +286,7 @@ class VectorMemoryTests(unittest.TestCase):
         fake_collection = MagicMock()
         fake_collection.query.return_value = {
             "ids": [["m-auto", "m-manual"]],
-            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "documents": [["鍠滄鎷夐潰", "鍠滄鎷夐潰"]],
             "metadatas": [[
                 {
                     "room_id": "room-1",
@@ -272,7 +317,7 @@ class VectorMemoryTests(unittest.TestCase):
         store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
         store.memory_collection = fake_collection
 
-        result = store.similar_memories("喜欢拉面", "room-1", "viewer-1", limit=2)
+        result = store.similar_memories("鍠滄鎷夐潰", "room-1", "viewer-1", limit=2)
 
         self.assertEqual(result[0]["memory_id"], "m-manual")
 
@@ -511,7 +556,7 @@ class VectorMemoryTests(unittest.TestCase):
         fake_collection = MagicMock()
         fake_collection.query.return_value = {
             "ids": [["m-low", "m-high"]],
-            "documents": [["刚下班看到直播", "不太能吃辣"]],
+            "documents": [["generic context", "cannot eat spicy food"]],
             "metadatas": [[
                 {
                     "room_id": "room-1",
@@ -546,9 +591,99 @@ class VectorMemoryTests(unittest.TestCase):
         store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
         store.memory_collection = fake_collection
 
-        result = store.similar_memories("吃辣", "room-1", "viewer-1", limit=2)
+        result = store.similar_memories("spicy", "room-1", "viewer-1", limit=2)
 
         self.assertEqual(result[0]["memory_id"], "m-high")
+
+    def test_similar_memories_prefers_higher_evidence_memory_when_scores_are_close(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.return_value = {
+            "ids": [["m-low-evidence", "m-high-evidence"]],
+            "documents": [["likes ramen", "likes ramen"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": 100,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.6,
+                    "evidence_score": 0.1,
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.8,
+                    "updated_at": 90,
+                    "recall_count": 6,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.6,
+                    "evidence_score": 0.9,
+                },
+            ]],
+            "distances": [[0.4, 0.4]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("ramen", "room-1", "viewer-1", limit=2)
+
+        self.assertEqual(result[0]["memory_id"], "m-high-evidence")
+
+    def test_manual_and_pinned_bonus_do_not_beat_far_better_semantic_match(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.return_value = {
+            "ids": [["m-strong-semantic", "m-manual-pinned"]],
+            "documents": [["cannot eat spicy food", "likes ramen"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.75,
+                    "updated_at": 100,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                    "interaction_value_score": 0.7,
+                    "evidence_score": 0.5,
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.9,
+                    "updated_at": 90,
+                    "recall_count": 6,
+                    "status": "active",
+                    "source_kind": "manual",
+                    "is_pinned": 1,
+                    "interaction_value_score": 0.9,
+                    "evidence_score": 0.9,
+                },
+            ]],
+            "distances": [[0.1, 0.8]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("spicy food", "room-1", "viewer-1", limit=2)
+
+        self.assertEqual(result[0]["memory_id"], "m-strong-semantic")
 
     def test_prime_memory_index_skips_expired_memories(self):
         fake_embedding = MagicMock()
@@ -683,7 +818,7 @@ class VectorMemoryTests(unittest.TestCase):
         one_week_ago_ms = now_ms - (7 * 24 * 3600 * 1000)
         fake_collection.query.return_value = {
             "ids": [["m-old", "m-recent"]],
-            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "documents": [["鍠滄鎷夐潰", "鍠滄鎷夐潰"]],
             "metadatas": [[
                 {
                     "room_id": "room-1",
@@ -718,7 +853,7 @@ class VectorMemoryTests(unittest.TestCase):
         store = VectorMemory("data/chroma", settings=make_settings(decay_halflife_hours=168.0), embedding_service=fake_embedding)
         store.memory_collection = fake_collection
 
-        result = store.similar_memories("拉面", "room-1", "viewer-1", limit=2)
+        result = store.similar_memories("鎷夐潰", "room-1", "viewer-1", limit=2)
 
         self.assertEqual(result[0]["memory_id"], "m-recent")
 
@@ -730,7 +865,7 @@ class VectorMemoryTests(unittest.TestCase):
         one_week_ago_ms = now_ms - (7 * 24 * 3600 * 1000)
         fake_collection.query.return_value = {
             "ids": [["m-old-pinned", "m-recent"]],
-            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "documents": [["鍠滄鎷夐潰", "鍠滄鎷夐潰"]],
             "metadatas": [[
                 {
                     "room_id": "room-1",
@@ -765,7 +900,7 @@ class VectorMemoryTests(unittest.TestCase):
         store = VectorMemory("data/chroma", settings=make_settings(decay_halflife_hours=168.0), embedding_service=fake_embedding)
         store.memory_collection = fake_collection
 
-        result = store.similar_memories("拉面", "room-1", "viewer-1", limit=2)
+        result = store.similar_memories("鎷夐潰", "room-1", "viewer-1", limit=2)
 
         self.assertEqual(result[0]["memory_id"], "m-old-pinned")
 
@@ -777,7 +912,7 @@ class VectorMemoryTests(unittest.TestCase):
         one_week_ago_ms = now_ms - (7 * 24 * 3600 * 1000)
         fake_collection.query.return_value = {
             "ids": [["m-old", "m-recent"]],
-            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "documents": [["鍠滄鎷夐潰", "鍠滄鎷夐潰"]],
             "metadatas": [[
                 {
                     "room_id": "room-1",
@@ -812,12 +947,12 @@ class VectorMemoryTests(unittest.TestCase):
         store = VectorMemory("data/chroma", settings=make_settings(decay_halflife_hours=0), embedding_service=fake_embedding)
         store.memory_collection = fake_collection
 
-        result = store.similar_memories("拉面", "room-1", "viewer-1", limit=2)
+        result = store.similar_memories("鎷夐潰", "room-1", "viewer-1", limit=2)
 
-        # When no decay, both have same reranked_score so updated_at breaks the tie;
+        # When no decay, both have same final_score so updated_at breaks the tie;
         # the key point is that old memory is NOT penalised by time decay.
-        old_score = store._memory_rank_key(result[0] if result[0]["memory_id"] == "m-old" else result[1], "拉面", 0)
-        recent_score = store._memory_rank_key(result[0] if result[0]["memory_id"] == "m-recent" else result[1], "拉面", 0)
+        old_score = store._final_rank_key(result[0] if result[0]["memory_id"] == "m-old" else result[1], "鎷夐潰", 0)
+        recent_score = store._final_rank_key(result[0] if result[0]["memory_id"] == "m-recent" else result[1], "鎷夐潰", 0)
         self.assertEqual(old_score[0], recent_score[0])
 
     def test_last_recalled_at_slows_decay(self):
@@ -828,7 +963,7 @@ class VectorMemoryTests(unittest.TestCase):
         one_week_ago_ms = now_ms - (7 * 24 * 3600 * 1000)
         fake_collection.query.return_value = {
             "ids": [["m-old-recalled", "m-old-not-recalled"]],
-            "documents": [["喜欢拉面", "喜欢拉面"]],
+            "documents": [["鍠滄鎷夐潰", "鍠滄鎷夐潰"]],
             "metadatas": [[
                 {
                     "room_id": "room-1",
@@ -865,10 +1000,12 @@ class VectorMemoryTests(unittest.TestCase):
         store = VectorMemory("data/chroma", settings=make_settings(decay_halflife_hours=168.0), embedding_service=fake_embedding)
         store.memory_collection = fake_collection
 
-        result = store.similar_memories("拉面", "room-1", "viewer-1", limit=2)
+        result = store.similar_memories("鎷夐潰", "room-1", "viewer-1", limit=2)
 
         self.assertEqual(result[0]["memory_id"], "m-old-recalled")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
