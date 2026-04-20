@@ -78,6 +78,34 @@ class MemoryConfidenceServiceTests(unittest.TestCase):
 
         self.assertGreater(updated["evidence_score"], 0.35)
 
+    def test_score_new_memory_caps_rule_fallback_quality(self):
+        from backend.services.memory_confidence_service import MemoryConfidenceService
+
+        service = MemoryConfidenceService()
+
+        llm_like = service.score_new_memory(
+            {
+                "memory_text": "不太能吃辣",
+                "memory_text_raw": "我平时都不太能吃辣",
+                "memory_text_canonical": "不太能吃辣",
+                "memory_type": "preference",
+                "temporal_scope": "long_term",
+                "extraction_source": "llm",
+            }
+        )
+        fallback_like = service.score_new_memory(
+            {
+                "memory_text": "不太能吃辣",
+                "memory_text_raw": "我平时都不太能吃辣",
+                "memory_text_canonical": "不太能吃辣",
+                "memory_type": "preference",
+                "temporal_scope": "long_term",
+                "extraction_source": "rule_fallback",
+            }
+        )
+
+        self.assertLess(fallback_like["confidence"], llm_like["confidence"])
+
 
 if __name__ == "__main__":
     unittest.main()

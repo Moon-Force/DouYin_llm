@@ -74,6 +74,18 @@ class MemoryConfidenceService:
             clarity_score,
             evidence_score,
         )
+        if candidate.get("extraction_source") == "rule_fallback":
+            interaction_value_score = min(interaction_value_score, 0.65)
+            clarity_score = min(clarity_score, 0.7)
+            confidence = min(
+                self._compose_confidence(
+                    stability_score,
+                    interaction_value_score,
+                    clarity_score,
+                    evidence_score,
+                ),
+                0.75,
+            )
         return {
             "stability_score": stability_score,
             "interaction_value_score": interaction_value_score,

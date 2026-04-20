@@ -67,10 +67,17 @@ logger = logging.getLogger(__name__)
 REPETITIVE_FILLER_CHARS = set("哈啊嗯哦哇呀6")
 ALLOWED_MEMORY_TYPES = {"preference", "fact", "context"}
 HIGH_CONFIDENCE_RULE_PATTERNS = (
-    (re.compile(r"^我在.+上班$"), "context"),
-    (re.compile(r"^我家里养了.+$"), "fact"),
-    (re.compile(r"^我一直都?只用.+$"), "preference"),
-    (re.compile(r"^我(?:租房)?住在.+附近$"), "context"),
+    (re.compile(r"^我?在.+上班$"), "context"),
+    (re.compile(r"^我?在.+做.+$"), "context"),
+    (re.compile(r"^我?家里养了.+$"), "fact"),
+    (re.compile(r"^我?一直都?只用.+$"), "preference"),
+    (re.compile(r"^我?一直都喜欢.+$"), "preference"),
+    (re.compile(r"^我?平时都喝.+$"), "preference"),
+    (re.compile(r"^我?(?:租房)?住在.+附近(?:，.*)?$"), "context"),
+    (re.compile(r"^我?不太能吃.+$"), "preference"),
+    (re.compile(r"^我?不能吃.+$"), "preference"),
+    (re.compile(r"^我?忌口.+$"), "preference"),
+    (re.compile(r"^我?不喜欢.+$"), "preference"),
 )
 SHORT_TERM_HINTS = ("今天", "今晚", "明天", "这周", "最近", "下周", "下个月")
 
@@ -137,6 +144,24 @@ class RuleFallbackMemoryExtractor:
             confidence += 0.1
         return min(confidence, 0.92)
 
+    def _fallback_match_text(self, content):
+        normalized = str(content or "").strip()
+        normalized = re.sub(r"^我?(其实吧|其实|吧)\s*", "", normalized)
+        return normalized
+
+    def _canonicalize_high_confidence_text(self, content):
+        normalized = self._clean_text(content)
+        normalized = re.sub(r"^我?(其实吧|其实|吧)\s*", "", normalized).strip()
+        normalized = re.sub(r"[，,]\s*(这样通勤方便点|通勤方便点)$", "", normalized).strip()
+        normalized = re.sub(r"^我", "", normalized).strip()
+        return normalized or self._clean_text(content)
+
+    def _fallback_polarity(self, canonical):
+        normalized = str(canonical or "").strip()
+        if any(token in normalized for token in ("不喜欢", "不能吃", "不太能吃", "忌口")):
+            return "negative"
+        return "neutral"
+
     def extract(self, event: LiveEvent):
         if event.event_type != "comment":
             return []
@@ -175,16 +200,18 @@ class RuleFallbackMemoryExtractor:
         if any(token in content for token in ("?", "？", "吗", "嘛", "呢")):
             return []
 
+        match_text = self._fallback_match_text(content)
         for pattern, memory_type in HIGH_CONFIDENCE_RULE_PATTERNS:
-            if not pattern.fullmatch(content):
+            if not pattern.fullmatch(match_text):
                 continue
+            canonical = self._canonicalize_high_confidence_text(content)
             return [
                 {
-                    "memory_text": content,
+                    "memory_text": canonical,
                     "memory_text_raw": content,
-                    "memory_text_canonical": content,
+                    "memory_text_canonical": canonical,
                     "memory_type": memory_type,
-                    "polarity": "neutral",
+                    "polarity": self._fallback_polarity(canonical),
                     "temporal_scope": "long_term",
                     "confidence": max(self._confidence(content), 0.88),
                     "extraction_source": "rule_fallback",

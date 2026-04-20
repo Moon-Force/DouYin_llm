@@ -296,6 +296,85 @@ class ViewerMemoryExtractorCompositeTests(unittest.TestCase):
         self.assertTrue(metadata["memory_llm_attempted"])
         self.assertTrue(metadata["fallback_used"])
 
+    def test_composite_does_not_use_rule_fallback_when_llm_returns_empty(self):
+        from backend.services.memory_extractor import ViewerMemoryExtractor
+
+        llm_extractor = MagicMock()
+        llm_extractor.extract.return_value = []
+        rule_extractor = MagicMock()
+        extractor = ViewerMemoryExtractor(settings=None, llm_extractor=llm_extractor, rule_extractor=rule_extractor)
+
+        result = extractor.extract(make_event(content="我在杭州上班"))
+
+        self.assertEqual(result, [])
+        llm_extractor.extract.assert_called_once()
+        rule_extractor.extract_high_confidence.assert_not_called()
+        rule_extractor.extract.assert_not_called()
+
+    def test_rule_fallback_rejects_question_like_content(self):
+        from backend.services.memory_extractor import RuleFallbackMemoryExtractor
+
+        extractor = RuleFallbackMemoryExtractor()
+
+        result = extractor.extract_high_confidence(make_event(content="我是不是不太能吃辣？"))
+
+        self.assertEqual(result, [])
+
+    def test_rule_fallback_accepts_clear_negative_food_constraint(self):
+        from backend.services.memory_extractor import RuleFallbackMemoryExtractor
+
+        extractor = RuleFallbackMemoryExtractor()
+
+        result = extractor.extract_high_confidence(make_event(content="我不太能吃辣"))
+
+        self.assertEqual(result[0]["memory_type"], "preference")
+
+    def test_rule_fallback_accepts_clear_negative_preference(self):
+        from backend.services.memory_extractor import RuleFallbackMemoryExtractor
+
+        extractor = RuleFallbackMemoryExtractor()
+
+        result = extractor.extract_high_confidence(make_event(content="我不喜欢香菜"))
+
+        self.assertEqual(result[0]["memory_type"], "preference")
+
+    def test_rule_fallback_accepts_clear_stable_job_pattern(self):
+        from backend.services.memory_extractor import RuleFallbackMemoryExtractor
+
+        extractor = RuleFallbackMemoryExtractor()
+
+        result = extractor.extract_high_confidence(make_event(content="我在杭州做前端开发"))
+
+        self.assertEqual(result[0]["memory_type"], "context")
+
+    def test_rule_fallback_canonicalizes_food_constraint(self):
+        from backend.services.memory_extractor import RuleFallbackMemoryExtractor
+
+        extractor = RuleFallbackMemoryExtractor()
+
+        result = extractor.extract_high_confidence(make_event(content="我其实吧不太能吃辣"))
+
+        self.assertEqual(result[0]["memory_text_raw"], "我其实吧不太能吃辣")
+        self.assertEqual(result[0]["memory_text_canonical"], "不太能吃辣")
+
+    def test_rule_fallback_canonicalizes_context_without_tail_explanation(self):
+        from backend.services.memory_extractor import RuleFallbackMemoryExtractor
+
+        extractor = RuleFallbackMemoryExtractor()
+
+        result = extractor.extract_high_confidence(make_event(content="我租房住在公司附近，这样通勤方便点"))
+
+        self.assertEqual(result[0]["memory_text_canonical"], "租房住在公司附近")
+
+    def test_rule_fallback_marks_negative_food_constraint_as_negative(self):
+        from backend.services.memory_extractor import RuleFallbackMemoryExtractor
+
+        extractor = RuleFallbackMemoryExtractor()
+
+        result = extractor.extract_high_confidence(make_event(content="我不太能吃辣"))
+
+        self.assertEqual(result[0]["polarity"], "negative")
+
 
 if __name__ == "__main__":
     unittest.main()

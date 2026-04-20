@@ -309,8 +309,8 @@ python backend/memory/rebuild_embeddings.py
 2. 提词价值评估已经起步，但仍偏启发式
    当前已经有 `interaction_value_score`，开始单独评估"这条记忆未来是否真的能帮助主播接话"。但这套判断仍然主要依赖规则和关键词启发，对复杂表达、弱信号和边界样本的覆盖还不够稳定，距离真正成熟的提词价值评估还有差距。
 
-3. 规则兜底质量较低
-   LLM 异常时回退到 `extract_high_confidence`，该路径不做 canonical 提纯、没有 polarity 判断，`memory_text = memory_text_raw = memory_text_canonical = content` 直接存原句。虽然规则兜底已经降权为"仅异常时保险丝"，且高置信模板覆盖面有限，但异常期间产出的低质量记忆仍可能进入长期记忆池。
+3. 规则兜底已经做了保守提纯和降权，但覆盖范围仍有限
+   当前 `extract_high_confidence` 已经支持一小批高置信模板、保守 canonical 提纯、明显负向限制的 `polarity=negative` 推断，以及 `rule_fallback` 的质量降权，不再默认把原句完整写入长期记忆池。但这条路径仍然只覆盖有限模板，复杂表达在 LLM 异常时仍然容易被放弃，而不是像主 LLM 路径那样稳定理解。
 
 4. 多维置信度打分仍偏启发式
    当前 `MemoryConfidenceService` 的四维打分（`stability_score / interaction_value_score / clarity_score / evidence_score`）是规则驱动的启发式评分，对复杂业务价值判断、弱证据样本和边界语义的覆盖还不够完整。
