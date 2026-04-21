@@ -166,6 +166,91 @@ class LivePromptAgentTests(unittest.TestCase):
 
         self.assertEqual(payload["source"], "model")
 
+    def test_maybe_generate_sends_recalled_and_current_comment_memories_into_llm_prompt(self):
+        vector_memory = MagicMock()
+        vector_memory.similar_memories.return_value = [
+            {"memory_id": "m1", "memory_text": "likes ramen", "score": 0.9, "metadata": {}},
+            {"memory_id": "m2", "memory_text": "cannot eat spicy food", "score": 0.86, "metadata": {}},
+        ]
+        long_term_store = MagicMock()
+        long_term_store.get_user_profile.return_value = {
+            "nickname": "A-Ming",
+            "comment_count": 12,
+            "last_comment": "lets eat noodles next time",
+        }
+        long_term_store.get_llm_settings.return_value = {
+            "model": "qwen3.5-flash",
+            "system_prompt": "system prompt",
+            "default_model": "qwen3.5-flash",
+            "default_system_prompt": "system prompt",
+        }
+        agent = LivePromptAgent(make_settings(), vector_memory, long_term_store)
+        event = make_event(event_type="comment", content="I still want tonkotsu ramen tonight")
+        recent_events = [make_event(content="old comment", nickname="someone")]
+        current_comment_memories = [
+            {
+                "memory_text": "likes tonkotsu ramen",
+                "memory_type": "preference",
+            }
+        ]
+        captured = {}
+
+        response_payload = {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "priority": "high",
+                                "reply_text": "pick up the old food topic",
+                                "tone": "natural",
+                                "reason": "memory context found",
+                                "confidence": 0.9,
+                            },
+                            ensure_ascii=False,
+                        )
+                    }
+                }
+            ]
+        }
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return json.dumps(response_payload, ensure_ascii=False).encode("utf-8")
+
+        def fake_urlopen(request, timeout):
+            captured["timeout"] = timeout
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            return FakeResponse()
+
+        with patch("backend.services.agent.urllib.request.urlopen", side_effect=fake_urlopen):
+            suggestion = agent.maybe_generate(
+                event,
+                recent_events,
+                current_comment_memories=current_comment_memories,
+            )
+
+        self.assertIsNotNone(suggestion)
+        prompt = json.loads(captured["body"]["messages"][1]["content"])
+        self.assertEqual(captured["body"]["model"], "qwen3.5-flash")
+        self.assertEqual(captured["body"]["max_tokens"], 120)
+        self.assertEqual(prompt["event"]["content"], "I still want tonkotsu ramen tonight")
+        self.assertEqual(
+            prompt["context"]["viewer_memories"],
+            ["likes tonkotsu ramen", "likes ramen", "cannot eat spicy food"],
+        )
+        metadata = agent.consume_last_generation_metadata()
+        self.assertTrue(metadata["memory_recall_attempted"])
+        self.assertTrue(metadata["memory_recalled"])
+        self.assertTrue(metadata["current_comment_memory_used"])
+        self.assertEqual(metadata["recalled_memory_ids"], ["m1", "m2"])
+
     def test_maybe_generate_returns_none_and_sets_metadata_for_blank_comment(self):
         agent = LivePromptAgent(make_settings(), MagicMock(), MagicMock())
         event = make_event(event_type="comment", content="   ")

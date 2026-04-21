@@ -111,6 +111,92 @@ class VectorMemoryTests(unittest.TestCase):
 
         self.assertEqual(result[0]["memory_id"], "m1")
 
+    def test_similar_memories_does_not_leak_memories_between_different_viewers(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+
+        store = VectorMemory("data/chroma", settings=make_settings(strict=False), embedding_service=fake_embedding)
+        store.memory_collection = None
+        store._memory_items = [
+            {
+                "id": "mem-viewer-1",
+                "document": "喜欢拉面",
+                "metadata": {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.9,
+                    "updated_at": 200,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                },
+            },
+            {
+                "id": "mem-viewer-2",
+                "document": "喜欢火锅",
+                "metadata": {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-2",
+                    "memory_type": "preference",
+                    "confidence": 0.95,
+                    "updated_at": 210,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                },
+            },
+        ]
+
+        result = store.similar_memories("火锅", "room-1", "viewer-1", limit=3)
+
+        self.assertEqual(result, [])
+
+    def test_similar_memories_does_not_leak_memories_between_different_rooms(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+
+        store = VectorMemory("data/chroma", settings=make_settings(strict=False), embedding_service=fake_embedding)
+        store.memory_collection = None
+        store._memory_items = [
+            {
+                "id": "mem-room-1",
+                "document": "喜欢拉面",
+                "metadata": {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.9,
+                    "updated_at": 200,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                },
+            },
+            {
+                "id": "mem-room-2",
+                "document": "喜欢火锅",
+                "metadata": {
+                    "room_id": "room-2",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "confidence": 0.95,
+                    "updated_at": 210,
+                    "recall_count": 1,
+                    "status": "active",
+                    "source_kind": "auto",
+                    "is_pinned": 0,
+                },
+            },
+        ]
+
+        result = store.similar_memories("火锅", "room-1", "viewer-1", limit=3)
+
+        self.assertEqual(result, [])
+
     def test_non_strict_mode_falls_back_to_token_matching_when_query_fails(self):
         fake_embedding = MagicMock()
         fake_embedding.embed_text.return_value = [0.1, 0.2]

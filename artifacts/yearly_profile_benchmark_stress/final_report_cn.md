@@ -1,0 +1,53 @@
+# 年度用户记忆画像评测报告
+
+## 数据概览
+
+- 用户数：48
+- 总评论数：864
+- 每位用户评论数范围：18 - 18
+- 时间跨度范围（天）：357 - 357
+
+## 抽取模式
+
+- 抽取模式：LLM 抽取
+- 抽取模型：qwen3.5:0.8b
+- 抽取接口：http://127.0.0.1:11434/v1
+
+## 记忆画像抽取成功率
+
+- 样本数：864
+- JSON 解析成功率：1.0000
+- Schema 合法率：1.0000
+- 抽取精确率：0.5140
+- 抽取召回率：0.8214
+- 抽取 F1：0.6323
+- 记忆类型准确率：0.6696
+- 极性准确率：0.7262
+- 时态范围准确率：0.8214
+- 误报数：261
+- 漏报数：60
+
+## 语义召回成功率
+
+- 样本数：144
+- Top1 命中数：144
+- Top3 命中数：144
+- Top1 命中率：1.0000
+- Top3 命中率：1.0000
+
+## 输出文件
+
+- 历史评论数据：H:/DouYin_llm/artifacts/yearly_profile_benchmark_stress/history_events.json
+- 抽取评测数据：H:/DouYin_llm/artifacts/yearly_profile_benchmark_stress/extraction_cases.json
+- 召回评测数据：H:/DouYin_llm/artifacts/yearly_profile_benchmark_stress/semantic_cases.json
+- 抽取明细报告：H:/DouYin_llm/artifacts/yearly_profile_benchmark_stress/memory_extraction_report.md
+- 召回明细报告：H:/DouYin_llm/artifacts/yearly_profile_benchmark_stress/semantic_recall_report.md
+
+## 分析结论
+
+本轮结果说明 LLM 抽取已经明显优于规则抽取，尤其是在长期偏好、负向约束和 canonical 提纯上更稳定。
+从抽取侧看，如果 Precision 和类型准确率仍低于预期，优先应继续优化 memory_text_canonical 的提纯规则、负向偏好识别和 short_term 过滤。
+从召回侧看，如果 Top1 和 Top3 保持高位，说明长期画像入库后的语义检索与重排已经能支撑老观众多轮对话。
+下一步建议重点看两类误差：
+1. LLM 把短期状态误写入长期记忆。
+2. LLM 把长期事实写得过长，导致 canonical 不够干净。
