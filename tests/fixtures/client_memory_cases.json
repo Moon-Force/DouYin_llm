@@ -1,0 +1,22 @@
+[
+  {"label":"程序员+加班","nickname":"观众A","history":"刚下班，今天 bug 修到 10 点","followup":"又要改需求了","gap":"2_months","prompt_hint":"你们公司也频繁改需求吗？上次你说加班到很晚，是游戏公司还是互联网公司？"},
+  {"label":"护士+夜班","nickname":"观众B","history":"刚下夜班，头都昏了","followup":"今天白班，终于能看直播了","gap":"1_month","prompt_hint":"你今天白班啊，那上次夜班后头昏好点了吗？你们科室最近病人多吗？"},
+  {"label":"考研+二战","nickname":"观众C","history":"二战考研，压力好大","followup":"准考证打印了","gap":"3_months","prompt_hint":"你二战这次感觉怎么样？比上次有把握吗？考什么专业？"},
+  {"label":"养了猫+掉毛","nickname":"观众D","history":"我家布偶掉毛跟下雪一样","followup":"刚给猫梳毛，梳下来一团","gap":"1_month","prompt_hint":"你还在跟掉毛斗争吗？上次说像下雪，现在夏天是不是更严重？"},
+  {"label":"租房+房东坑","nickname":"观众E","history":"房东又要涨租，想搬家","followup":"终于搬完了，累瘫","gap":"2_months","prompt_hint":"你搬家了啊，上次说房东涨租，这次找的房子怎么样？房东人好吗？"},
+  {"label":"健身+减脂餐","nickname":"观众F","history":"开始吃减脂餐了，水煮鸡胸吃到吐","followup":"今天放纵了一顿火锅","gap":"1_month","prompt_hint":"你终于吃火锅了！之前说减脂餐吃到吐，瘦了多少斤了？"},
+  {"label":"吉他+初学者","nickname":"观众G","history":"刚开始学吉他，手指好痛","followup":"终于能弹《晴天》前奏了","gap":"2_months","prompt_hint":"《晴天》前奏！你学了多久？上次说手指痛，现在起茧了吗？"},
+  {"label":"鼻炎+换季","nickname":"观众H","history":"换季鼻炎犯了，纸巾用了一包","followup":"今天花粉好重","gap":"3_weeks","prompt_hint":"你鼻炎是不是又犯了？上次说换季就犯，这次花粉季准备药了吗？"},
+  {"label":"原神+芙宁娜","nickname":"观众I","history":"原神刚抽了芙宁娜，歪了七七","followup":"新深渊打不过","gap":"1_month","prompt_hint":"你芙宁娜练起来了吗？上次说歪了七七，现在深渊她好打吗？"},
+  {"label":"恋爱+异地","nickname":"观众J","history":"和女朋友异地，下周去见她","followup":"她明天来我这","gap":"1_month","prompt_hint":"你们又见面了啊，上次说你去她那，这次她来找你，打算带她吃啥？"},
+  {"label":"外贸+时差","nickname":"观众K","history":"做外贸的，天天跟美国客户倒时差","followup":"刚开完视频会议","gap":"2_months","prompt_hint":"又是大晚上开会吧？上次说倒时差，你们美国客户那边现在订单怎么样？"},
+  {"label":"减肥失败+面食","nickname":"观众L","history":"减肥三天，今天没忍住吃了两碗面","followup":"今天兰州拉面加面了","gap":"3_weeks","prompt_hint":"你又吃面了哈哈，上次说减肥三天破功，现在还减吗？"},
+  {"label":"外卖骑手+雨天","nickname":"观众M","history":"下雨天送外卖，摔了一跤","followup":"今天大太阳，晒死了","gap":"1_month","prompt_hint":"今天总算不下雨了，上次说雨天摔了，腿好了吗？最近单量多吗？"},
+  {"label":"备孕+叶酸","nickname":"观众N","history":"开始吃叶酸了，希望明年有宝宝","followup":"今天去产检了","gap":"6_months","prompt_hint":"恭喜啊！上次说开始吃叶酸备孕，现在几个月了？感觉怎么样？"},
+  {"label":"考驾照+科二挂","nickname":"观众O","history":"科二又挂了，倒车入库压线","followup":"终于拿到证了","gap":"2_months","prompt_hint":"恭喜拿证！上次说科二挂了两次，后来怎么过的？"},
+  {"label":"独居+做饭","nickname":"观众P","history":"一个人住，天天自己做饭，不知道做啥","followup":"今天做了红烧肉","gap":"1_month","prompt_hint":"红烧肉！上次说不知道做啥，现在厨艺进步了啊，一个人吃得完吗？"},
+  {"label":"跨境电商+亚马逊","nickname":"观众Q","history":"做亚马逊的，最近退货率好高","followup":"FBA 费用又涨了","gap":"3_weeks","prompt_hint":"FBA 又涨了啊，上次说退货率高，现在加上运费还赚钱吗？"},
+  {"label":"追星+演唱会","nickname":"观众R","history":"抢到了周杰伦演唱会门票","followup":"看完演唱会了，嗓子喊哑了","gap":"2_months","prompt_hint":"看完了啊！上次说抢到票，现场怎么样？唱《晴天》了吗？"},
+  {"label":"甲状腺+复查","nickname":"观众S","history":"甲状腺结节复查，医生说观察","followup":"又该复查了，有点紧张","gap":"6_months","prompt_hint":"又要复查了啊，上次说医生让观察，这半年有变化吗？别紧张，应该没事的。"},
+  {"label":"宝妈+哺乳期","nickname":"观众T","history":"还在哺乳期，晚上要起夜喂奶","followup":"娃终于睡整觉了","gap":"3_months","prompt_hint":"睡整觉了恭喜！上次说起夜喂奶，你这三个月怎么熬过来的？现在能安心看直播了？"}
+]

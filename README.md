@@ -301,31 +301,25 @@ python backend/memory/rebuild_embeddings.py
 
 ## 当前记忆抽取仍然存在的问题
 
-当前版本已经接入 LLM 记忆抽取（`LLMBackedViewerMemoryExtractor`），支持 `memory_text_raw / memory_text_canonical` 双字段提纯、`polarity / temporal_scope` 门控、评论预筛、仅异常时规则兜底。抽取后由 `ViewerMemoryMergeService` 决策合并策略，由 `MemoryConfidenceService` 做四维置信度打分。主链路已经比较完整，但从直播提词和长期记忆维护的角度看，仍然有这些问题：
+当前版本已经接入 LLM 记忆抽取（`LLMBackedViewerMemoryExtractor`），支持 `memory_text_raw / memory_text_canonical` 双字段提纯、`polarity / temporal_scope` 门控、评论预筛、仅异常时规则兜底。抽取后由 `ViewerMemoryMergeService` 决策合并策略，由 `MemoryConfidenceService` 做四维置信度打分，`VectorMemory` 负责 feature rerank 与生命周期过滤。主链路已经比较完整，但从直播提词和长期记忆维护的角度看，仍然有这些问题：
 
 1. 记忆生命周期管理已经起步，但还不够完整
    当前 `viewer_memories` 已经增加 `lifecycle_kind / expires_at`，存储查询和向量召回也会过滤过期记忆，`VectorMemory` 仍保留时间衰减排序作为补充。但这还不是完整的 long-term / short-term 双层架构，也没有独立的短期记忆池、自动迁移和更丰富的生命周期策略。
 
-2. 提词价值评估已经起步，但仍偏启发式
-   当前已经有 `interaction_value_score`，开始单独评估"这条记忆未来是否真的能帮助主播接话"。但这套判断仍然主要依赖规则和关键词启发，对复杂表达、弱信号和边界样本的覆盖还不够稳定，距离真正成熟的提词价值评估还有差距。
+2. 规则驱动的质量判断仍然偏启发式
+   无论是 `interaction_value_score`，还是 `MemoryConfidenceService` 中的 `stability_score / interaction_value_score / clarity_score / evidence_score`，当前都主要依赖手工规则和关键词启发。它们已经能覆盖明显样本，但对复杂表达、弱信号、边界语义和真实业务反馈的利用还不够充分。
 
 3. 规则兜底已经做了保守提纯和降权，但覆盖范围仍有限
    当前 `extract_high_confidence` 已经支持一小批高置信模板、保守 canonical 提纯、明显负向限制的 `polarity=negative` 推断，以及 `rule_fallback` 的质量降权，不再默认把原句完整写入长期记忆池。但这条路径仍然只覆盖有限模板，复杂表达在 LLM 异常时仍然容易被放弃，而不是像主 LLM 路径那样稳定理解。
 
-4. 多维置信度打分仍偏启发式
-   当前 `MemoryConfidenceService` 的四维打分（`stability_score / interaction_value_score / clarity_score / evidence_score`）是规则驱动的启发式评分，对复杂业务价值判断、弱证据样本和边界语义的覆盖还不够完整。
-
-5. 记忆合并对近义和弱冲突的覆盖不够
+4. 记忆合并对近义和弱冲突的覆盖不够
    当前 `ViewerMemoryMergeService` 能处理同 canonical 精确匹配（merge）、更具体表达（upgrade）、方向冲突（supersede），但对近义但不完全相同的表达、弱冲突偏好变化的覆盖还不够，长期仍可能出现冗余记忆。
 
-6. 召回排序已经系统利用质量信号，但当前仍以 feature rerank 为主
+5. 召回排序已经系统利用质量信号，但当前仍以 feature rerank 为主
    当前召回排序已经把 `semantic_score` 与业务特征分开处理，并系统使用 `interaction_value_score`、`evidence_score`、`stability_score`、`confidence`、`source_kind`、`is_pinned` 和时间衰减等信号做 feature rerank，不再只依赖纯向量相似度。但这套排序仍然主要依赖人工设计特征和权重，尚未接入更强的业务反馈或专门 reranker model。
 
-7. 抽取评测缺少自动化持续验证
-   当前已经有抽取相关测试和离线验证（`tests/fixtures/memory_extraction/`、`artifacts/memory_extraction_reports/`），但还缺少问句误入库率、短期状态误入库率、负向偏好识别准确率、canonical 过长率、重复记忆生成率等业务指标，以及把这些指标集成到持续验证流程的机制。
-
-8. 高并发场景缺少保护
-   记忆抽取是同步阻塞调用（`extract_method(event)`），没有异步队列、batch 或速率限制。当前单房间直播场景下影响不大，但如果未来扩展到多房间或高频场景，可能造成事件堆积。
+6. 抽取评测和高并发保护仍不够完善
+   当前已经有抽取相关测试和离线验证（`tests/fixtures/memory_extraction/`、`artifacts/memory_extraction_reports/`），也已经有严格模式和召回回归测试。但还缺少问句误入库率、短期状态误入库率、重复记忆生成率等持续指标，同时记忆抽取仍然是同步阻塞调用（`extract_method(event)`），没有异步队列、batch 或速率限制。当前单房间直播场景下影响不大，但如果未来扩展到多房间或高频场景，可能造成事件堆积。
 
 ## 还可以继续改进的点
 

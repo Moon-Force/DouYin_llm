@@ -1,5 +1,6 @@
 import argparse
 from dataclasses import dataclass
+from dataclasses import replace
 import json
 import shutil
 import sqlite3
@@ -17,12 +18,16 @@ from backend.memory.embedding_service import EmbeddingService
 from backend.memory.long_term import LongTermStore
 from backend.memory.vector_store import VectorMemory
 from backend.schemas.live import LiveEvent
+from backend.services.agent import LivePromptAgent
 from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
+from backend.services.memory_confidence_service import MemoryConfidenceService
 from backend.services.memory_extractor import ViewerMemoryExtractor
 from backend.services.memory_extractor_client import MemoryExtractorClient
 from tests.memory_pipeline_verifier.datasets import build_memory_dataset
+from tests.memory_pipeline_verifier.datasets import load_client_case_fixture
 from tests.memory_pipeline_verifier.datasets import load_dataset_fixture
 from tests.memory_pipeline_verifier.datasets import load_memory_extraction_fixture
+from tests.memory_pipeline_verifier.datasets import load_recent_context_fixture
 from tests.memory_pipeline_verifier.datasets import load_semantic_recall_fixture
 
 
@@ -59,7 +64,7 @@ def normalize_mode(mode):
 
 def normalize_task(task):
     normalized = str(task or "").strip().lower()
-    if normalized not in {"pipeline", "semantic-recall", "memory-extraction"}:
+    if normalized not in {"pipeline", "semantic-recall", "memory-extraction", "client-cases", "recent-context", "history-recall"}:
         raise ValueError(f"unsupported task: {task}")
     return normalized
 
@@ -356,6 +361,18 @@ def build_memory_extraction_report_path(dataset_path, reasoning_effort="none", p
     return root / f"{dataset.stem}.reasoning-{reasoning_tag}.prompt-{prompt_tag}.md"
 
 
+def build_client_case_report_path(dataset_path, report_dir=None):
+    dataset = Path(dataset_path)
+    root = Path(report_dir) if report_dir else Path("artifacts") / "client_case_reports"
+    return root / f"{dataset.stem}.md"
+
+
+def build_recent_context_report_path(dataset_path, report_dir=None):
+    dataset = Path(dataset_path)
+    root = Path(report_dir) if report_dir else Path("artifacts") / "recent_context_reports"
+    return root / f"{dataset.stem}.md"
+
+
 def render_semantic_recall_report_markdown(*, dataset_path, total_cases, top1_hits, top3_hits, case_results):
     top1_rate = (top1_hits / total_cases) if total_cases else 0.0
     top3_rate = (top3_hits / total_cases) if total_cases else 0.0
@@ -456,6 +473,324 @@ def render_memory_extraction_report_markdown(*, dataset_path, reasoning_effort, 
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_client_case_report_markdown(*, dataset_path, report):
+    summary = report.get("summary") or {}
+    case_results = report.get("cases") or []
+
+    lines = []
+    lines.append("# Client Case Verification Report")
+    lines.append("")
+    lines.append("## Summary")
+    lines.append("")
+    lines.append(f"- Dataset: `{dataset_path}`")
+    lines.append(f"- Cases: {summary.get('case_count', 0)}")
+    lines.append(f"- History Extract Success: {summary.get('history_extract_success', 0)}")
+    lines.append(f"- Follow Recall Success: {summary.get('follow_recall_success', 0)}")
+    lines.append(f"- Suggestion Success: {summary.get('suggestion_success', 0)}")
+    lines.append("")
+
+    for case in case_results:
+        lines.append(f"## {str(case.get('label') or 'unknown')}")
+        lines.append("")
+        lines.append(f"- History Extracted: {case.get('history_extracted_count', 0)}")
+        lines.append(f"- Follow Recalled: {case.get('follow_recalled_count', 0)}")
+        lines.append(f"- Suggestion Generated: {'YES' if case.get('suggestion_generated') else 'NO'}")
+        if case.get("history"):
+            lines.append("")
+            lines.append("**History Comment**")
+            lines.append("")
+            lines.append(f"> {case['history']}")
+        if case.get("followup"):
+            lines.append("")
+            lines.append("**Followup Comment**")
+            lines.append("")
+            lines.append(f"> {case['followup']}")
+        if case.get("follow_recalled"):
+            lines.append("")
+            lines.append("**Recalled Memories**")
+            lines.append("")
+            for item in case["follow_recalled"]:
+                lines.append(f"- {item}")
+        if case.get("suggestion_reply_text"):
+            lines.append("")
+            lines.append("**Suggestion**")
+            lines.append("")
+            lines.append(f"> {case['suggestion_reply_text']}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_recent_context_report_markdown(*, dataset_path, report):
+    summary = report.get("summary") or {}
+    case_results = report.get("cases") or []
+
+    lines = []
+    lines.append("# Recent Context Verification Report")
+    lines.append("")
+    lines.append("## Summary")
+    lines.append("")
+    lines.append(f"- Dataset: `{dataset_path}`")
+    lines.append(f"- Cases: {summary.get('case_count', 0)}")
+    lines.append(f"- Suggestion Success: {summary.get('suggestion_success', 0)}")
+    lines.append("")
+
+    for case in case_results:
+        lines.append(f"## {str(case.get('label') or 'unknown')}")
+        lines.append("")
+        lines.append(f"- Recent Event Count: {case.get('recent_event_count', 0)}")
+        lines.append(f"- Suggestion Generated: {'YES' if case.get('suggestion_generated') else 'NO'}")
+        recent_comments = case.get("recent_comments") or []
+        if recent_comments:
+            lines.append("")
+            lines.append("**Recent Comments**")
+            lines.append("")
+            for item in recent_comments:
+                lines.append(f"- {item}")
+        if case.get("current_comment"):
+            lines.append("")
+            lines.append("**Current Comment**")
+            lines.append("")
+            lines.append(f"> {case['current_comment']}")
+        if case.get("suggestion_reply_text"):
+            lines.append("")
+            lines.append("**Suggestion**")
+            lines.append("")
+            lines.append(f"> {case['suggestion_reply_text']}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _run_client_case_verification_internal(cases):
+    temp_root = Path(tempfile.mkdtemp(prefix="client-case-verification-"))
+    try:
+        runtime_settings = replace(
+            settings,
+            data_dir=temp_root,
+            database_path=temp_root / "live_prompter.db",
+            chroma_dir=temp_root / "chroma",
+        )
+        runtime_settings.ensure_dirs()
+
+        store = LongTermStore(runtime_settings.database_path)
+        embedding_service = EmbeddingService(runtime_settings)
+        vector = VectorMemory(runtime_settings.chroma_dir, settings=runtime_settings, embedding_service=embedding_service)
+        client = MemoryExtractorClient(runtime_settings)
+        llm_extractor = LLMBackedViewerMemoryExtractor(runtime_settings, client)
+        extractor = ViewerMemoryExtractor(settings=runtime_settings, llm_extractor=llm_extractor)
+        agent = LivePromptAgent(runtime_settings, vector, store)
+        confidence_service = MemoryConfidenceService()
+
+        case_results = []
+        for case in cases:
+            history_event = LiveEvent(**case["history_event"])
+            followup_event = LiveEvent(**case["followup_event"])
+
+            store.persist_event(history_event)
+            history_candidates = list(extractor.extract(history_event) or [])
+            saved_memories = []
+            for candidate in history_candidates:
+                memory = store.save_viewer_memory(
+                    room_id=history_event.room_id,
+                    viewer_id=history_event.user.viewer_id,
+                    memory_text=candidate["memory_text"],
+                    source_event_id=history_event.event_id,
+                    memory_type=candidate["memory_type"],
+                    polarity=str(candidate.get("polarity") or "neutral"),
+                    temporal_scope=str(candidate.get("temporal_scope") or "long_term"),
+                    confidence=confidence_service.score_new_memory(candidate)["confidence"],
+                    source_kind="auto",
+                    status="active",
+                    is_pinned=False,
+                    correction_reason="",
+                    corrected_by="system",
+                    operation="created",
+                    raw_memory_text=str(candidate.get("memory_text_raw") or ""),
+                    evidence_count=1,
+                    first_confirmed_at=history_event.ts,
+                    last_confirmed_at=history_event.ts,
+                )
+                if memory:
+                    vector.sync_memory(memory)
+                    saved_memories.append(memory.memory_text)
+
+            store.persist_event(followup_event)
+            current_comment_memories = list(extractor.extract(followup_event) or [])
+            context = agent.build_context(
+                followup_event,
+                [],
+                current_comment_memories=current_comment_memories,
+            )
+            suggestion = agent.maybe_generate(
+                followup_event,
+                [],
+                current_comment_memories=current_comment_memories,
+            )
+            generation_metadata = agent.consume_last_generation_metadata()
+            case_results.append(
+                {
+                    "label": str(case.get("label") or ""),
+                    "history": history_event.content,
+                    "followup": followup_event.content,
+                    "history_extracted_count": len(history_candidates),
+                    "history_extracted": [item.get("memory_text") for item in history_candidates],
+                    "history_saved": saved_memories,
+                    "follow_recalled_count": len(context.get("viewer_memories") or []),
+                    "follow_recalled": [item.get("memory_text") for item in context.get("viewer_memories") or []],
+                    "suggestion_generated": bool(suggestion),
+                    "suggestion_source": suggestion.source if suggestion else "",
+                    "suggestion_reply_text": suggestion.reply_text if suggestion else "",
+                    "suggestion_references": suggestion.references if suggestion else [],
+                    "recalled_memory_ids": generation_metadata.get("recalled_memory_ids", []),
+                }
+            )
+
+        return {
+            "summary": {
+                "case_count": len(case_results),
+                "history_extract_success": sum(1 for item in case_results if item["history_extracted_count"] > 0),
+                "follow_recall_success": sum(1 for item in case_results if item["follow_recalled_count"] > 0),
+                "suggestion_success": sum(1 for item in case_results if item["suggestion_generated"]),
+            },
+            "cases": case_results,
+        }
+    finally:
+        cleanup_temp_dir(temp_root)
+
+
+def _run_recent_context_verification_internal(cases):
+    temp_root = Path(tempfile.mkdtemp(prefix="recent-context-verification-"))
+    try:
+        runtime_settings = replace(
+            settings,
+            data_dir=temp_root,
+            database_path=temp_root / "live_prompter.db",
+            chroma_dir=temp_root / "chroma",
+        )
+        runtime_settings.ensure_dirs()
+
+        store = LongTermStore(runtime_settings.database_path)
+        embedding_service = EmbeddingService(runtime_settings)
+        vector = VectorMemory(runtime_settings.chroma_dir, settings=runtime_settings, embedding_service=embedding_service)
+        client = MemoryExtractorClient(runtime_settings)
+        llm_extractor = LLMBackedViewerMemoryExtractor(runtime_settings, client)
+        extractor = ViewerMemoryExtractor(settings=runtime_settings, llm_extractor=llm_extractor)
+        agent = LivePromptAgent(runtime_settings, vector, store)
+
+        case_results = []
+        for case in cases:
+            recent_events = [LiveEvent(**payload) for payload in case["recent_events"]]
+            current_event = LiveEvent(**case["current_event"])
+
+            for event in recent_events:
+                store.persist_event(event)
+            store.persist_event(current_event)
+
+            current_comment_memories = list(extractor.extract(current_event) or [])
+            suggestion = agent.maybe_generate(
+                current_event,
+                recent_events,
+                current_comment_memories=current_comment_memories,
+            )
+            case_results.append(
+                {
+                    "label": str(case.get("label") or ""),
+                    "recent_event_count": len(recent_events),
+                    "recent_comments": [item.content for item in recent_events],
+                    "current_comment": current_event.content,
+                    "suggestion_generated": bool(suggestion),
+                    "suggestion_source": suggestion.source if suggestion else "",
+                    "suggestion_reply_text": suggestion.reply_text if suggestion else "",
+                    "suggestion_references": suggestion.references if suggestion else [],
+                }
+            )
+
+        return {
+            "summary": {
+                "case_count": len(case_results),
+                "suggestion_success": sum(1 for item in case_results if item["suggestion_generated"]),
+            },
+            "cases": case_results,
+        }
+    finally:
+        cleanup_temp_dir(temp_root)
+
+
+def run_client_case_verification(dataset_path, report_dir=None):
+    print_header("Memory Pipeline Verify: client cases")
+    results = []
+    settings.ensure_dirs()
+    cases = load_client_case_fixture(dataset_path)
+    record_step(results, "dataset", True, f"path={dataset_path} cases={len(cases)}")
+
+    report = _run_client_case_verification_internal(cases)
+    summary = report.get("summary") or {}
+    case_count = int(summary.get("case_count", 0))
+    extract_success = int(summary.get("history_extract_success", 0))
+    recall_success = int(summary.get("follow_recall_success", 0))
+    suggestion_success = int(summary.get("suggestion_success", 0))
+    verification_ok = (
+        case_count > 0
+        and extract_success == case_count
+        and recall_success == case_count
+        and suggestion_success == case_count
+    )
+    record_step(
+        results,
+        "client_cases",
+        verification_ok,
+        (
+            f"cases={case_count} "
+            f"history_extract={extract_success}/{case_count} "
+            f"follow_recall={recall_success}/{case_count} "
+            f"suggestion={suggestion_success}/{case_count}"
+        ),
+    )
+
+    try:
+        report_path = build_client_case_report_path(dataset_path, report_dir=report_dir)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_text = render_client_case_report_markdown(dataset_path=dataset_path, report=report)
+        report_path.write_text(report_text, encoding="utf-8")
+        record_step(results, "report", True, f"path={report_path.as_posix()}")
+    except Exception as exc:
+        record_step(results, "report", False, str(exc))
+
+    return results, report
+
+
+def run_recent_context_verification(dataset_path, report_dir=None):
+    print_header("Memory Pipeline Verify: recent context")
+    results = []
+    settings.ensure_dirs()
+    cases = load_recent_context_fixture(dataset_path)
+    record_step(results, "dataset", True, f"path={dataset_path} cases={len(cases)}")
+
+    report = _run_recent_context_verification_internal(cases)
+    summary = report.get("summary") or {}
+    case_count = int(summary.get("case_count", 0))
+    suggestion_success = int(summary.get("suggestion_success", 0))
+    verification_ok = case_count > 0 and suggestion_success == case_count
+    record_step(
+        results,
+        "recent_context",
+        verification_ok,
+        f"cases={case_count} suggestion={suggestion_success}/{case_count}",
+    )
+
+    try:
+        report_path = build_recent_context_report_path(dataset_path, report_dir=report_dir)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_text = render_recent_context_report_markdown(dataset_path=dataset_path, report=report)
+        report_path.write_text(report_text, encoding="utf-8")
+        record_step(results, "report", True, f"path={report_path.as_posix()}")
+    except Exception as exc:
+        record_step(results, "report", False, str(exc))
+
+    return results, report
 
 
 def run_internal_verification(dataset=None, count=1):
@@ -902,7 +1237,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--task",
         default="pipeline",
-        choices=["pipeline", "semantic-recall", "memory-extraction"],
+        choices=["pipeline", "semantic-recall", "memory-extraction", "client-cases", "recent-context", "history-recall"],
         help="Verification task to run.",
     )
     parser.add_argument(
@@ -937,6 +1272,24 @@ def main(argv=None):
         if not args.dataset:
             raise ValueError("--dataset is required for memory-extraction")
         results, _ = run_memory_extraction_verification(args.dataset)
+    elif task == "client-cases":
+        if mode != "internal":
+            raise ValueError("client-cases only supports internal mode")
+        if not args.dataset:
+            raise ValueError("--dataset is required for client-cases")
+        results, _ = run_client_case_verification(args.dataset)
+    elif task == "recent-context":
+        if mode != "internal":
+            raise ValueError("recent-context only supports internal mode")
+        if not args.dataset:
+            raise ValueError("--dataset is required for recent-context")
+        results, _ = run_recent_context_verification(args.dataset)
+    elif task == "history-recall":
+        if mode != "internal":
+            raise ValueError("history-recall only supports internal mode")
+        if not args.dataset:
+            raise ValueError("--dataset is required for history-recall")
+        results, _ = run_client_case_verification(args.dataset)
     elif mode == "internal":
         dataset = load_dataset_fixture(args.dataset) if args.dataset else None
         results, _ = run_internal_verification(dataset=dataset, count=args.count)

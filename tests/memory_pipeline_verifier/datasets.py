@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from backend.schemas.live import LiveEvent
+
 
 DEFAULT_DATASET_SIZE = 50
 DEFAULT_ROOM_ID = "verify-memory-room"
@@ -84,6 +86,189 @@ def load_dataset_fixture(input_path: str | Path) -> list[dict]:
     """Load a dataset fixture from disk."""
 
     return json.loads(Path(input_path).read_text(encoding="utf-8"))
+
+
+_CLIENT_CASE_GAP_MS = {
+    "3_weeks": 21 * 24 * 60 * 60 * 1000,
+    "1_month": 31 * 24 * 60 * 60 * 1000,
+    "2_months": 60 * 24 * 60 * 60 * 1000,
+    "3_months": 91 * 24 * 60 * 60 * 1000,
+    "6_months": 182 * 24 * 60 * 60 * 1000,
+}
+
+_CLIENT_CASE_BASE_TS = 1_704_067_200_000
+_RECENT_CONTEXT_BASE_TS = 1_710_000_000_000
+
+
+def _build_client_case_event(case_index: int, stage: str, content: str, nickname: str, ts: int) -> dict:
+    normalized_stage = str(stage or "").strip().lower() or "history"
+    case_number = int(case_index)
+    return {
+        "event_id": f"client-case-{case_number:02d}-{normalized_stage}",
+        "room_id": "verify-client-room",
+        "source_room_id": "verify-client-room",
+        "session_id": f"client-case-{case_number:02d}-session-{normalized_stage}",
+        "platform": "douyin",
+        "event_type": "comment",
+        "method": "WebcastChatMessage",
+        "livename": "verify-live",
+        "ts": int(ts),
+        "user": {
+            "id": f"viewer-client-{case_number:02d}",
+            "nickname": str(nickname or f"观众{case_number:02d}"),
+        },
+        "content": str(content or "").strip(),
+        "metadata": {
+            "case_id": f"client-case-{case_number:02d}",
+            "stage": normalized_stage,
+        },
+        "raw": {},
+    }
+
+
+def validate_client_case_fixture(cases: list[dict]) -> None:
+    """Validate client-form memory cases before pipeline verification."""
+
+    if not cases:
+        raise ValueError("client case dataset is empty")
+
+    seen_labels = set()
+    for index, case in enumerate(cases, start=1):
+        label = str(case.get("label") or "").strip()
+        nickname = str(case.get("nickname") or "").strip()
+        history = str(case.get("history") or "").strip()
+        followup = str(case.get("followup") or "").strip()
+        gap = str(case.get("gap") or "").strip().lower()
+        prompt_hint = str(case.get("prompt_hint") or "").strip()
+
+        if not label:
+            raise ValueError(f"case {index} label is required")
+        if label in seen_labels:
+            raise ValueError(f"case {index} label must be unique")
+        seen_labels.add(label)
+        if not nickname:
+            raise ValueError(f"case {index} nickname is required")
+        if not history:
+            raise ValueError(f"case {index} history is required")
+        if not followup:
+            raise ValueError(f"case {index} followup is required")
+        if gap not in _CLIENT_CASE_GAP_MS:
+            raise ValueError(f"case {index} gap is invalid")
+        if not prompt_hint:
+            raise ValueError(f"case {index} prompt_hint is required")
+
+
+def load_client_case_fixture(input_path: str | Path) -> list[dict]:
+    """Load client mock cases and expand them into actual API payload shape."""
+
+    source_cases = json.loads(Path(input_path).read_text(encoding="utf-8"))
+    validate_client_case_fixture(source_cases)
+
+    expanded_cases = []
+    for index, case in enumerate(source_cases, start=1):
+        history_ts = _CLIENT_CASE_BASE_TS + ((index - 1) * 86_400_000)
+        followup_ts = history_ts + _CLIENT_CASE_GAP_MS[str(case["gap"]).strip().lower()]
+        history_event = _build_client_case_event(index, "history", case["history"], case["nickname"], history_ts)
+        followup_event = _build_client_case_event(index, "followup", case["followup"], case["nickname"], followup_ts)
+
+        LiveEvent(**history_event)
+        LiveEvent(**followup_event)
+
+        expanded_cases.append(
+            {
+                "label": str(case["label"]).strip(),
+                "history_event": history_event,
+                "followup_event": followup_event,
+                "expected": {
+                    "history_should_extract": True,
+                    "followup_should_recall": True,
+                    "suggestion_should_generate": True,
+                    "prompt_hint": str(case["prompt_hint"]).strip(),
+                },
+            }
+        )
+
+    return expanded_cases
+
+
+def validate_recent_context_fixture(cases: list[dict]) -> None:
+    """Validate recent-context source cases before event expansion."""
+
+    if not cases:
+        raise ValueError("recent context dataset is empty")
+
+    seen_labels = set()
+    for index, case in enumerate(cases, start=1):
+        label = str(case.get("label") or "").strip()
+        nickname = str(case.get("nickname") or "").strip()
+        recent = case.get("recent")
+        current = str(case.get("current") or "").strip()
+        prompt_hint = str(case.get("prompt_hint") or "").strip()
+
+        if not label:
+            raise ValueError(f"case {index} label is required")
+        if label in seen_labels:
+            raise ValueError(f"case {index} label must be unique")
+        seen_labels.add(label)
+        if not nickname:
+            raise ValueError(f"case {index} nickname is required")
+        if not isinstance(recent, list) or len(recent) < 2:
+            raise ValueError(f"case {index} recent must contain at least 2 comments")
+        if not all(str(item or "").strip() for item in recent):
+            raise ValueError(f"case {index} recent comments must be non-empty strings")
+        if not current:
+            raise ValueError(f"case {index} current is required")
+        if not prompt_hint:
+            raise ValueError(f"case {index} prompt_hint is required")
+
+
+def load_recent_context_fixture(input_path: str | Path) -> list[dict]:
+    """Load recent-context cases and expand them into actual event payload shape."""
+
+    source_cases = json.loads(Path(input_path).read_text(encoding="utf-8"))
+    validate_recent_context_fixture(source_cases)
+
+    expanded_cases = []
+    for index, case in enumerate(source_cases, start=1):
+        case_number = int(index)
+        base_ts = _RECENT_CONTEXT_BASE_TS + ((case_number - 1) * 86_400_000)
+        nickname = str(case["nickname"]).strip()
+        recent_events = []
+        for offset, content in enumerate(case["recent"], start=1):
+            recent_events.append(
+                _build_client_case_event(
+                    case_number,
+                    f"recent-{offset}",
+                    str(content).strip(),
+                    nickname,
+                    base_ts + (offset * 1000),
+                )
+            )
+        current_event = _build_client_case_event(
+            case_number,
+            "current",
+            str(case["current"]).strip(),
+            nickname,
+            base_ts + ((len(recent_events) + 1) * 1000),
+        )
+
+        for payload in recent_events:
+            LiveEvent(**payload)
+        LiveEvent(**current_event)
+
+        expanded_cases.append(
+            {
+                "label": str(case["label"]).strip(),
+                "recent_events": recent_events,
+                "current_event": current_event,
+                "expected": {
+                    "suggestion_should_generate": True,
+                    "prompt_hint": str(case["prompt_hint"]).strip(),
+                },
+            }
+        )
+
+    return expanded_cases
 
 
 def validate_memory_extraction_cases(cases: list[dict]) -> None:

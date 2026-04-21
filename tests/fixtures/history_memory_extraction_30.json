@@ -1,0 +1,332 @@
+[
+  {
+    "label": "程序员+加班",
+    "content": "刚下班，今天 bug 修到 10 点",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "程序员，经常加班改需求",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "护士+夜班",
+    "content": "刚下夜班，头都昏了",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "护士，经常上夜班",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "考研+二战",
+    "content": "二战考研，压力好大",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "二战考研，长期焦虑备考",
+      "memory_type": "fact",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "养了猫+掉毛",
+    "content": "我家布偶掉毛跟下雪一样",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "养了一只布偶猫，掉毛严重",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "租房+房东涨租",
+    "content": "房东又要涨租，想搬家",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "租房，曾被房东涨租逼搬家",
+      "memory_type": "context",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "健身+减脂餐",
+    "content": "开始吃减脂餐了，水煮鸡胸吃到吐",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "正在减脂，长期吃减脂餐",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "吉他+初学者",
+    "content": "刚开始学吉他，手指好痛",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "吉他初学者，练琴手指会痛",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "鼻炎+换季",
+    "content": "换季鼻炎犯了，纸巾用了一包",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "有鼻炎，换季容易发作",
+      "memory_type": "fact",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "原神+芙宁娜",
+    "content": "原神刚抽了芙宁娜，歪了七七",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "玩原神，抽过芙宁娜",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "恋爱+异地",
+    "content": "和女朋友异地，下周去见她",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "异地恋，有稳定女朋友",
+      "memory_type": "context",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "外贸+时差",
+    "content": "做外贸的，天天跟美国客户倒时差",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "做外贸，经常和美国客户倒时差",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "减肥失败+面食",
+    "content": "减肥三天，今天没忍住吃了两碗面",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "想减肥，但很难戒掉面食",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "外卖骑手+雨天",
+    "content": "下雨天送外卖，摔了一跤",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "外卖骑手，雨天送单摔过跤",
+      "memory_type": "context",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "备孕+叶酸",
+    "content": "开始吃叶酸了，希望明年有宝宝",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "长期备孕，开始吃叶酸",
+      "memory_type": "fact",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "考驾照+科二挂",
+    "content": "科二又挂了，倒车入库压线",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "考驾照时科二挂过，倒车入库容易压线",
+      "memory_type": "fact",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "独居+做饭",
+    "content": "一个人住，天天自己做饭，不知道做啥",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "独居，平时自己做饭",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "跨境电商+亚马逊",
+    "content": "做亚马逊的，最近退货率好高",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "做跨境电商，平台是亚马逊",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "追星+演唱会",
+    "content": "抢到了周杰伦演唱会门票",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "抢到周杰伦演唱会门票",
+      "memory_type": "fact",
+      "polarity": "positive",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "甲状腺+复查",
+    "content": "甲状腺结节复查，医生说观察",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "有甲状腺结节，需要长期复查观察",
+      "memory_type": "fact",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "宝妈+哺乳期",
+    "content": "还在哺乳期，晚上要起夜喂奶",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "宝妈，处于哺乳期，经常夜里喂奶",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "老师+公开课",
+    "content": "下周要讲公开课，教案改了好几版",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "老师，最近在准备公开课",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "省考+刷题",
+    "content": "准备省考，每天都在刷行测",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "正在准备省考，长期刷行测",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "边牧+拆家",
+    "content": "我家边牧精力太旺盛，不遛就拆家",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "养边牧，不遛狗容易拆家",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "牙套+复诊",
+    "content": "刚戴牙套，嘴里磨得好难受",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "正在戴牙套矫正，初期不适明显",
+      "memory_type": "fact",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "半马+新手",
+    "content": "第一次备战半马，长距离一跑就崩",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "半马新手，正在长期训练",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "咖啡店+晚班",
+    "content": "在咖啡店上晚班，收店经常到凌晨",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "在咖啡店上晚班，经常闭店到凌晨",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "餐饮店长+排班",
+    "content": "做餐饮店长，节假日排班最头疼",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "餐饮店长，节假日排班压力大",
+      "memory_type": "context",
+      "polarity": "negative",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "留学申请+雅思",
+    "content": "准备留学申请，雅思一直卡在 6.5",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "准备留学申请，长期备考雅思",
+      "memory_type": "fact",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "新手宝爸+冲奶",
+    "content": "第一次当爸爸，半夜冲奶手忙脚乱",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "新手宝爸，夜里经常给宝宝冲奶",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  },
+  {
+    "label": "创业+路演",
+    "content": "这周要去路演，BP 还在改",
+    "expected": {
+      "should_extract": true,
+      "memory_text": "创业中，最近在准备路演",
+      "memory_type": "context",
+      "polarity": "neutral",
+      "temporal_scope": "long_term"
+    }
+  }
+]
