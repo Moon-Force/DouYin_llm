@@ -352,6 +352,8 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 "memory_recall_attempted": True,
                 "memory_recalled": True,
                 "recalled_memory_ids": ["mem-9"],
+                "recalled_memory_texts": ["likes ramen"],
+                "suggestion_support_kind": "memory",
                 "suggestion_status": "generated",
                 "suggestion_block_reason": "",
                 "suggestion_block_detail": "",
@@ -369,10 +371,13 @@ class CommentProcessingStatusTests(unittest.TestCase):
             app_module.memory_extractor.extract.return_value = [
                 {
                     "memory_text": "likes ramen",
+                    "memory_text_raw": "I like ramen",
+                    "memory_text_canonical": "likes ramen",
                     "memory_type": "preference",
                     "polarity": "neutral",
                     "temporal_scope": "long_term",
                     "confidence": 0.91,
+                    "extraction_source": "llm",
                 }
             ]
 
@@ -399,13 +404,13 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 polarity="neutral",
                 temporal_scope="long_term",
                 confidence=0.445,
-                source_kind="auto",
+                source_kind="llm",
                 status="active",
                 is_pinned=False,
                 correction_reason="",
                 corrected_by="system",
                 operation="created",
-                raw_memory_text="",
+                raw_memory_text="I like ramen",
                 evidence_count=1,
                 first_confirmed_at=1234567890,
                 last_confirmed_at=1234567890,
@@ -430,6 +435,9 @@ class CommentProcessingStatusTests(unittest.TestCase):
             self.assertTrue(status["memory_recall_attempted"])
             self.assertTrue(status["memory_recalled"])
             self.assertEqual(status["recalled_memory_ids"], ["mem-9"])
+            self.assertEqual(status["extracted_memory_texts"], ["likes ramen"])
+            self.assertEqual(status["recalled_memory_texts"], ["likes ramen"])
+            self.assertEqual(status["suggestion_support_kind"], "memory")
             self.assertTrue(status["suggestion_generated"])
             self.assertEqual(status["suggestion_id"], "sug-1")
             self.assertEqual(status["suggestion_status"], "generated")

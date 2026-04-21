@@ -6,6 +6,8 @@ import {
   canReactivateViewerMemory,
   canTogglePinViewerMemory,
   getViewerMemoryBadges,
+  getViewerMemoryLifecycleLabel,
+  getViewerMemorySourceLabel,
   getViewerMemoryTimelinePreview,
 } from "./viewer-memory-presenter.js";
 
@@ -236,6 +238,8 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
             <span v-for="badgeKey in getViewerMemoryBadges(memory)" :key="badgeKey">
               {{ t(badgeKey) }}
             </span>
+            <span>{{ t(getViewerMemorySourceLabel(memory)) }}</span>
+            <span>{{ t(getViewerMemoryLifecycleLabel(memory)) }}</span>
             <span>{{ memory.memory_type || "fact" }}</span>
             <span>{{ t("viewerWorkbench.memoryConfidence") }} {{ memory.confidence ?? 0 }}</span>
             <span>{{ t("viewerWorkbench.memoryRecall") }} {{ memory.recall_count ?? 0 }}</span>
@@ -245,6 +249,13 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
             <span v-if="getViewerMemoryTimelinePreview(memory).reason">
               ：{{ getViewerMemoryTimelinePreview(memory).reason }}
             </span>
+          </p>
+          <p
+            v-if="getViewerMemoryTimelinePreview(memory).recalledAt"
+            class="mt-1 text-[11px] text-muted"
+          >
+            {{ t("viewerWorkbench.lastRecalledAt") }}:
+            {{ formatTimestamp(getViewerMemoryTimelinePreview(memory).recalledAt) }}
           </p>
           <div class="mt-3 flex flex-wrap gap-3 text-[11px] text-muted">
             <button

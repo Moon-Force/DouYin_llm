@@ -4,6 +4,8 @@ import {
   canReactivateViewerMemory,
   canTogglePinViewerMemory,
   getViewerMemoryBadges,
+  getViewerMemoryLifecycleLabel,
+  getViewerMemorySourceLabel,
   getViewerMemoryTimelinePreview,
 } from "./viewer-memory-presenter.js";
 
@@ -30,6 +32,22 @@ assert.equal(
 assert.equal(
   getViewerMemoryTimelinePreview(manualActivePinned).reason,
   "主播补充",
+);
+assert.equal(
+  getViewerMemorySourceLabel({ source_kind: "llm" }),
+  "viewerWorkbench.memorySource.llm",
+);
+assert.equal(
+  getViewerMemorySourceLabel({ source_kind: "rule_fallback" }),
+  "viewerWorkbench.memorySource.ruleFallback",
+);
+assert.equal(
+  getViewerMemoryLifecycleLabel({ lifecycle_kind: "short_term" }),
+  "viewerWorkbench.memoryLifecycle.shortTerm",
+);
+assert.equal(
+  getViewerMemoryLifecycleLabel({ lifecycle_kind: "long_term" }),
+  "viewerWorkbench.memoryLifecycle.longTerm",
 );
 assert.equal(canTogglePinViewerMemory({ status: "active" }), true);
 assert.equal(canTogglePinViewerMemory({ status: "invalid" }), false);

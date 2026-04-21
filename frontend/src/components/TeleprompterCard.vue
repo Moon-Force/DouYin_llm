@@ -1,5 +1,10 @@
 <script setup>
 import { translate } from "../i18n.js";
+import {
+  getSuggestionConfidenceBand,
+  getSuggestionReferencePreview,
+  getSuggestionSupportLabel,
+} from "./teleprompter-presenter.js";
 
 const props = defineProps({
   locale: {
@@ -32,6 +37,10 @@ function sourceEventLabel(sourceEvent) {
   }
 
   return sourceEvent.content || sourceEvent.metadata?.gift_name || sourceEvent.method || "";
+}
+
+function suggestionReferences(suggestion) {
+  return getSuggestionReferencePreview(suggestion);
 }
 </script>
 
@@ -68,6 +77,7 @@ function sourceEventLabel(sourceEvent) {
         <span>{{ sourceLabel(suggestion.source) }}</span>
         <span>{{ suggestion.priority }}</span>
         <span>{{ suggestion.tone }}</span>
+        <span>{{ t(getSuggestionConfidenceBand(suggestion)) }}</span>
       </div>
 
       <div class="teleprompter-reply mt-6 rounded-[30px] p-7">
@@ -79,6 +89,19 @@ function sourceEventLabel(sourceEvent) {
         >
           {{ suggestion.reply_text }}
         </p>
+      </div>
+
+      <div class="mt-5 flex flex-wrap gap-2 text-[11px] text-muted">
+        <span class="rounded-full border border-line/16 bg-panel px-3 py-1">
+          {{ t(getSuggestionSupportLabel(suggestion)) }}
+        </span>
+        <span
+          v-for="reference in suggestionReferences(suggestion)"
+          :key="reference"
+          class="rounded-full border border-line/16 bg-panel px-3 py-1 text-paper/88"
+        >
+          {{ reference }}
+        </span>
       </div>
 
       <p class="teleprompter-muted mt-8 max-w-3xl text-sm leading-7">

@@ -250,6 +250,8 @@ class LivePromptAgentTests(unittest.TestCase):
         self.assertTrue(metadata["memory_recalled"])
         self.assertTrue(metadata["current_comment_memory_used"])
         self.assertEqual(metadata["recalled_memory_ids"], ["m1", "m2"])
+        self.assertEqual(metadata["recalled_memory_texts"], ["likes ramen", "cannot eat spicy food"])
+        self.assertEqual(metadata["suggestion_support_kind"], "memory")
 
     def test_maybe_generate_returns_none_and_sets_metadata_for_blank_comment(self):
         agent = LivePromptAgent(make_settings(), MagicMock(), MagicMock())

@@ -68,6 +68,17 @@ export const messages = {
       sourceContent: "原始内容",
       suggestionReply: "建议回复",
       waiting: "等待新的弹幕与建议...",
+      confidence: {
+        high: "高置信",
+        medium: "中置信",
+        low: "低置信",
+      },
+      support: {
+        memory: "依据：历史记忆",
+        currentComment: "依据：当前评论抽取",
+        context: "依据：近期上下文",
+        fallback: "规则兜底",
+      },
       source: {
         model: "模型生成",
         heuristic: "规则生成",
@@ -98,6 +109,8 @@ export const messages = {
         suggestionId: "\u63d0\u8bcd ID",
         suggestionReason: "\u672a\u751f\u6210\u539f\u56e0",
         suggestionDetail: "\u8be6\u7ec6\u8bf4\u660e",
+        extractedMemoryPreview: "本条抽取",
+        recalledMemoryPreview: "命中记忆",
         timeline: {
           received: {
             success: "\u5df2\u63a5\u6536",
@@ -222,9 +235,16 @@ export const messages = {
       memoryTimelineLoading: "正在加载时间线...",
       memoryTimelineEmpty: "还没有这条记忆的处理记录。",
       memoryTimelineOperator: "操作者",
+      lastRecalledAt: "最近命中",
       memorySource: {
         auto: "自动抽取",
         manual: "人工新增",
+        llm: "LLM 抽取",
+        ruleFallback: "规则兜底",
+      },
+      memoryLifecycle: {
+        longTerm: "长期",
+        shortTerm: "短期",
       },
       memoryStatus: {
         active: "有效",
@@ -350,6 +370,17 @@ export const messages = {
       sourceContent: "Source Content",
       suggestionReply: "Suggested Reply",
       waiting: "Waiting for the next live comment and suggestion...",
+      confidence: {
+        high: "High confidence",
+        medium: "Medium confidence",
+        low: "Low confidence",
+      },
+      support: {
+        memory: "Based on memory",
+        currentComment: "Based on current comment",
+        context: "Based on context",
+        fallback: "Rule fallback",
+      },
       source: {
         model: "Model",
         heuristic: "Heuristic",
@@ -380,6 +411,8 @@ export const messages = {
         suggestionId: "Suggestion ID",
         suggestionReason: "Suggestion Reason",
         suggestionDetail: "Suggestion Detail",
+        extractedMemoryPreview: "Extracted Memory",
+        recalledMemoryPreview: "Matched Memories",
         timeline: {
           received: {
             success: "Received",
@@ -504,9 +537,16 @@ export const messages = {
       memoryTimelineLoading: "Loading timeline...",
       memoryTimelineEmpty: "No correction records for this memory yet.",
       memoryTimelineOperator: "Operator",
+      lastRecalledAt: "Last recalled",
       memorySource: {
         auto: "Auto extracted",
         manual: "Manually added",
+        llm: "LLM extracted",
+        ruleFallback: "Rule fallback",
+      },
+      memoryLifecycle: {
+        longTerm: "Long-term",
+        shortTerm: "Short-term",
       },
       memoryStatus: {
         active: "Active",

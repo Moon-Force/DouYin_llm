@@ -56,6 +56,7 @@ class Suggestion(BaseModel):
     reply_text: str
     tone: str
     reason: str
+    support_kind: str = "context"
     confidence: float
     source_events: list[str] = Field(default_factory=list)
     references: list[str] = Field(default_factory=list)
@@ -133,14 +134,17 @@ class CommentProcessingStatus(BaseModel):
     memory_persisted: bool = False
     memory_saved: bool = False
     saved_memory_ids: list[str] = Field(default_factory=list)
+    extracted_memory_texts: list[str] = Field(default_factory=list)
     memory_recall_attempted: bool = False
     memory_recalled: bool = False
     recalled_memory_ids: list[str] = Field(default_factory=list)
+    recalled_memory_texts: list[str] = Field(default_factory=list)
     suggestion_generated: bool = False
     suggestion_id: str = ""
     suggestion_status: str = ""
     suggestion_block_reason: str = ""
     suggestion_block_detail: str = ""
+    suggestion_support_kind: str = ""
 
 
 class SessionStats(BaseModel):

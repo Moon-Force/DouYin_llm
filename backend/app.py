@@ -162,6 +162,15 @@ def _candidate_raw_text(candidate):
     return str(candidate.get("memory_text_raw") or "").strip()
 
 
+def _candidate_extraction_source(candidate):
+    source = str(candidate.get("extraction_source") or "").strip().lower()
+    if source == "llm":
+        return "llm"
+    if source == "rule_fallback":
+        return "rule_fallback"
+    return "auto"
+
+
 def _existing_memory_candidates(room_id, viewer_id):
     if long_term_store is None:
         return []
@@ -281,6 +290,11 @@ async def process_event(event: LiveEvent):
     current_comment_memories = [
         candidate for candidate in extracted_candidates if _candidate_is_suggestion_ready(candidate)
     ]
+    processing_status.extracted_memory_texts = [
+        str(candidate.get("memory_text") or "").strip()
+        for candidate in current_comment_memories
+        if str(candidate.get("memory_text") or "").strip()
+    ]
     suggestion = agent.maybe_generate(
         event,
         recent_events,
@@ -294,11 +308,19 @@ async def process_event(event: LiveEvent):
     processing_status.recalled_memory_ids = _normalize_recalled_memory_ids(
         generation_metadata.get("recalled_memory_ids")
     )
+    processing_status.recalled_memory_texts = [
+        str(text or "").strip()
+        for text in (generation_metadata.get("recalled_memory_texts") or [])
+        if str(text or "").strip()
+    ]
     processing_status.memory_recalled = bool(
         generation_metadata.get("memory_recalled") or processing_status.recalled_memory_ids
     )
     processing_status.memory_used_for_current_suggestion = bool(
         generation_metadata.get("current_comment_memory_used")
+    )
+    processing_status.suggestion_support_kind = str(
+        generation_metadata.get("suggestion_support_kind") or ""
     )
     if suggestion:
         session_memory.add_suggestion(suggestion)
@@ -377,7 +399,7 @@ async def process_event(event: LiveEvent):
                     polarity=str(candidate.get("polarity") or "neutral"),
                     temporal_scope=str(candidate.get("temporal_scope") or "long_term"),
                     confidence=scores["confidence"],
-                    source_kind="auto",
+                    source_kind=_candidate_extraction_source(candidate),
                     status="active",
                     is_pinned=False,
                     correction_reason="",
