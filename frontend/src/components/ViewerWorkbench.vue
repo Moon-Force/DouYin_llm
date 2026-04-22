@@ -7,6 +7,7 @@ import {
   canTogglePinViewerMemory,
   getViewerMemoryBadges,
   getViewerMemoryLifecycleLabel,
+  getViewerMemoryRawTextPreview,
   getViewerMemorySourceLabel,
   getViewerMemoryTimelinePreview,
 } from "./viewer-memory-presenter.js";
@@ -364,6 +365,13 @@ const memoryTypeOptions = computed(() => [
           class="rounded-xl border border-line/20 bg-surface px-3 py-3"
         >
           <p class="text-xs leading-relaxed text-paper">{{ memory.memory_text }}</p>
+          <p
+            v-if="getViewerMemoryRawTextPreview(memory)"
+            class="mt-2 text-[11px] leading-relaxed text-muted"
+          >
+            {{ t("viewerWorkbench.memoryRawText") }}:
+            {{ getViewerMemoryRawTextPreview(memory) }}
+          </p>
           <div class="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.14em] text-muted">
             <span v-for="badgeKey in getViewerMemoryBadges(memory)" :key="badgeKey">
               {{ t(badgeKey) }}

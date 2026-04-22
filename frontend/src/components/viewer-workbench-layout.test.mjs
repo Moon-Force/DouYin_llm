@@ -19,3 +19,8 @@ assert.ok(
   source.includes("sessionId: formatTimestamp(session.started_at || session.last_viewer_event_at)"),
   "Viewer workbench should provide a formatted sessionId fallback for old translation templates",
 );
+assert.ok(
+  source.includes("getViewerMemoryRawTextPreview(memory)") &&
+    source.includes('t("viewerWorkbench.memoryRawText")'),
+  "Viewer workbench should render raw extracted memory text when it differs from the canonical memory text",
+);

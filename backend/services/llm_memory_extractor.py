@@ -6,6 +6,7 @@ import json
 import re
 
 from backend.schemas.live import LiveEvent
+from backend.services.memory_extractor import is_question_like_comment
 
 
 ALLOWED_MEMORY_TYPES = {"preference", "fact", "context"}
@@ -203,5 +204,7 @@ class LLMBackedViewerMemoryExtractor:
     def _looks_like_interaction_shell(text: str):
         normalized = str(text or "").strip()
         if not normalized:
+            return True
+        if is_question_like_comment(normalized):
             return True
         return any(pattern.search(normalized) for pattern in INTERACTION_SHELL_PATTERNS)

@@ -260,7 +260,7 @@ class ViewerMemoryExtractor:
     def _should_prefilter(self, event: LiveEvent):
         if event.event_type != "comment":
             return False
-        return is_obvious_non_memory_comment(event.content)
+        return is_obvious_non_memory_comment(event.content) or is_question_like_comment(event.content)
 
     @staticmethod
     def _should_attempt_llm(event: LiveEvent):

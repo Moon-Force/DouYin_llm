@@ -26,6 +26,18 @@ export function getViewerMemoryTimelinePreview(memory) {
   };
 }
 
+export function getViewerMemoryRawTextPreview(memory) {
+  const rawText = `${memory?.memory_text_raw_latest ?? ""}`.trim();
+  const canonicalText = `${memory?.memory_text ?? ""}`.trim();
+  if (!rawText || !canonicalText) {
+    return "";
+  }
+  if (rawText === canonicalText) {
+    return "";
+  }
+  return rawText;
+}
+
 export function getViewerMemorySourceLabel(memory) {
   const sourceKind = `${memory?.source_kind ?? "auto"}`.trim().toLowerCase();
   if (sourceKind === "manual") {

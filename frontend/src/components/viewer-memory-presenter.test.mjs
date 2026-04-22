@@ -5,6 +5,7 @@ import {
   canTogglePinViewerMemory,
   getViewerMemoryBadges,
   getViewerMemoryLifecycleLabel,
+  getViewerMemoryRawTextPreview,
   getViewerMemorySourceLabel,
   getViewerMemoryTimelinePreview,
 } from "./viewer-memory-presenter.js";
@@ -49,6 +50,21 @@ assert.equal(
   getViewerMemoryLifecycleLabel({ lifecycle_kind: "long_term" }),
   "viewerWorkbench.memoryLifecycle.longTerm",
 );
+assert.equal(
+  getViewerMemoryRawTextPreview({
+    memory_text: "喜欢豚骨拉面",
+    memory_text_raw_latest: "我一直都喜欢豚骨拉面",
+  }),
+  "我一直都喜欢豚骨拉面",
+);
+assert.equal(
+  getViewerMemoryRawTextPreview({
+    memory_text: "喜欢豚骨拉面",
+    memory_text_raw_latest: "喜欢豚骨拉面",
+  }),
+  "",
+);
+assert.equal(getViewerMemoryRawTextPreview({ memory_text: "", memory_text_raw_latest: "" }), "");
 assert.equal(canTogglePinViewerMemory({ status: "active" }), true);
 assert.equal(canTogglePinViewerMemory({ status: "invalid" }), false);
 assert.equal(canReactivateViewerMemory({ status: "invalid" }), true);
