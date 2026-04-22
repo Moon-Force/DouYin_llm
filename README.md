@@ -21,7 +21,7 @@
 - 后端实时处理：FastAPI 负责事件入库、观众画像聚合、记忆抽取、语义召回、提词生成与 SSE/WebSocket 推送
 - 长期记忆存储：`SQLite + Chroma` 保存观众记忆、观众备注、会话数据
 - 真语义召回链路：支持真实 embedding 与向量检索，不再依赖"历史事件召回"
-- embedding 严格模式：`EMBEDDING_STRICT=true` 时，禁用 hash fallback，确保不是"口头上的语义召回"
+- embedding 后端：只接受真实 embedding，生成失败时直接报错，不再使用 hash fallback
 - LLM 记忆抽取：通过 Ollama / OpenAI-compatible 接口调用 LLM 做语义理解，支持 `memory_text_raw / memory_text_canonical` 双字段提纯、`polarity / temporal_scope` 标注、问句壳子过滤、负面偏好校验，仅异常时回退到规则兜底
 - 记忆合并与冲突处理：抽取后查询已有记忆 + 语义召回，由 `ViewerMemoryMergeService` 决策 `merge / upgrade / supersede / create` 四种动作，避免重复记忆和方向冲突
 - 多维置信度打分：`MemoryConfidenceService` 从稳定性、互动价值、清晰度、证据量四个维度打分并加权合成 `confidence`，merge/upgrade 后动态刷新
@@ -192,7 +192,7 @@ EMBEDDING_STRICT=true
 
 开启后：
 
-- embedding 生成失败时，不再回退到 hash embedding
+- embedding 生成本身已经不会回退到 hash embedding，失败时会直接抛错
 - 向量召回失败时，不再回退到词项匹配
 - `rebuild_embeddings.py` 不会写入伪 embedding 结果
 
