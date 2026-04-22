@@ -320,6 +320,17 @@ class ViewerMemoryExtractorCompositeTests(unittest.TestCase):
 
         self.assertEqual(result, [])
 
+    def test_rule_fallback_general_extract_rejects_name_guess_question(self):
+        from backend.services.memory_extractor import RuleFallbackMemoryExtractor
+
+        extractor = RuleFallbackMemoryExtractor()
+
+        result = extractor.extract(
+            make_event(content="\u4e3b\u64ad\uff0c\u4f60\u731c\u731c\u6211\u7684\u540d\u5b57\u53eb\u4ec0\u4e48\uff1f")
+        )
+
+        self.assertEqual(result, [])
+
     def test_rule_fallback_accepts_clear_negative_food_constraint(self):
         from backend.services.memory_extractor import RuleFallbackMemoryExtractor
 

@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import json
 import os
 import sys
 import threading
@@ -13,6 +14,123 @@ from backend.services.collector import DouyinCollector
 
 
 class EmptyRoomBootstrapTests(unittest.TestCase):
+    def _gift_message_payload(self, *, msg_id, create_time, trace_id, send_time, group_id, repeat_end=None):
+        payload = {
+            "common": {
+                "method": "WebcastGiftMessage",
+                "msgId": msg_id,
+                "roomId": "7631630266821610280",
+                "createTime": create_time,
+            },
+            "user": {
+                "id": "101789573293",
+                "shortId": "1201086823",
+                "secUid": "sec-1",
+                "nickname": "moon",
+            },
+            "giftId": "463",
+            "repeatCount": "1",
+            "comboCount": "1",
+            "groupCount": "1",
+            "groupId": group_id,
+            "sendTime": send_time,
+            "traceId": trace_id,
+            "gift": {
+                "id": "463",
+                "name": "小心心",
+                "diamondCount": 1,
+            },
+            "method": "WebcastGiftMessage",
+            "livename": "主播名",
+            "title": "直播标题",
+        }
+        if repeat_end is not None:
+            payload["repeatEnd"] = repeat_end
+        return payload
+
+    def test_normalize_event_keeps_livename_and_title_in_metadata(self):
+        settings = config_module.Settings(room_id="32137571630")
+        collector = DouyinCollector(settings, event_handler=AsyncMock())
+
+        event = collector.normalize_event(
+            {
+                "common": {
+                    "method": "WebcastChatMessage",
+                    "msgId": "evt-1",
+                    "roomId": "7631630266821610280",
+                    "createTime": "1776886219763",
+                },
+                "user": {
+                    "id": "101789573293",
+                    "shortId": "1201086823",
+                    "secUid": "sec-1",
+                    "nickname": "moon",
+                },
+                "content": "hello",
+                "livename": "主播名",
+                "title": "直播标题",
+            }
+        )
+
+        self.assertIsNotNone(event)
+        self.assertEqual(event.livename, "主播名")
+        self.assertEqual(event.metadata["livename"], "主播名")
+        self.assertEqual(event.metadata["title"], "直播标题")
+
+    def test_normalize_event_uses_same_business_event_id_for_duplicate_gift_packets(self):
+        settings = config_module.Settings(room_id="32137571630")
+        collector = DouyinCollector(settings, event_handler=AsyncMock())
+
+        first = collector.normalize_event(
+            self._gift_message_payload(
+                msg_id="7631668088320136228",
+                create_time="1776886220097",
+                trace_id="c71ae65761a8a4654992f694d0de7228",
+                send_time="1776886219763",
+                group_id="1776886220",
+            )
+        )
+        second = collector.normalize_event(
+            self._gift_message_payload(
+                msg_id="7631668115994334242",
+                create_time="1776886223",
+                trace_id="c71ae65761a8a4654992f694d0de7228",
+                send_time="1776886219763",
+                group_id="1776886220",
+                repeat_end=1,
+            )
+        )
+
+        self.assertIsNotNone(first)
+        self.assertIsNotNone(second)
+        self.assertEqual(first.event_id, second.event_id)
+
+    def test_on_message_drops_duplicate_gift_packets_with_same_business_event_id(self):
+        settings = config_module.Settings(room_id="32137571630")
+        collector = DouyinCollector(settings, event_handler=AsyncMock())
+        collector._submit_event = MagicMock()
+
+        first = self._gift_message_payload(
+            msg_id="7631668088320136228",
+            create_time="1776886220097",
+            trace_id="c71ae65761a8a4654992f694d0de7228",
+            send_time="1776886219763",
+            group_id="1776886220",
+        )
+        second = self._gift_message_payload(
+            msg_id="7631668115994334242",
+            create_time="1776886223",
+            trace_id="c71ae65761a8a4654992f694d0de7228",
+            send_time="1776886219763",
+            group_id="1776886220",
+            repeat_end=1,
+        )
+
+        collector._on_message(None, json.dumps(first, ensure_ascii=False))
+        collector._on_message(None, json.dumps(second, ensure_ascii=False))
+
+        self.assertEqual(collector._submit_event.call_count, 1)
+
     def test_settings_default_room_id_is_empty_when_env_var_is_missing(self):
         reloaded = None
         env_without_room_id = {key: value for key, value in os.environ.items() if key != "ROOM_ID"}
