@@ -53,10 +53,20 @@ class LivePromptAgent:
                 "system_prompt": DEFAULT_SYSTEM_PROMPT,
                 "default_model": self.settings.resolved_llm_model(),
                 "default_system_prompt": DEFAULT_SYSTEM_PROMPT,
+                "embedding_model": str(getattr(self.settings, "embedding_model", "") or ""),
+                "memory_extractor_model": str(getattr(self.settings, "memory_extractor_model", "") or ""),
+                "default_embedding_model": str(getattr(self.settings, "embedding_model", "") or ""),
+                "default_memory_extractor_model": str(
+                    getattr(self.settings, "memory_extractor_model", "") or ""
+                ),
+                "embedding_model_options": [],
+                "memory_extractor_model_options": [],
             }
         return self.long_term_store.get_llm_settings(
             self.settings.resolved_llm_model(),
             DEFAULT_SYSTEM_PROMPT,
+            str(getattr(self.settings, "embedding_model", "") or ""),
+            str(getattr(self.settings, "memory_extractor_model", "") or ""),
         )
 
     def consume_last_generation_metadata(self):

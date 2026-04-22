@@ -47,7 +47,12 @@ export async function loadLlmSettingsRequest() {
   return response.json();
 }
 
-export async function saveLlmSettingsRequest({ model, systemPrompt }) {
+export async function saveLlmSettingsRequest({
+  model,
+  systemPrompt,
+  embeddingModel,
+  memoryExtractorModel,
+}) {
   const response = await fetch("/api/settings/llm", {
     method: "PUT",
     headers: {
@@ -56,6 +61,8 @@ export async function saveLlmSettingsRequest({ model, systemPrompt }) {
     body: JSON.stringify({
       model,
       system_prompt: systemPrompt,
+      embedding_model: embeddingModel,
+      memory_extractor_model: memoryExtractorModel,
     }),
   });
 

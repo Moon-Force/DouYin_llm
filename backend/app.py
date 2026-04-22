@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import subprocess
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -77,6 +78,8 @@ class ViewerMemoryStatusRequest(BaseModel):
 class LlmSettingsUpdateRequest(BaseModel):
     model: str
     system_prompt: str = ""
+    embedding_model: str = ""
+    memory_extractor_model: str = ""
 
 
 def _active_memory_count(memories):
@@ -124,6 +127,54 @@ def _normalize_recalled_memory_ids(raw_ids):
         if normalized:
             normalized_ids.append(normalized)
     return normalized_ids
+
+
+def _parse_ollama_list_output(stdout):
+    models = []
+    for index, raw_line in enumerate(str(stdout or "").splitlines()):
+        line = raw_line.strip()
+        if not line:
+            continue
+        if index == 0 and line.lower().startswith("name"):
+            continue
+        model = line.split(maxsplit=1)[0].strip()
+        if model and model.lower() != "name":
+            models.append(model)
+    return models
+
+
+def _list_ollama_models():
+    try:
+        completed = subprocess.run(
+            ["ollama", "list"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        logging.exception("Failed to load Ollama model list")
+        return []
+
+    if completed.returncode != 0:
+        stderr = str(completed.stderr or "").strip()
+        logging.warning("ollama list failed with code=%s stderr=%s", completed.returncode, stderr)
+        return []
+    return _parse_ollama_list_output(completed.stdout)
+
+
+def _model_options_with_current(current_value, options):
+    normalized_current = str(current_value or "").strip()
+    merged = []
+    if normalized_current:
+        merged.append(normalized_current)
+    for option in options or []:
+        normalized = str(option or "").strip()
+        if normalized and normalized not in merged:
+            merged.append(normalized)
+    return merged
 
 
 def _consume_extraction_metadata(extractor):
@@ -687,7 +738,17 @@ async def delete_viewer_note(note_id: str):
 @app.get("/api/settings/llm")
 async def get_llm_settings():
     ensure_runtime()
-    return agent.current_llm_settings()
+    payload = dict(agent.current_llm_settings())
+    ollama_models = _list_ollama_models()
+    payload["embedding_model_options"] = _model_options_with_current(
+        payload.get("embedding_model"),
+        ollama_models,
+    )
+    payload["memory_extractor_model_options"] = _model_options_with_current(
+        payload.get("memory_extractor_model"),
+        ollama_models,
+    )
+    return payload
 
 
 @app.put("/api/settings/llm")
@@ -696,7 +757,22 @@ async def save_llm_settings(payload: LlmSettingsUpdateRequest):
     model = payload.model.strip()
     if not model:
         raise HTTPException(status_code=400, detail="model is required")
-    return long_term_store.save_llm_settings(model, payload.system_prompt or "")
+    saved = long_term_store.save_llm_settings(
+        model,
+        payload.system_prompt or "",
+        payload.embedding_model or "",
+        payload.memory_extractor_model or "",
+    )
+    ollama_models = _list_ollama_models()
+    saved["embedding_model_options"] = _model_options_with_current(
+        saved.get("embedding_model"),
+        ollama_models,
+    )
+    saved["memory_extractor_model_options"] = _model_options_with_current(
+        saved.get("memory_extractor_model"),
+        ollama_models,
+    )
+    return saved
 
 
 @app.get("/api/sessions")

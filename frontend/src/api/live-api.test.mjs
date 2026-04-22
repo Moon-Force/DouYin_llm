@@ -34,12 +34,16 @@ try {
   const saved = await saveLlmSettingsRequest({
     model: "qwen-plus-latest",
     systemPrompt: "hi",
+    embeddingModel: "bge-m3:latest",
+    memoryExtractorModel: "qwen3.5:0.8b",
   });
   assert.equal(saved.url, "/api/settings/llm");
   assert.equal(saved.options.method, "PUT");
   assert.deepEqual(JSON.parse(saved.options.body), {
     model: "qwen-plus-latest",
     system_prompt: "hi",
+    embedding_model: "bge-m3:latest",
+    memory_extractor_model: "qwen3.5:0.8b",
   });
 } finally {
   global.fetch = originalFetch;

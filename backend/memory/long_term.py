@@ -1519,19 +1519,39 @@ class LongTermStore:
             cursor = connection.execute("DELETE FROM app_settings WHERE setting_key = ?", (key,))
         return cursor.rowcount > 0
 
-    def get_llm_settings(self, default_model, default_system_prompt):
+    def get_llm_settings(
+        self,
+        default_model,
+        default_system_prompt,
+        default_embedding_model="",
+        default_memory_extractor_model="",
+        embedding_model_options=None,
+        memory_extractor_model_options=None,
+    ):
         model_override = self.get_setting("llm_model_override")
         prompt_override = self.get_setting("system_prompt_override")
+        embedding_model_override = self.get_setting("embedding_model_override")
+        memory_extractor_model_override = self.get_setting("memory_extractor_model_override")
         model = model_override or safe_text(default_model)
         system_prompt = prompt_override if safe_text(prompt_override) else str(default_system_prompt or "")
+        embedding_model = embedding_model_override or safe_text(default_embedding_model)
+        memory_extractor_model = (
+            memory_extractor_model_override or safe_text(default_memory_extractor_model)
+        )
         return {
             "model": model,
             "system_prompt": system_prompt,
             "default_model": safe_text(default_model),
             "default_system_prompt": str(default_system_prompt or ""),
+            "embedding_model": embedding_model,
+            "memory_extractor_model": memory_extractor_model,
+            "default_embedding_model": safe_text(default_embedding_model),
+            "default_memory_extractor_model": safe_text(default_memory_extractor_model),
+            "embedding_model_options": list(embedding_model_options or []),
+            "memory_extractor_model_options": list(memory_extractor_model_options or []),
         }
 
-    def save_llm_settings(self, model, system_prompt):
+    def save_llm_settings(self, model, system_prompt, embedding_model="", memory_extractor_model=""):
         normalized_model = safe_text(model)
         if not normalized_model:
             raise ValueError("model is required")
@@ -1541,7 +1561,23 @@ class LongTermStore:
             self.set_setting("system_prompt_override", normalized_prompt)
         else:
             self.delete_setting("system_prompt_override")
-        return self.get_llm_settings(normalized_model, normalized_prompt)
+        normalized_embedding_model = safe_text(embedding_model)
+        if normalized_embedding_model:
+            self.set_setting("embedding_model_override", normalized_embedding_model)
+        else:
+            self.delete_setting("embedding_model_override")
+
+        normalized_memory_extractor_model = safe_text(memory_extractor_model)
+        if normalized_memory_extractor_model:
+            self.set_setting("memory_extractor_model_override", normalized_memory_extractor_model)
+        else:
+            self.delete_setting("memory_extractor_model_override")
+        return self.get_llm_settings(
+            normalized_model,
+            normalized_prompt,
+            normalized_embedding_model,
+            normalized_memory_extractor_model,
+        )
 
     def list_live_sessions(self, room_id="", status="", limit=20):
         conditions = []

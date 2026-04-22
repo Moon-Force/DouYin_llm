@@ -62,10 +62,18 @@ export const useLiveStore = defineStore("live", () => {
     systemPrompt: "",
     defaultModel: "",
     defaultSystemPrompt: "",
+    embeddingModel: "",
+    memoryExtractorModel: "",
+    defaultEmbeddingModel: "",
+    defaultMemoryExtractorModel: "",
+    embeddingModelOptions: [],
+    memoryExtractorModelOptions: [],
   });
   const llmSettingsDraft = ref({
     model: "",
     systemPrompt: "",
+    embeddingModel: "",
+    memoryExtractorModel: "",
   });
   const isLlmSettingsOpen = ref(false);
   const isSavingLlmSettings = ref(false);
@@ -132,6 +140,8 @@ export const useLiveStore = defineStore("live", () => {
     llmSettingsDraft.value = {
       model: payload.model || "",
       systemPrompt: payload.systemPrompt || "",
+      embeddingModel: payload.embeddingModel || "",
+      memoryExtractorModel: payload.memoryExtractorModel || "",
     };
   }
 
@@ -141,6 +151,12 @@ export const useLiveStore = defineStore("live", () => {
       systemPrompt: payload.systemPrompt || "",
       defaultModel: payload.defaultModel || "",
       defaultSystemPrompt: payload.defaultSystemPrompt || "",
+      embeddingModel: payload.embeddingModel || "",
+      memoryExtractorModel: payload.memoryExtractorModel || "",
+      defaultEmbeddingModel: payload.defaultEmbeddingModel || "",
+      defaultMemoryExtractorModel: payload.defaultMemoryExtractorModel || "",
+      embeddingModelOptions: [...(payload.embeddingModelOptions || [])],
+      memoryExtractorModelOptions: [...(payload.memoryExtractorModelOptions || [])],
     };
     syncLlmSettingsDraft(llmSettings.value);
     if (llmSettings.value.model) {
@@ -159,6 +175,12 @@ export const useLiveStore = defineStore("live", () => {
       systemPrompt: payload.system_prompt,
       defaultModel: payload.default_model,
       defaultSystemPrompt: payload.default_system_prompt,
+      embeddingModel: payload.embedding_model,
+      memoryExtractorModel: payload.memory_extractor_model,
+      defaultEmbeddingModel: payload.default_embedding_model,
+      defaultMemoryExtractorModel: payload.default_memory_extractor_model,
+      embeddingModelOptions: payload.embedding_model_options,
+      memoryExtractorModelOptions: payload.memory_extractor_model_options,
     });
     return llmSettings.value;
   }
@@ -193,6 +215,20 @@ export const useLiveStore = defineStore("live", () => {
     };
   }
 
+  function updateEmbeddingModelDraft(value) {
+    llmSettingsDraft.value = {
+      ...llmSettingsDraft.value,
+      embeddingModel: `${value ?? ""}`,
+    };
+  }
+
+  function updateMemoryExtractorModelDraft(value) {
+    llmSettingsDraft.value = {
+      ...llmSettingsDraft.value,
+      memoryExtractorModel: `${value ?? ""}`,
+    };
+  }
+
   async function saveLlmSettings() {
     isSavingLlmSettings.value = true;
     llmSettingsError.value = "";
@@ -200,12 +236,20 @@ export const useLiveStore = defineStore("live", () => {
       const payload = await saveLlmSettingsRequest({
         model: llmSettingsDraft.value.model,
         systemPrompt: llmSettingsDraft.value.systemPrompt,
+        embeddingModel: llmSettingsDraft.value.embeddingModel,
+        memoryExtractorModel: llmSettingsDraft.value.memoryExtractorModel,
       });
       applyLlmSettings({
         model: payload.model,
         systemPrompt: payload.system_prompt,
         defaultModel: payload.default_model,
         defaultSystemPrompt: payload.default_system_prompt,
+        embeddingModel: payload.embedding_model,
+        memoryExtractorModel: payload.memory_extractor_model,
+        defaultEmbeddingModel: payload.default_embedding_model,
+        defaultMemoryExtractorModel: payload.default_memory_extractor_model,
+        embeddingModelOptions: payload.embedding_model_options,
+        memoryExtractorModelOptions: payload.memory_extractor_model_options,
       });
     } catch (error) {
       llmSettingsError.value =
@@ -219,6 +263,8 @@ export const useLiveStore = defineStore("live", () => {
     llmSettingsDraft.value = {
       model: llmSettings.value.defaultModel,
       systemPrompt: llmSettings.value.defaultSystemPrompt,
+      embeddingModel: llmSettings.value.defaultEmbeddingModel,
+      memoryExtractorModel: llmSettings.value.defaultMemoryExtractorModel,
     };
   }
 
@@ -304,6 +350,8 @@ export const useLiveStore = defineStore("live", () => {
     closeLlmSettings,
     updateLlmModelDraft,
     updateSystemPromptDraft,
+    updateEmbeddingModelDraft,
+    updateMemoryExtractorModelDraft,
     saveLlmSettings,
     resetLlmSettings,
     switchRoom,
