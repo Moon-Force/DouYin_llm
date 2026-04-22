@@ -16,6 +16,8 @@ logs/*.out.log
 logs/*.err.log
 logs/*.png
 logs/douyinlive_*.log
+tool/raw_capture/collector_debug/*
+!tool/raw_capture/collector_debug/.gitkeep
 
 # Frontend logs
 frontend/*.err.log

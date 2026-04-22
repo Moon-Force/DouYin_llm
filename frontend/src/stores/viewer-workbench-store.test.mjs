@@ -53,6 +53,8 @@ try {
 
   assert.equal(store.isViewerWorkbenchOpen, true);
   assert.equal(store.viewerWorkbench.viewer.nickname, "A Ming");
+  assert.equal(store.isViewerMemoryEditorOpen, false);
+  assert.equal(store.isViewerNoteEditorOpen, false);
 
   setFetch(async (url, options) => {
     if (url === "/api/viewer/notes" && options.method === "POST") {
@@ -79,6 +81,8 @@ try {
     throw new Error(`Unexpected request during note save: ${url} ${options.method || "GET"}`);
   });
 
+  store.openNewViewerNote();
+  assert.equal(store.isViewerNoteEditorOpen, true);
   store.setViewerNoteDraft("prefers combo meals");
   store.toggleViewerNotePinned();
   await store.saveActiveViewerNote();
@@ -93,6 +97,7 @@ try {
     content: "prefers combo meals",
     is_pinned: true,
   });
+  assert.equal(store.isViewerNoteEditorOpen, false);
 
   setFetch(async (url, options) => {
     if (url === "/api/viewer/memories" && options.method === "POST") {
@@ -120,6 +125,15 @@ try {
     throw new Error(`Unexpected request during memory save: ${url} ${options.method || "GET"}`);
   });
 
+  store.openNewViewerMemory();
+  assert.equal(store.isViewerMemoryEditorOpen, true);
+  assert.deepEqual(store.viewerMemoryDraft, {
+    memoryText: "",
+    memoryType: "fact",
+    isPinned: false,
+    correctionReason: "",
+  });
+
   store.setViewerMemoryDraft({
     memoryText: "likes tonkotsu ramen",
     memoryType: "preference",
@@ -140,6 +154,50 @@ try {
     is_pinned: true,
     correction_reason: "host added",
   });
+  assert.equal(store.isViewerMemoryEditorOpen, false);
+
+  store.beginEditingViewerMemory({
+    memory_id: "m1",
+    memory_text: "likes ramen",
+    memory_type: "fact",
+    is_pinned: 0,
+    correction_reason: "",
+  });
+  assert.equal(store.isViewerMemoryEditorOpen, true);
+  store.closeViewerMemoryEditor();
+  assert.equal(store.isViewerMemoryEditorOpen, false);
+
+  store.beginEditingViewerNote({
+    note_id: "n1",
+    content: "regular fan",
+    is_pinned: 1,
+  });
+  assert.equal(store.isViewerNoteEditorOpen, true);
+  store.closeViewerNoteEditor();
+  assert.equal(store.isViewerNoteEditorOpen, false);
+
+  setFetch(async (url, options) => {
+    if (url === "/api/viewer/memories/m1/logs?limit=20") {
+      return {
+        ok: true,
+        async json() {
+          return {
+            items: [
+              { log_id: "l2", operation: "edited", reason: "host fixed" },
+              { log_id: "l1", operation: "created", reason: "" },
+            ],
+          };
+        },
+      };
+    }
+
+    throw new Error(`Unexpected request during log toggle: ${url} ${options.method || "GET"}`);
+  });
+
+  await store.loadViewerMemoryLogs("m1");
+  assert.equal(store.viewerMemoryLogsById.m1.items.length, 2);
+  await store.loadViewerMemoryLogs("m1");
+  assert.equal(store.viewerMemoryLogsById.m1, undefined);
 
   store.closeViewerWorkbench();
   assert.equal(store.isViewerWorkbenchOpen, false);

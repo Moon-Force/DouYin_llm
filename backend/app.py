@@ -189,6 +189,30 @@ def _candidate_lifecycle(candidate, created_at, settings_obj):
     return "long_term", 0
 
 
+def _viewer_note_preview(room_id, viewer_id, limit=5):
+    if long_term_store is None:
+        return []
+    room_id = str(room_id or "").strip()
+    viewer_id = str(viewer_id or "").strip()
+    if not room_id or not viewer_id:
+        return []
+    try:
+        notes = long_term_store.list_viewer_notes(room_id, viewer_id, limit=limit) or []
+    except Exception:
+        logging.exception(
+            "Failed to load viewer notes preview for room_id=%s viewer_id=%s",
+            room_id,
+            viewer_id,
+        )
+        return []
+    preview = []
+    for note in notes:
+        content = str((note or {}).get("content") or "").strip()
+        if content:
+            preview.append(content)
+    return preview
+
+
 def ensure_runtime():
     global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service
 
@@ -265,6 +289,12 @@ def snapshot_with_status(room_id):
 
 async def process_event(event: LiveEvent):
     ensure_runtime()
+    note_preview = _viewer_note_preview(event.room_id, event.user.viewer_id)
+    if note_preview:
+        event.metadata = {
+            **dict(event.metadata or {}),
+            "viewer_notes_preview": note_preview,
+        }
     processing_status = CommentProcessingStatus(received=True)
     session_memory.add_event(event)
     long_term_store.persist_event(event)

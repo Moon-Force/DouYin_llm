@@ -21,6 +21,7 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
   const viewerNoteDraft = ref("");
   const viewerNotePinned = ref(false);
   const editingViewerNoteId = ref("");
+  const isViewerNoteEditorOpen = ref(false);
   const isSavingViewerNote = ref(false);
   const viewerMemoryDraft = ref({
     memoryText: "",
@@ -29,6 +30,7 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
     correctionReason: "",
   });
   const editingViewerMemoryId = ref("");
+  const isViewerMemoryEditorOpen = ref(false);
   const isSavingViewerMemory = ref(false);
   const viewerMemoryLogsById = ref({});
   let viewerWorkbenchRequestId = 0;
@@ -45,6 +47,7 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
     viewerNoteDraft.value = "";
     viewerNotePinned.value = false;
     editingViewerNoteId.value = "";
+    isViewerNoteEditorOpen.value = false;
   }
 
   function resetViewerMemoryEditor() {
@@ -55,6 +58,7 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
       correctionReason: "",
     };
     editingViewerMemoryId.value = "";
+    isViewerMemoryEditorOpen.value = false;
   }
 
   function resetViewerWorkbenchState() {
@@ -183,6 +187,23 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
     viewerNotePinned.value = !viewerNotePinned.value;
   }
 
+  function openNewViewerNote() {
+    if (isSavingViewerNote.value) {
+      return;
+    }
+    viewerNoteDraft.value = "";
+    viewerNotePinned.value = false;
+    editingViewerNoteId.value = "";
+    isViewerNoteEditorOpen.value = true;
+  }
+
+  function closeViewerNoteEditor() {
+    if (isSavingViewerNote.value) {
+      return;
+    }
+    resetViewerNoteEditor();
+  }
+
   function beginEditingViewerNote(note) {
     if (isSavingViewerNote.value) {
       return;
@@ -196,6 +217,7 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
     viewerNoteDraft.value = note.content || "";
     viewerNotePinned.value = Boolean(note.is_pinned);
     editingViewerNoteId.value = note.note_id || "";
+    isViewerNoteEditorOpen.value = true;
   }
 
   function setViewerMemoryDraft(patch) {
@@ -203,6 +225,27 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
       ...viewerMemoryDraft.value,
       ...patch,
     };
+  }
+
+  function openNewViewerMemory() {
+    if (isSavingViewerMemory.value) {
+      return;
+    }
+    viewerMemoryDraft.value = {
+      memoryText: "",
+      memoryType: "fact",
+      isPinned: false,
+      correctionReason: "",
+    };
+    editingViewerMemoryId.value = "";
+    isViewerMemoryEditorOpen.value = true;
+  }
+
+  function closeViewerMemoryEditor() {
+    if (isSavingViewerMemory.value) {
+      return;
+    }
+    resetViewerMemoryEditor();
   }
 
   function beginEditingViewerMemory(memory) {
@@ -222,6 +265,7 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
       isPinned: Boolean(memory.is_pinned),
       correctionReason: memory.correction_reason || "",
     };
+    isViewerMemoryEditorOpen.value = true;
   }
 
   async function saveActiveViewerNote() {
@@ -441,6 +485,13 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
       return;
     }
 
+    if (viewerMemoryLogsById.value[memoryId]) {
+      const nextLogs = { ...viewerMemoryLogsById.value };
+      delete nextLogs[memoryId];
+      viewerMemoryLogsById.value = nextLogs;
+      return;
+    }
+
     viewerMemoryLogsById.value = {
       ...viewerMemoryLogsById.value,
       [memoryId]: {
@@ -479,9 +530,11 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
     viewerNoteDraft,
     viewerNotePinned,
     editingViewerNoteId,
+    isViewerNoteEditorOpen,
     isSavingViewerNote,
     viewerMemoryDraft,
     editingViewerMemoryId,
+    isViewerMemoryEditorOpen,
     isSavingViewerMemory,
     viewerMemoryLogsById,
     saveViewerNote,
@@ -489,10 +542,14 @@ export const useViewerWorkbenchStore = defineStore("viewerWorkbench", () => {
     closeViewerWorkbench,
     setViewerNoteDraft,
     toggleViewerNotePinned,
+    openNewViewerNote,
+    closeViewerNoteEditor,
     beginEditingViewerNote,
     saveActiveViewerNote,
     deleteViewerNote,
     setViewerMemoryDraft,
+    openNewViewerMemory,
+    closeViewerMemoryEditor,
     beginEditingViewerMemory,
     saveActiveViewerMemory,
     invalidateViewerMemory,

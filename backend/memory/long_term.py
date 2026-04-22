@@ -142,6 +142,7 @@ class LongTermStore:
                     room_id TEXT NOT NULL,
                     source_room_id TEXT,
                     livename TEXT,
+                    title TEXT,
                     status TEXT NOT NULL,
                     started_at INTEGER NOT NULL,
                     last_event_at INTEGER NOT NULL,
@@ -226,6 +227,7 @@ class LongTermStore:
             )
             self._ensure_event_columns(connection)
             self._ensure_viewer_profile_columns(connection)
+            self._ensure_live_session_columns(connection)
             self._ensure_viewer_memory_columns(connection)
             self._create_indexes(connection)
             self._backfill_event_columns(connection)
@@ -257,6 +259,15 @@ class LongTermStore:
         for column_name, column_type in required_columns.items():
             if column_name not in existing_columns:
                 connection.execute(f"ALTER TABLE viewer_profiles ADD COLUMN {column_name} {column_type}")
+
+    def _ensure_live_session_columns(self, connection):
+        existing_columns = self._table_columns(connection, "live_sessions")
+        required_columns = {
+            "title": "TEXT",
+        }
+        for column_name, column_type in required_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(f"ALTER TABLE live_sessions ADD COLUMN {column_name} {column_type}")
 
     def _ensure_viewer_memory_columns(self, connection):
         existing_columns = self._table_columns(connection, "viewer_memories")
@@ -337,6 +348,7 @@ class LongTermStore:
             "event_type": event.event_type,
             "method": event.method,
             "livename": event.livename,
+            "title": safe_text(metadata.get("title") or raw.get("title")),
             "user_id": safe_text(event.user.id),
             "short_id": safe_text(event.user.short_id),
             "sec_uid": safe_text(event.user.sec_uid),
@@ -387,11 +399,19 @@ class LongTermStore:
         connection.execute(
             """
             INSERT INTO live_sessions (
-                session_id, room_id, source_room_id, livename, status,
+                session_id, room_id, source_room_id, livename, title, status,
                 started_at, last_event_at, ended_at, event_count, comment_count, gift_event_count, join_count
-            ) VALUES (?, ?, ?, ?, 'active', ?, ?, NULL, 0, 0, 0, 0)
+            ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, NULL, 0, 0, 0, 0)
             """,
-            (session_id, event_record["room_id"], event_record["source_room_id"], event_record["livename"], event_record["ts"], event_record["ts"]),
+            (
+                session_id,
+                event_record["room_id"],
+                event_record["source_room_id"],
+                event_record["livename"],
+                event_record["title"],
+                event_record["ts"],
+                event_record["ts"],
+            ),
         )
         return session_id
 
@@ -414,6 +434,7 @@ class LongTermStore:
             UPDATE live_sessions
             SET source_room_id = CASE WHEN ? <> '' THEN ? ELSE source_room_id END,
                 livename = CASE WHEN ? <> '' THEN ? ELSE livename END,
+                title = CASE WHEN ? <> '' THEN ? ELSE title END,
                 last_event_at = CASE WHEN last_event_at >= ? THEN last_event_at ELSE ? END,
                 event_count = event_count + 1,
                 comment_count = comment_count + ?,
@@ -424,6 +445,7 @@ class LongTermStore:
             (
                 event_record["source_room_id"], event_record["source_room_id"],
                 event_record["livename"], event_record["livename"],
+                event_record["title"], event_record["title"],
                 event_record["ts"], event_record["ts"],
                 1 if event_record["event_type"] == "comment" else 0,
                 1 if event_record["event_type"] == "gift" else 0,
@@ -1537,7 +1559,7 @@ class LongTermStore:
         with self._connect() as connection:
             rows = connection.execute(
                 f"""
-                SELECT session_id, room_id, source_room_id, livename, status, started_at, last_event_at, ended_at,
+                SELECT session_id, room_id, source_room_id, livename, title, status, started_at, last_event_at, ended_at,
                        event_count, comment_count, gift_event_count, join_count
                 FROM live_sessions {where_clause}
                 ORDER BY last_event_at DESC LIMIT ?
@@ -1550,7 +1572,7 @@ class LongTermStore:
         with self._connect() as connection:
             row = connection.execute(
                 """
-                SELECT session_id, room_id, source_room_id, livename, status, started_at, last_event_at, ended_at,
+                SELECT session_id, room_id, source_room_id, livename, title, status, started_at, last_event_at, ended_at,
                        event_count, comment_count, gift_event_count, join_count
                 FROM live_sessions WHERE room_id = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1
                 """,

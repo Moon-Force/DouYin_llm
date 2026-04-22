@@ -73,10 +73,12 @@
 html,
 body,
 #app {
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
+  margin: 0;
   background: var(--page-background);
   color: rgb(var(--color-paper));
   transition:
