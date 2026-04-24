@@ -42,8 +42,10 @@ class MemoryRecallTextServiceTests(unittest.TestCase):
         )
 
         self.assertIn("不太能吃辣", result)
-        self.assertIn("preference", result)
-        self.assertIn("negative", result)
+        self.assertIn("偏好", result)
+        self.assertIn("负向", result)
+        self.assertNotIn("type:", result)
+        self.assertNotIn("polarity:", result)
         self.assertIn("我平时不太能吃辣", result)
 
     def test_expand_memory_rejects_unrelated_llm_output(self):
@@ -57,6 +59,20 @@ class MemoryRecallTextServiceTests(unittest.TestCase):
 
         self.assertIn("喜欢拉面", result)
         self.assertIn("我最喜欢吃豚骨拉面", result)
+
+
+    def test_expand_memory_does_not_treat_face_cream_as_noodles(self):
+        service = MemoryRecallTextService()
+
+        result = service.expand_memory(
+            memory_text="uses sensitive skin face cream",
+            raw_memory_text="I only use sensitive skin face cream",
+            memory_type="preference",
+        )
+
+        self.assertIn("护肤", result)
+        self.assertNotIn("ramen", result)
+        self.assertNotIn("noodles", result)
 
 
 if __name__ == "__main__":

@@ -53,9 +53,9 @@ class MemoryRecallTextService:
         return self._clean(payload.get("recall_text"))
 
     def _fallback(self, memory_text, raw_memory_text, memory_type, polarity, temporal_scope):
-        parts = [memory_text, f"type:{memory_type}", f"polarity:{polarity}"]
+        parts = [memory_text, self._memory_type_label(memory_type), self._polarity_label(polarity)]
         if temporal_scope:
-            parts.append(f"scope:{temporal_scope}")
+            parts.append(self._scope_label(temporal_scope))
         if raw_memory_text and raw_memory_text != memory_text:
             parts.append(raw_memory_text)
         parts.extend(self._rule_keywords(memory_text, raw_memory_text, memory_type, polarity))
@@ -63,18 +63,33 @@ class MemoryRecallTextService:
 
     def _rule_keywords(self, memory_text, raw_memory_text, memory_type, polarity):
         text = f"{memory_text} {raw_memory_text}".lower()
-        keywords = ["用户记忆", "观众画像", "直播互动", memory_type, polarity]
+        keywords = ["用户记忆", "观众画像", "直播互动"]
         if "辣" in text:
             keywords.extend(["吃辣", "忌口", "口味", "饮食偏好"])
-        if "拉面" in text or "面" in text:
+        if "拉面" in text or "面条" in text or "noodle" in text or "ramen" in text:
             keywords.extend(["拉面", "面条", "日式拉面", "食物偏好"])
         if "咖啡" in text:
             keywords.extend(["咖啡", "饮品", "提神", "口味偏好"])
-        if "护肤" in text or "敏感" in text:
-            keywords.extend(["护肤", "肤质", "敏感肌", "产品偏好"])
+        if "护肤" in text or "敏感" in text or "skin" in text or "cream" in text or "face cream" in text:
+            keywords.extend(["护肤", "肤质", "敏感肌", "产品偏好", "面霜", "皮肤护理"])
         if polarity == "negative":
             keywords.extend(["不喜欢", "不能", "避免", "负向偏好"])
         return keywords
+
+    @staticmethod
+    def _memory_type_label(memory_type):
+        labels = {"preference": "偏好", "context": "背景信息", "fact": "事实", "behavior": "行为习惯"}
+        return labels.get(str(memory_type or "").strip().lower(), "记忆信息")
+
+    @staticmethod
+    def _polarity_label(polarity):
+        labels = {"positive": "正向", "negative": "负向", "neutral": "中性"}
+        return labels.get(str(polarity or "").strip().lower(), "中性")
+
+    @staticmethod
+    def _scope_label(temporal_scope):
+        labels = {"long_term": "长期记忆", "short_term": "短期记忆"}
+        return labels.get(str(temporal_scope or "").strip().lower(), "长期记忆")
 
     def _is_valid_expansion(self, recall_text, memory_text, raw_memory_text):
         if not recall_text or len(recall_text) < len(memory_text):
