@@ -1,0 +1,58 @@
+{
+  "simulation": {
+    "profile_count": 20,
+    "comments_per_viewer": 500,
+    "total_comments": 10000,
+    "time_span_days": 364,
+    "mode": "actual storage/merge/vector pipeline with conservative rule-fallback extraction",
+    "embedding": "HashEmbeddingFunction deterministic local simulation"
+  },
+  "extraction": {
+    "expected_memory_event_count": 480,
+    "extracted_event_count": 480,
+    "event_recall": 1.0,
+    "event_precision": 1.0,
+    "false_positive_event_count": 0
+  },
+  "memory_profile": {
+    "expected_unique_memory_count": 160,
+    "active_memory_count": 480,
+    "matched_expected_unique_count": 160,
+    "missing_expected_unique_count": 0,
+    "unexpected_active_unique_count": 0,
+    "duplicate_group_count": 160,
+    "duplicate_memory_rows": 320,
+    "unique_recall": 1.0,
+    "unique_precision": 1.0
+  },
+  "merge_actions": {
+    "create": 480
+  },
+  "semantic_recall": {
+    "case_count": 160,
+    "top1_hits": 127,
+    "top3_hits": 127,
+    "top1_rate": 0.79375,
+    "top3_rate": 0.79375
+  },
+  "elapsed_seconds": 120.281,
+  "artifacts": {
+    "summary": "artifacts\\yearly_20x500_simulation\\summary.json",
+    "semantic_cases": "artifacts\\yearly_20x500_simulation\\semantic_cases.json",
+    "duplicate_groups": "artifacts\\yearly_20x500_simulation\\duplicate_groups.json",
+    "false_positive_events": "artifacts\\yearly_20x500_simulation\\false_positive_events.json",
+    "database": "artifacts\\yearly_20x500_simulation\\simulation.db"
+  },
+  "semantic_recall_real_embedding": {
+    "embedding_mode": "cloud",
+    "embedding_model": "bge-m3:latest",
+    "memory_rows_indexed": 480,
+    "case_count": 160,
+    "top1_hits": 118,
+    "top3_hits": 118,
+    "top1_rate": 0.7375,
+    "top3_rate": 0.7375,
+    "elapsed_seconds": 33.421,
+    "index_seconds": 8.233
+  }
+}

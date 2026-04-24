@@ -1,0 +1,3194 @@
+[
+  {
+    "viewer_id": "id:sim-viewer-01",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用敏感肌面霜",
+    "top_texts": [
+      "不能吃香菜",
+      "不能吃香菜",
+      "不能吃香菜"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-01",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢豚骨拉面",
+    "top_texts": [
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-01",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢香菜",
+    "top_texts": [
+      "不喜欢香菜",
+      "不喜欢香菜",
+      "不喜欢香菜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢香菜",
+      "不喜欢香菜",
+      "不喜欢香菜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-01",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃香菜",
+    "top_texts": [
+      "不能吃香菜",
+      "不能吃香菜",
+      "不能吃香菜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃香菜",
+      "不能吃香菜",
+      "不能吃香菜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-01",
+    "query": "关于在上海做产品经理，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在上海做产品经理",
+    "top_texts": [
+      "在上海做产品经理",
+      "在上海做产品经理",
+      "在上海做产品经理"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在上海做产品经理",
+      "在上海做产品经理",
+      "在上海做产品经理"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-01",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只猫",
+    "top_texts": [
+      "家里养了一只猫",
+      "家里养了一只猫",
+      "家里养了一只猫"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只猫",
+      "家里养了一只猫",
+      "家里养了一只猫"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-01",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝美式咖啡",
+    "top_texts": [
+      "平时都喝美式咖啡",
+      "平时都喝美式咖啡",
+      "平时都喝美式咖啡"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-01",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在上海陆家嘴附近",
+    "top_texts": [
+      "租房住在上海陆家嘴附近",
+      "租房住在上海陆家嘴附近",
+      "租房住在上海陆家嘴附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在上海陆家嘴附近",
+      "租房住在上海陆家嘴附近",
+      "租房住在上海陆家嘴附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-02",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用无香精洗面奶",
+    "top_texts": [
+      "平时都喝无糖可乐",
+      "平时都喝无糖可乐",
+      "平时都喝无糖可乐"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-02",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢牛肉面",
+    "top_texts": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-02",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢太辣的东西",
+    "top_texts": [
+      "不喜欢太辣的东西",
+      "不喜欢太辣的东西",
+      "不喜欢太辣的东西"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃太辣的东西",
+      "不能吃太辣的东西",
+      "不能吃太辣的东西"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-02",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃太辣的东西",
+    "top_texts": [
+      "不能吃太辣的东西",
+      "不能吃太辣的东西",
+      "不能吃太辣的东西"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃太辣的东西",
+      "不能吃太辣的东西",
+      "不能吃太辣的东西"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-02",
+    "query": "关于在杭州做前端开发，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在杭州做前端开发",
+    "top_texts": [
+      "在杭州做前端开发",
+      "在杭州做前端开发",
+      "在杭州做前端开发"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在杭州做前端开发",
+      "在杭州做前端开发",
+      "在杭州做前端开发"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-02",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了两只猫",
+    "top_texts": [
+      "家里养了两只猫",
+      "家里养了两只猫",
+      "家里养了两只猫"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了两只猫",
+      "家里养了两只猫",
+      "家里养了两只猫"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-02",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝无糖可乐",
+    "top_texts": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-02",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在杭州滨江附近",
+    "top_texts": [
+      "租房住在杭州滨江附近",
+      "租房住在杭州滨江附近",
+      "租房住在杭州滨江附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在杭州滨江附近",
+      "租房住在杭州滨江附近",
+      "租房住在杭州滨江附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-03",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用防晒霜",
+    "top_texts": [
+      "不喜欢海鲜",
+      "不喜欢海鲜",
+      "不喜欢海鲜"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢海鲜",
+      "不喜欢海鲜",
+      "不喜欢海鲜"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-03",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢寿司",
+    "top_texts": [
+      "一直都喜欢寿司",
+      "一直都喜欢寿司",
+      "一直都喜欢寿司"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢寿司",
+      "一直都喜欢寿司",
+      "一直都喜欢寿司"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-03",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢海鲜",
+    "top_texts": [
+      "不喜欢海鲜",
+      "不喜欢海鲜",
+      "不喜欢海鲜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢海鲜",
+      "不喜欢海鲜",
+      "不喜欢海鲜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-03",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃海鲜",
+    "top_texts": [
+      "不能吃海鲜",
+      "不能吃海鲜",
+      "不能吃海鲜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃海鲜",
+      "不能吃海鲜",
+      "不能吃海鲜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-03",
+    "query": "关于在苏州做雅思老师，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在苏州做雅思老师",
+    "top_texts": [
+      "在苏州做雅思老师",
+      "在苏州做雅思老师",
+      "在苏州做雅思老师"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在苏州做雅思老师",
+      "在苏州做雅思老师",
+      "在苏州做雅思老师"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-03",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只金毛",
+    "top_texts": [
+      "家里养了一只金毛",
+      "家里养了一只金毛",
+      "家里养了一只金毛"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只金毛",
+      "家里养了一只金毛",
+      "家里养了一只金毛"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-03",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝乌龙茶",
+    "top_texts": [
+      "平时都喝乌龙茶",
+      "平时都喝乌龙茶",
+      "平时都喝乌龙茶"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢寿司",
+      "一直都喜欢寿司",
+      "一直都喜欢寿司"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-03",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在苏州园区附近",
+    "top_texts": [
+      "租房住在苏州园区附近",
+      "租房住在苏州园区附近",
+      "租房住在苏州园区附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在苏州园区附近",
+      "租房住在苏州园区附近",
+      "租房住在苏州园区附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-04",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用保湿乳",
+    "top_texts": [
+      "在广州做设计师",
+      "在广州做设计师",
+      "在广州做设计师"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-04",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢火锅",
+    "top_texts": [
+      "一直都喜欢火锅",
+      "一直都喜欢火锅",
+      "一直都喜欢火锅"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢火锅",
+      "一直都喜欢火锅",
+      "一直都喜欢火锅"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-04",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢纯牛奶",
+    "top_texts": [
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-04",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃纯牛奶",
+    "top_texts": [
+      "不能吃纯牛奶",
+      "不能吃纯牛奶",
+      "不能吃纯牛奶"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃纯牛奶",
+      "不能吃纯牛奶",
+      "不能吃纯牛奶"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-04",
+    "query": "关于在广州做设计师，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在广州做设计师",
+    "top_texts": [
+      "在广州做设计师",
+      "在广州做设计师",
+      "在广州做设计师"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在广州做设计师",
+      "在广州做设计师",
+      "在广州做设计师"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-04",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只柯基",
+    "top_texts": [
+      "家里养了一只柯基",
+      "家里养了一只柯基",
+      "家里养了一只柯基"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只柯基",
+      "家里养了一只柯基",
+      "家里养了一只柯基"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-04",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝茉莉花茶",
+    "top_texts": [
+      "一直都喜欢火锅",
+      "一直都喜欢火锅",
+      "一直都喜欢火锅"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢火锅",
+      "一直都喜欢火锅",
+      "一直都喜欢火锅"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-04",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在广州天河附近",
+    "top_texts": [
+      "租房住在广州天河附近",
+      "租房住在广州天河附近",
+      "租房住在广州天河附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在广州天河附近",
+      "租房住在广州天河附近",
+      "租房住在广州天河附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-05",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用修护精华",
+    "top_texts": [
+      "不喜欢榴莲",
+      "不能吃榴莲",
+      "不喜欢榴莲"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都只用修护精华",
+      "一直都只用修护精华",
+      "一直都只用修护精华"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-05",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢烤鱼",
+    "top_texts": [
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-05",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢榴莲",
+    "top_texts": [
+      "不喜欢榴莲",
+      "不喜欢榴莲",
+      "不喜欢榴莲"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢榴莲",
+      "不喜欢榴莲",
+      "不喜欢榴莲"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-05",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃榴莲",
+    "top_texts": [
+      "不能吃榴莲",
+      "不能吃榴莲",
+      "不能吃榴莲"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃榴莲",
+      "不能吃榴莲",
+      "不能吃榴莲"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-05",
+    "query": "关于在成都做运营，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在成都做运营",
+    "top_texts": [
+      "在成都做运营",
+      "在成都做运营",
+      "在成都做运营"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在成都做运营",
+      "在成都做运营",
+      "在成都做运营"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-05",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只鹦鹉",
+    "top_texts": [
+      "家里养了一只鹦鹉",
+      "家里养了一只鹦鹉",
+      "家里养了一只鹦鹉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只鹦鹉",
+      "家里养了一只鹦鹉",
+      "家里养了一只鹦鹉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-05",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝拿铁",
+    "top_texts": [
+      "不能吃榴莲",
+      "不能吃榴莲",
+      "不能吃榴莲"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-05",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在成都高新附近",
+    "top_texts": [
+      "租房住在成都高新附近",
+      "租房住在成都高新附近",
+      "租房住在成都高新附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在成都高新附近",
+      "租房住在成都高新附近",
+      "租房住在成都高新附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-06",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用护手霜",
+    "top_texts": [
+      "一直都只用护手霜",
+      "一直都只用护手霜",
+      "一直都只用护手霜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢肥肉",
+      "不喜欢肥肉",
+      "不喜欢肥肉"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-06",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢麻辣烫",
+    "top_texts": [
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-06",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢肥肉",
+    "top_texts": [
+      "不喜欢肥肉",
+      "不喜欢肥肉",
+      "不喜欢肥肉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢肥肉",
+      "不喜欢肥肉",
+      "不喜欢肥肉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-06",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃肥肉",
+    "top_texts": [
+      "不能吃肥肉",
+      "不能吃肥肉",
+      "不能吃肥肉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃肥肉",
+      "不能吃肥肉",
+      "不能吃肥肉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-06",
+    "query": "关于在南京做后端开发，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在南京做后端开发",
+    "top_texts": [
+      "在南京做后端开发",
+      "在南京做后端开发",
+      "在南京做后端开发"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在南京做后端开发",
+      "在南京做后端开发",
+      "在南京做后端开发"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-06",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只兔子",
+    "top_texts": [
+      "家里养了一只兔子",
+      "家里养了一只兔子",
+      "家里养了一只兔子"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只兔子",
+      "家里养了一只兔子",
+      "家里养了一只兔子"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-06",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝气泡水",
+    "top_texts": [
+      "平时都喝气泡水",
+      "平时都喝气泡水",
+      "平时都喝气泡水"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-06",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在南京陆家嘴附近",
+    "top_texts": [],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "租房住在南京陆家嘴附近",
+      "租房住在南京陆家嘴附近",
+      "租房住在南京陆家嘴附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-07",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用润唇膏",
+    "top_texts": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-07",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢煎饼",
+    "top_texts": [
+      "一直都喜欢煎饼",
+      "一直都喜欢煎饼",
+      "一直都喜欢煎饼"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢煎饼",
+      "一直都喜欢煎饼",
+      "一直都喜欢煎饼"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-07",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢酒精",
+    "top_texts": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃酒精",
+      "不能吃酒精",
+      "不能吃酒精"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-07",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃酒精",
+    "top_texts": [
+      "不能吃酒精",
+      "不能吃酒精",
+      "不能吃酒精"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃酒精",
+      "不能吃酒精",
+      "不能吃酒精"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-07",
+    "query": "关于在深圳做摄影师，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在深圳做摄影师",
+    "top_texts": [
+      "在深圳做摄影师",
+      "在深圳做摄影师",
+      "在深圳做摄影师"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在深圳做摄影师",
+      "在深圳做摄影师",
+      "在深圳做摄影师"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-07",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了两条鱼",
+    "top_texts": [
+      "家里养了两条鱼",
+      "家里养了两条鱼",
+      "家里养了两条鱼"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了两条鱼",
+      "家里养了两条鱼",
+      "家里养了两条鱼"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-07",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝豆浆",
+    "top_texts": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-07",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在深圳滨江附近",
+    "top_texts": [
+      "租房住在深圳滨江附近",
+      "租房住在深圳滨江附近",
+      "租房住在深圳滨江附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在深圳滨江附近",
+      "租房住在深圳滨江附近",
+      "租房住在深圳滨江附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-08",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用身体乳",
+    "top_texts": [
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都只用身体乳",
+      "一直都只用身体乳",
+      "一直都只用身体乳"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-08",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢沙拉",
+    "top_texts": [
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-08",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢甜口菜",
+    "top_texts": [
+      "不喜欢甜口菜",
+      "不喜欢甜口菜",
+      "不喜欢甜口菜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢甜口菜",
+      "不喜欢甜口菜",
+      "不喜欢甜口菜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-08",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃甜口菜",
+    "top_texts": [
+      "不能吃甜口菜",
+      "不能吃甜口菜",
+      "不能吃甜口菜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃甜口菜",
+      "不能吃甜口菜",
+      "不能吃甜口菜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-08",
+    "query": "关于在武汉做护士，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在武汉做护士",
+    "top_texts": [
+      "在武汉做护士",
+      "在武汉做护士",
+      "在武汉做护士"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在武汉做护士",
+      "在武汉做护士",
+      "在武汉做护士"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-08",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只布偶猫",
+    "top_texts": [
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-08",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝柠檬水",
+    "top_texts": [
+      "不喜欢甜口菜",
+      "不喜欢甜口菜",
+      "不喜欢甜口菜"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-08",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在武汉园区附近",
+    "top_texts": [
+      "租房住在武汉园区附近",
+      "租房住在武汉园区附近",
+      "租房住在武汉园区附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在武汉园区附近",
+      "租房住在武汉园区附近",
+      "租房住在武汉园区附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-09",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用卸妆油",
+    "top_texts": [
+      "平时都喝红茶",
+      "平时都喝红茶",
+      "平时都喝红茶"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢米粉",
+      "一直都喜欢米粉",
+      "一直都喜欢米粉"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-09",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢米粉",
+    "top_texts": [
+      "一直都喜欢米粉",
+      "一直都喜欢米粉",
+      "一直都喜欢米粉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢米粉",
+      "一直都喜欢米粉",
+      "一直都喜欢米粉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-09",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢动物内脏",
+    "top_texts": [
+      "不喜欢动物内脏",
+      "不喜欢动物内脏",
+      "不喜欢动物内脏"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃动物内脏",
+      "不能吃动物内脏",
+      "不能吃动物内脏"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-09",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃动物内脏",
+    "top_texts": [
+      "不能吃动物内脏",
+      "不能吃动物内脏",
+      "不能吃动物内脏"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃动物内脏",
+      "不能吃动物内脏",
+      "不能吃动物内脏"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-09",
+    "query": "关于在厦门做咖啡师，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在厦门做咖啡师",
+    "top_texts": [
+      "在厦门做咖啡师",
+      "在厦门做咖啡师",
+      "在厦门做咖啡师"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在厦门做咖啡师",
+      "在厦门做咖啡师",
+      "在厦门做咖啡师"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-09",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只边牧",
+    "top_texts": [
+      "家里养了一只边牧",
+      "家里养了一只边牧",
+      "家里养了一只边牧"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只边牧",
+      "家里养了一只边牧",
+      "家里养了一只边牧"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-09",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝红茶",
+    "top_texts": [
+      "平时都喝红茶",
+      "平时都喝红茶",
+      "平时都喝红茶"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢米粉",
+      "一直都喜欢米粉",
+      "一直都喜欢米粉"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-09",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在厦门天河附近",
+    "top_texts": [
+      "租房住在厦门天河附近",
+      "租房住在厦门天河附近",
+      "租房住在厦门天河附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在厦门天河附近",
+      "租房住在厦门天河附近",
+      "租房住在厦门天河附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-10",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用控油散粉",
+    "top_texts": [
+      "不能吃冰饮",
+      "不能吃冰饮",
+      "不能吃冰饮"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢冰饮",
+      "不喜欢冰饮",
+      "不喜欢冰饮"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-10",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢云吞面",
+    "top_texts": [
+      "一直都喜欢云吞面",
+      "一直都喜欢云吞面",
+      "一直都喜欢云吞面"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢云吞面",
+      "一直都喜欢云吞面",
+      "一直都喜欢云吞面"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-10",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢冰饮",
+    "top_texts": [
+      "不喜欢冰饮",
+      "不喜欢冰饮",
+      "不喜欢冰饮"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢冰饮",
+      "不喜欢冰饮",
+      "不喜欢冰饮"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-10",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃冰饮",
+    "top_texts": [
+      "不能吃冰饮",
+      "不能吃冰饮",
+      "不能吃冰饮"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃冰饮",
+      "不能吃冰饮",
+      "不能吃冰饮"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-10",
+    "query": "关于在天津做会计，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在天津做会计",
+    "top_texts": [
+      "在天津做会计",
+      "在天津做会计",
+      "在天津做会计"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在天津做会计",
+      "在天津做会计",
+      "在天津做会计"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-10",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只仓鼠",
+    "top_texts": [
+      "不能吃冰饮",
+      "不能吃冰饮",
+      "不能吃冰饮"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "家里养了一只仓鼠",
+      "家里养了一只仓鼠",
+      "家里养了一只仓鼠"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-10",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝椰子水",
+    "top_texts": [
+      "平时都喝椰子水",
+      "平时都喝椰子水",
+      "平时都喝椰子水"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢冰饮",
+      "不喜欢冰饮",
+      "不喜欢冰饮"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-10",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在天津高新附近",
+    "top_texts": [
+      "租房住在天津高新附近",
+      "租房住在天津高新附近",
+      "租房住在天津高新附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在天津高新附近",
+      "租房住在天津高新附近",
+      "租房住在天津高新附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-11",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用敏感肌面霜",
+    "top_texts": [
+      "不能吃香菜",
+      "不能吃香菜",
+      "不能吃香菜"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-11",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢豚骨拉面",
+    "top_texts": [
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-11",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢香菜",
+    "top_texts": [
+      "不喜欢香菜",
+      "不喜欢香菜",
+      "不喜欢香菜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢香菜",
+      "不喜欢香菜",
+      "不喜欢香菜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-11",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃香菜",
+    "top_texts": [
+      "不能吃香菜",
+      "不能吃香菜",
+      "不能吃香菜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃香菜",
+      "不能吃香菜",
+      "不能吃香菜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-11",
+    "query": "关于在重庆做健身教练，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在重庆做健身教练",
+    "top_texts": [
+      "在重庆做健身教练",
+      "在重庆做健身教练",
+      "在重庆做健身教练"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在重庆做健身教练",
+      "在重庆做健身教练",
+      "在重庆做健身教练"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-11",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只猫",
+    "top_texts": [
+      "家里养了一只猫",
+      "家里养了一只猫",
+      "家里养了一只猫"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只猫",
+      "家里养了一只猫",
+      "家里养了一只猫"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-11",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝美式咖啡",
+    "top_texts": [
+      "平时都喝美式咖啡",
+      "平时都喝美式咖啡",
+      "平时都喝美式咖啡"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面",
+      "一直都喜欢豚骨拉面"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-11",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在重庆陆家嘴附近",
+    "top_texts": [
+      "租房住在重庆陆家嘴附近",
+      "租房住在重庆陆家嘴附近",
+      "租房住在重庆陆家嘴附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在重庆陆家嘴附近",
+      "租房住在重庆陆家嘴附近",
+      "租房住在重庆陆家嘴附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-12",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用无香精洗面奶",
+    "top_texts": [
+      "平时都喝无糖可乐",
+      "平时都喝无糖可乐",
+      "平时都喝无糖可乐"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-12",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢牛肉面",
+    "top_texts": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-12",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢太辣的东西",
+    "top_texts": [
+      "不喜欢太辣的东西",
+      "不喜欢太辣的东西",
+      "不喜欢太辣的东西"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃太辣的东西",
+      "不能吃太辣的东西",
+      "不能吃太辣的东西"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-12",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃太辣的东西",
+    "top_texts": [
+      "不能吃太辣的东西",
+      "不能吃太辣的东西",
+      "不能吃太辣的东西"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃太辣的东西",
+      "不能吃太辣的东西",
+      "不能吃太辣的东西"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-12",
+    "query": "关于在青岛做外贸销售，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在青岛做外贸销售",
+    "top_texts": [
+      "在青岛做外贸销售",
+      "在青岛做外贸销售",
+      "在青岛做外贸销售"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在青岛做外贸销售",
+      "在青岛做外贸销售",
+      "在青岛做外贸销售"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-12",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了两只猫",
+    "top_texts": [
+      "家里养了两只猫",
+      "家里养了两只猫",
+      "家里养了两只猫"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了两只猫",
+      "家里养了两只猫",
+      "家里养了两只猫"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-12",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝无糖可乐",
+    "top_texts": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面",
+      "一直都喜欢牛肉面"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-12",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在青岛滨江附近",
+    "top_texts": [
+      "租房住在青岛滨江附近",
+      "租房住在青岛滨江附近",
+      "租房住在青岛滨江附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在青岛滨江附近",
+      "租房住在青岛滨江附近",
+      "租房住在青岛滨江附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-13",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用防晒霜",
+    "top_texts": [
+      "不喜欢海鲜",
+      "不喜欢海鲜",
+      "不喜欢海鲜"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢海鲜",
+      "不喜欢海鲜",
+      "不喜欢海鲜"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-13",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢寿司",
+    "top_texts": [
+      "一直都喜欢寿司",
+      "一直都喜欢寿司",
+      "一直都喜欢寿司"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢寿司",
+      "一直都喜欢寿司",
+      "一直都喜欢寿司"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-13",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢海鲜",
+    "top_texts": [
+      "不喜欢海鲜",
+      "不喜欢海鲜",
+      "不喜欢海鲜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢海鲜",
+      "不喜欢海鲜",
+      "不喜欢海鲜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-13",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃海鲜",
+    "top_texts": [
+      "不能吃海鲜",
+      "不能吃海鲜",
+      "不能吃海鲜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃海鲜",
+      "不能吃海鲜",
+      "不能吃海鲜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-13",
+    "query": "关于在北京做研究生，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在北京做研究生",
+    "top_texts": [
+      "在北京做研究生",
+      "在北京做研究生",
+      "在北京做研究生"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在北京做研究生",
+      "在北京做研究生",
+      "在北京做研究生"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-13",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只金毛",
+    "top_texts": [
+      "家里养了一只金毛",
+      "家里养了一只金毛",
+      "家里养了一只金毛"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只金毛",
+      "家里养了一只金毛",
+      "家里养了一只金毛"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-13",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝乌龙茶",
+    "top_texts": [
+      "平时都喝乌龙茶",
+      "平时都喝乌龙茶",
+      "平时都喝乌龙茶"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢寿司",
+      "一直都喜欢寿司",
+      "一直都喜欢寿司"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-13",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在北京园区附近",
+    "top_texts": [
+      "不喜欢海鲜",
+      "不喜欢海鲜",
+      "不喜欢海鲜"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "租房住在北京园区附近",
+      "租房住在北京园区附近",
+      "租房住在北京园区附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-14",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用保湿乳",
+    "top_texts": [],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-14",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢火锅",
+    "top_texts": [
+      "一直都喜欢火锅",
+      "一直都喜欢火锅",
+      "一直都喜欢火锅"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢火锅",
+      "一直都喜欢火锅",
+      "一直都喜欢火锅"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-14",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢纯牛奶",
+    "top_texts": [
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶",
+      "不喜欢纯牛奶"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-14",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃纯牛奶",
+    "top_texts": [
+      "不能吃纯牛奶",
+      "不能吃纯牛奶",
+      "不能吃纯牛奶"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃纯牛奶",
+      "不能吃纯牛奶",
+      "不能吃纯牛奶"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-14",
+    "query": "关于在宁波做电商客服，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在宁波做电商客服",
+    "top_texts": [
+      "在宁波做电商客服",
+      "在宁波做电商客服",
+      "在宁波做电商客服"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在宁波做电商客服",
+      "在宁波做电商客服",
+      "在宁波做电商客服"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-14",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只柯基",
+    "top_texts": [
+      "家里养了一只柯基",
+      "家里养了一只柯基",
+      "家里养了一只柯基"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只柯基",
+      "家里养了一只柯基",
+      "家里养了一只柯基"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-14",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝茉莉花茶",
+    "top_texts": [
+      "一直都喜欢火锅",
+      "一直都喜欢火锅",
+      "一直都喜欢火锅"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢火锅",
+      "一直都喜欢火锅",
+      "一直都喜欢火锅"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-14",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在宁波天河附近",
+    "top_texts": [
+      "租房住在宁波天河附近",
+      "租房住在宁波天河附近",
+      "租房住在宁波天河附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在宁波天河附近",
+      "租房住在宁波天河附近",
+      "租房住在宁波天河附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-15",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用修护精华",
+    "top_texts": [
+      "不喜欢榴莲",
+      "不能吃榴莲",
+      "不喜欢榴莲"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都只用修护精华",
+      "一直都只用修护精华",
+      "一直都只用修护精华"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-15",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢烤鱼",
+    "top_texts": [
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-15",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢榴莲",
+    "top_texts": [
+      "不喜欢榴莲",
+      "不喜欢榴莲",
+      "不喜欢榴莲"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢榴莲",
+      "不喜欢榴莲",
+      "不喜欢榴莲"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-15",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃榴莲",
+    "top_texts": [
+      "不能吃榴莲",
+      "不能吃榴莲",
+      "不能吃榴莲"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃榴莲",
+      "不能吃榴莲",
+      "不能吃榴莲"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-15",
+    "query": "关于在长沙做剪辑师，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在长沙做剪辑师",
+    "top_texts": [
+      "在长沙做剪辑师",
+      "在长沙做剪辑师",
+      "在长沙做剪辑师"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在长沙做剪辑师",
+      "在长沙做剪辑师",
+      "在长沙做剪辑师"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-15",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只鹦鹉",
+    "top_texts": [
+      "家里养了一只鹦鹉",
+      "家里养了一只鹦鹉",
+      "家里养了一只鹦鹉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只鹦鹉",
+      "家里养了一只鹦鹉",
+      "家里养了一只鹦鹉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-15",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝拿铁",
+    "top_texts": [
+      "不能吃榴莲",
+      "不能吃榴莲",
+      "不能吃榴莲"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼",
+      "一直都喜欢烤鱼"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-15",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在长沙高新附近",
+    "top_texts": [
+      "租房住在长沙高新附近",
+      "租房住在长沙高新附近",
+      "租房住在长沙高新附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在长沙高新附近",
+      "租房住在长沙高新附近",
+      "租房住在长沙高新附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-16",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用护手霜",
+    "top_texts": [
+      "一直都只用护手霜",
+      "一直都只用护手霜",
+      "一直都只用护手霜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢肥肉",
+      "不喜欢肥肉",
+      "不喜欢肥肉"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-16",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢麻辣烫",
+    "top_texts": [
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-16",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢肥肉",
+    "top_texts": [
+      "不喜欢肥肉",
+      "不喜欢肥肉",
+      "不喜欢肥肉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢肥肉",
+      "不喜欢肥肉",
+      "不喜欢肥肉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-16",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃肥肉",
+    "top_texts": [
+      "不能吃肥肉",
+      "不能吃肥肉",
+      "不能吃肥肉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃肥肉",
+      "不能吃肥肉",
+      "不能吃肥肉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-16",
+    "query": "关于在西安做算法实习生，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在西安做算法实习生",
+    "top_texts": [
+      "在西安做算法实习生",
+      "在西安做算法实习生",
+      "在西安做算法实习生"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在西安做算法实习生",
+      "在西安做算法实习生",
+      "在西安做算法实习生"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-16",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只兔子",
+    "top_texts": [
+      "家里养了一只兔子",
+      "家里养了一只兔子",
+      "家里养了一只兔子"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只兔子",
+      "家里养了一只兔子",
+      "家里养了一只兔子"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-16",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝气泡水",
+    "top_texts": [
+      "平时都喝气泡水",
+      "平时都喝气泡水",
+      "平时都喝气泡水"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫",
+      "一直都喜欢麻辣烫"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-16",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在西安陆家嘴附近",
+    "top_texts": [
+      "租房住在西安陆家嘴附近",
+      "租房住在西安陆家嘴附近",
+      "租房住在西安陆家嘴附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在西安陆家嘴附近",
+      "租房住在西安陆家嘴附近",
+      "租房住在西安陆家嘴附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-17",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用润唇膏",
+    "top_texts": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-17",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢煎饼",
+    "top_texts": [
+      "一直都喜欢煎饼",
+      "一直都喜欢煎饼",
+      "一直都喜欢煎饼"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢煎饼",
+      "一直都喜欢煎饼",
+      "一直都喜欢煎饼"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-17",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢酒精",
+    "top_texts": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃酒精",
+      "不能吃酒精",
+      "不能吃酒精"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-17",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃酒精",
+    "top_texts": [
+      "不能吃酒精",
+      "不能吃酒精",
+      "不能吃酒精"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃酒精",
+      "不能吃酒精",
+      "不能吃酒精"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-17",
+    "query": "关于在合肥做小学老师，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在合肥做小学老师",
+    "top_texts": [
+      "在合肥做小学老师",
+      "在合肥做小学老师",
+      "在合肥做小学老师"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在合肥做小学老师",
+      "在合肥做小学老师",
+      "在合肥做小学老师"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-17",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了两条鱼",
+    "top_texts": [
+      "家里养了两条鱼",
+      "家里养了两条鱼",
+      "家里养了两条鱼"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了两条鱼",
+      "家里养了两条鱼",
+      "家里养了两条鱼"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-17",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝豆浆",
+    "top_texts": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢酒精",
+      "不喜欢酒精",
+      "不喜欢酒精"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-17",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在合肥滨江附近",
+    "top_texts": [
+      "租房住在合肥滨江附近",
+      "租房住在合肥滨江附近",
+      "租房住在合肥滨江附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在合肥滨江附近",
+      "租房住在合肥滨江附近",
+      "租房住在合肥滨江附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-18",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用身体乳",
+    "top_texts": [
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都只用身体乳",
+      "一直都只用身体乳",
+      "一直都只用身体乳"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-18",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢沙拉",
+    "top_texts": [
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-18",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢甜口菜",
+    "top_texts": [
+      "不喜欢甜口菜",
+      "不喜欢甜口菜",
+      "不喜欢甜口菜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢甜口菜",
+      "不喜欢甜口菜",
+      "不喜欢甜口菜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-18",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃甜口菜",
+    "top_texts": [
+      "不能吃甜口菜",
+      "不能吃甜口菜",
+      "不能吃甜口菜"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃甜口菜",
+      "不能吃甜口菜",
+      "不能吃甜口菜"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-18",
+    "query": "关于在福州做插画师，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在福州做插画师",
+    "top_texts": [
+      "在福州做插画师",
+      "在福州做插画师",
+      "在福州做插画师"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在福州做插画师",
+      "在福州做插画师",
+      "在福州做插画师"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-18",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只布偶猫",
+    "top_texts": [
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫",
+      "家里养了一只布偶猫"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-18",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝柠檬水",
+    "top_texts": [
+      "不喜欢甜口菜",
+      "不喜欢甜口菜",
+      "不喜欢甜口菜"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉",
+      "一直都喜欢沙拉"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-18",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在福州园区附近",
+    "top_texts": [
+      "租房住在福州园区附近",
+      "租房住在福州园区附近",
+      "租房住在福州园区附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在福州园区附近",
+      "租房住在福州园区附近",
+      "租房住在福州园区附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-19",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用卸妆油",
+    "top_texts": [
+      "平时都喝红茶",
+      "平时都喝红茶",
+      "平时都喝红茶"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "一直都喜欢米粉",
+      "一直都喜欢米粉",
+      "一直都喜欢米粉"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-19",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢米粉",
+    "top_texts": [
+      "一直都喜欢米粉",
+      "一直都喜欢米粉",
+      "一直都喜欢米粉"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢米粉",
+      "一直都喜欢米粉",
+      "一直都喜欢米粉"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-19",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢动物内脏",
+    "top_texts": [
+      "不喜欢动物内脏",
+      "不喜欢动物内脏",
+      "不喜欢动物内脏"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃动物内脏",
+      "不能吃动物内脏",
+      "不能吃动物内脏"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-19",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃动物内脏",
+    "top_texts": [
+      "不能吃动物内脏",
+      "不能吃动物内脏",
+      "不能吃动物内脏"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃动物内脏",
+      "不能吃动物内脏",
+      "不能吃动物内脏"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-19",
+    "query": "关于在无锡做测试工程师，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在无锡做测试工程师",
+    "top_texts": [
+      "在无锡做测试工程师",
+      "在无锡做测试工程师",
+      "在无锡做测试工程师"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在无锡做测试工程师",
+      "在无锡做测试工程师",
+      "在无锡做测试工程师"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-19",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只边牧",
+    "top_texts": [
+      "家里养了一只边牧",
+      "家里养了一只边牧",
+      "家里养了一只边牧"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只边牧",
+      "家里养了一只边牧",
+      "家里养了一只边牧"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-19",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝红茶",
+    "top_texts": [
+      "平时都喝红茶",
+      "平时都喝红茶",
+      "平时都喝红茶"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢米粉",
+      "一直都喜欢米粉",
+      "一直都喜欢米粉"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-19",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在无锡天河附近",
+    "top_texts": [
+      "不喜欢动物内脏",
+      "不喜欢动物内脏",
+      "不能吃动物内脏"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "租房住在无锡天河附近",
+      "租房住在无锡天河附近",
+      "租房住在无锡天河附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-20",
+    "query": "护肤品偏好是什么？",
+    "marker": "一直都只用",
+    "expected_memory_text": "一直都只用控油散粉",
+    "top_texts": [
+      "不能吃冰饮",
+      "不能吃冰饮",
+      "不能吃冰饮"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢冰饮",
+      "不喜欢冰饮",
+      "不喜欢冰饮"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-20",
+    "query": "他一直喜欢吃什么？",
+    "marker": "一直都喜欢",
+    "expected_memory_text": "一直都喜欢云吞面",
+    "top_texts": [
+      "一直都喜欢云吞面",
+      "一直都喜欢云吞面",
+      "一直都喜欢云吞面"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "一直都喜欢云吞面",
+      "一直都喜欢云吞面",
+      "一直都喜欢云吞面"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-20",
+    "query": "点餐时要避开什么口味？",
+    "marker": "不喜欢",
+    "expected_memory_text": "不喜欢冰饮",
+    "top_texts": [
+      "不喜欢冰饮",
+      "不喜欢冰饮",
+      "不喜欢冰饮"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不喜欢冰饮",
+      "不喜欢冰饮",
+      "不喜欢冰饮"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-20",
+    "query": "有什么不能吃的东西？",
+    "marker": "不能吃",
+    "expected_memory_text": "不能吃冰饮",
+    "top_texts": [
+      "不能吃冰饮",
+      "不能吃冰饮",
+      "不能吃冰饮"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "不能吃冰饮",
+      "不能吃冰饮",
+      "不能吃冰饮"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-20",
+    "query": "关于在昆明做宠物医生，主播应该怎么自然接话？",
+    "marker": "",
+    "expected_memory_text": "在昆明做宠物医生",
+    "top_texts": [
+      "在昆明做宠物医生",
+      "在昆明做宠物医生",
+      "在昆明做宠物医生"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "在昆明做宠物医生",
+      "在昆明做宠物医生",
+      "在昆明做宠物医生"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-20",
+    "query": "他家里有什么宠物？",
+    "marker": "家里养了",
+    "expected_memory_text": "家里养了一只仓鼠",
+    "top_texts": [
+      "家里养了一只仓鼠",
+      "家里养了一只仓鼠",
+      "家里养了一只仓鼠"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "家里养了一只仓鼠",
+      "家里养了一只仓鼠",
+      "家里养了一只仓鼠"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  },
+  {
+    "viewer_id": "id:sim-viewer-20",
+    "query": "这个观众平时爱喝什么？",
+    "marker": "平时都喝",
+    "expected_memory_text": "平时都喝椰子水",
+    "top_texts": [
+      "租房住在昆明高新附近",
+      "租房住在昆明高新附近",
+      "租房住在昆明高新附近"
+    ],
+    "top1_hit": false,
+    "top3_hit": false,
+    "top_texts_real_embedding": [
+      "不喜欢冰饮",
+      "不喜欢冰饮",
+      "不喜欢冰饮"
+    ],
+    "top1_hit_real_embedding": false,
+    "top3_hit_real_embedding": false
+  },
+  {
+    "viewer_id": "id:sim-viewer-20",
+    "query": "他住得离哪里近？",
+    "marker": "住在",
+    "expected_memory_text": "租房住在昆明高新附近",
+    "top_texts": [
+      "租房住在昆明高新附近",
+      "租房住在昆明高新附近",
+      "租房住在昆明高新附近"
+    ],
+    "top1_hit": true,
+    "top3_hit": true,
+    "top_texts_real_embedding": [
+      "租房住在昆明高新附近",
+      "租房住在昆明高新附近",
+      "租房住在昆明高新附近"
+    ],
+    "top1_hit_real_embedding": true,
+    "top3_hit_real_embedding": true
+  }
+]
