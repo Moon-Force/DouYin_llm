@@ -150,7 +150,7 @@ try {
   assert.equal(roomRequestBody.room_id, "room-2");
   assert.equal(switched.room_id, "room-2");
   assert.equal(store.roomId, "room-2");
-  assert.equal(store.connectionState, "switching");
+  assert.equal(store.connectionState, "loading_room_memory");
 } finally {
   global.fetch = originalFetch;
   global.EventSource = originalEventSource;

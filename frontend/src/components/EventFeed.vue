@@ -23,6 +23,10 @@ const props = defineProps({
     type: Array,
     required: true,
   },
+  roomSelected: {
+    type: Boolean,
+    default: true,
+  },
   areAllEventTypesSelected: {
     type: Boolean,
     required: true,
@@ -387,7 +391,7 @@ function toggleProcessingDetails(event) {
           v-if="events.length === 0"
           class="rounded-2xl border border-line/14 bg-panel/92 p-4 text-sm text-muted shadow-sm"
         >
-          {{ t("feed.empty") }}
+          {{ t(roomSelected ? "feed.empty" : "feed.waitingForRoom") }}
         </p>
       </div>
     </div>

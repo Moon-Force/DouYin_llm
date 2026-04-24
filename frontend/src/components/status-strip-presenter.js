@@ -19,6 +19,11 @@ const CONNECTION_BADGE_MAP = {
     labelKey: "status.connectionState.switching",
     icon: "pulse",
   },
+  loading_room_memory: {
+    tone: "warning",
+    labelKey: "status.connectionState.loadingRoomMemory",
+    icon: "pulse",
+  },
   live: {
     tone: "success",
     labelKey: "status.connectionState.live",

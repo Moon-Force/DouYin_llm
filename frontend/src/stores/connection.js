@@ -141,7 +141,7 @@ export const useConnectionStore = defineStore("connection", () => {
 
     isSwitchingRoom.value = true;
     roomError.value = "";
-    connectionState.value = "switching";
+    connectionState.value = "loading_room_memory";
     closeStream();
 
     try {

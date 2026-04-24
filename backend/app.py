@@ -40,6 +40,7 @@ memory_extractor = None
 collector = None
 memory_merge_service = None
 memory_confidence_service = None
+_primed_memory_room_id = ""
 
 
 class RoomSwitchRequest(BaseModel):
@@ -287,8 +288,6 @@ def ensure_runtime():
         embedding_service = EmbeddingService(settings)
     if vector_memory is None:
         vector_memory = VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
-        memories = long_term_store.list_all_viewer_memories(limit=10000)
-        vector_memory.prime_memory_index(memories, force_rebuild=_should_force_memory_rebuild(memories))
     if agent is None:
         agent = LivePromptAgent(settings, vector_memory, long_term_store)
     if memory_extractor is None:
@@ -324,9 +323,21 @@ def event_envelope(kind, data):
     return {"type": kind, "data": data}
 
 
+def prime_room_memory_index(room_id):
+    global _primed_memory_room_id
+    room_id = str(room_id or "").strip()
+    if not room_id or room_id == _primed_memory_room_id:
+        return
+    ensure_runtime()
+    memories = long_term_store.list_room_viewer_memories(room_id, limit=10000)
+    vector_memory.prime_memory_index(memories, force_rebuild=_should_force_memory_rebuild(memories))
+    _primed_memory_room_id = room_id
+
+
 def snapshot_with_status(room_id):
     ensure_runtime()
     room_id = str(room_id or "").strip()
+    prime_room_memory_index(room_id)
     snapshot = session_memory.snapshot(room_id)
     if not snapshot.recent_events:
         snapshot.recent_events = long_term_store.recent_events(room_id, limit=30)

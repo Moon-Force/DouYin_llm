@@ -186,6 +186,7 @@ class EmptyRoomBootstrapTests(unittest.TestCase):
     def test_backend_app_import_does_not_initialize_runtime_until_needed(self):
         fake_store = MagicMock()
         fake_store.list_all_viewer_memories.return_value = []
+        fake_store.list_room_viewer_memories.return_value = []
         fake_vector = MagicMock()
         fake_vector._collection_suffix = "cloud_bge_m3_latest"
 
@@ -242,6 +243,19 @@ class EmptyRoomBootstrapTests(unittest.TestCase):
             agent_cls.assert_called_once()
             collector_cls.assert_called_once()
             extractor_cls.assert_called_once()
+            manifest_mock.assert_not_called()
+            fake_store.list_all_viewer_memories.assert_not_called()
+            fake_vector.prime_memory_index.assert_not_called()
+
+            reloaded.snapshot_with_status("")
+
+            manifest_mock.assert_not_called()
+            fake_store.list_room_viewer_memories.assert_not_called()
+            fake_vector.prime_memory_index.assert_not_called()
+
+            reloaded.snapshot_with_status("32137571630")
+
+            fake_store.list_room_viewer_memories.assert_called_once_with("32137571630", limit=10000)
             manifest_mock.assert_called_once()
             fake_vector.prime_memory_index.assert_called_once_with([], force_rebuild=False)
 

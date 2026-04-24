@@ -39,6 +39,7 @@ export const messages = {
         live: "已连接",
         reconnecting: "重连中",
         switching: "切换中",
+        loadingRoomMemory: "加载房间记忆中",
       },
       modelResult: {
         idle: "空闲",
@@ -95,6 +96,7 @@ export const messages = {
       notes: "备注",
       content: "内容",
       empty: "当前筛选下没有消息。",
+      waitingForRoom: "先输入房间号，系统会在连接时加载该房间的观众记忆。",
       eventType: {
         comment: "弹幕",
         gift: "礼物",
@@ -357,6 +359,7 @@ export const messages = {
         live: "Live",
         reconnecting: "Reconnecting",
         switching: "Switching",
+        loadingRoomMemory: "Loading room memory",
       },
       modelResult: {
         idle: "Idle",
@@ -413,6 +416,7 @@ export const messages = {
       notes: "Notes",
       content: "Content",
       empty: "No events match the current filters.",
+      waitingForRoom: "Enter a room id first. Viewer memories load when the room connects.",
       eventType: {
         comment: "Comment",
         gift: "Gift",

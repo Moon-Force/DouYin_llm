@@ -30,6 +30,12 @@ expectBadge("switching", {
   icon: "pulse",
 });
 
+expectBadge("loading_room_memory", {
+  tone: "warning",
+  labelKey: "status.connectionState.loadingRoomMemory",
+  icon: "pulse",
+});
+
 expectBadge("live", {
   tone: "success",
   labelKey: "status.connectionState.live",

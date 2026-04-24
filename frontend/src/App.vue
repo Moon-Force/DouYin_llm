@@ -104,6 +104,7 @@ onBeforeUnmount(() => {
         :event-filters="eventFilters"
         :selected-event-types="selectedEventTypes"
         :are-all-event-types-selected="areAllEventTypesSelected"
+        :room-selected="Boolean(roomId)"
         @toggle-filter="liveStore.toggleEventType"
         @select-all-filters="liveStore.selectAllEventTypes"
         @clear-events="liveStore.clearEvents"

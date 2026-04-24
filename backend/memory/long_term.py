@@ -830,6 +830,31 @@ class LongTermStore:
             ).fetchall()
         return [self._viewer_memory_from_row(row) for row in rows if row]
 
+    def list_room_viewer_memories(self, room_id, limit=5000, now_ms=None):
+        room_id = str(room_id or "").strip()
+        if not room_id:
+            return []
+        limit = max(1, min(int(limit), 20000))
+        now_ms = safe_int(now_ms, current_millis())
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                       polarity, temporal_scope,
+                       confidence, created_at, updated_at, last_recalled_at, recall_count,
+                       source_kind, status, is_pinned, correction_reason, corrected_by,
+                       last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
+                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
+                       stability_score, interaction_value_score, clarity_score, evidence_score,
+                       lifecycle_kind, expires_at
+                FROM viewer_memories
+                WHERE room_id = ? AND status <> 'deleted' AND (expires_at = 0 OR expires_at > ?)
+                ORDER BY updated_at DESC LIMIT ?
+                """,
+                (room_id, now_ms, limit),
+            ).fetchall()
+        return [self._viewer_memory_from_row(row) for row in rows if row]
+
     def list_viewer_memories(self, room_id, viewer_id, limit=20, now_ms=None):
         if not viewer_id:
             return []
