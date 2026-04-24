@@ -28,6 +28,7 @@ from backend.services.memory_extractor_client import MemoryExtractorClient
 from backend.services.memory_extractor import ViewerMemoryExtractor
 from backend.services.memory_merge_service import ViewerMemoryMergeService
 from backend.services.memory_recall_text import MemoryRecallTextService
+from backend.services.memory_reranker import GiteeRerankClient, MemoryReranker
 from backend.services.recall_query_rewriter import RecallQueryRewriter
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -43,6 +44,7 @@ collector = None
 memory_merge_service = None
 memory_confidence_service = None
 memory_recall_text_service = None
+memory_reranker = None
 _primed_memory_room_id = ""
 
 
@@ -242,6 +244,26 @@ def _optional_memory_llm_client(purpose):
         return None
 
 
+def _build_memory_reranker():
+    if not getattr(settings, "memory_rerank_enabled", False):
+        return MemoryReranker(enabled=False)
+    api_key = str(getattr(settings, "memory_rerank_api_key", "") or "").strip()
+    if not api_key:
+        logging.warning("Memory rerank is enabled but MEMORY_RERANK_API_KEY is empty; disabling rerank")
+        return MemoryReranker(enabled=False)
+    try:
+        client = GiteeRerankClient(
+            base_url=getattr(settings, "memory_rerank_base_url", "https://ai.gitee.com/v1"),
+            api_key=api_key,
+            model=getattr(settings, "memory_rerank_model", "Qwen3-Reranker-0.6B"),
+            timeout_seconds=getattr(settings, "memory_rerank_timeout_seconds", 0.8),
+        )
+    except Exception:
+        logging.exception("Memory rerank client initialization failed; disabling rerank")
+        return MemoryReranker(enabled=False)
+    return MemoryReranker(client=client, enabled=True, provider="gitee")
+
+
 def _candidate_extraction_source(candidate):
     source = str(candidate.get("extraction_source") or "").strip().lower()
     if source == "llm":
@@ -294,11 +316,11 @@ def _viewer_note_preview(room_id, viewer_id, limit=5):
 
 
 def ensure_runtime():
-    global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service, memory_recall_text_service
+    global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service, memory_recall_text_service, memory_reranker
 
     if all(
         component is not None
-        for component in (broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service, memory_recall_text_service)
+        for component in (broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service, memory_recall_text_service, memory_reranker)
     ):
         return
 
@@ -316,6 +338,10 @@ def ensure_runtime():
         embedding_service = EmbeddingService(settings)
     if vector_memory is None:
         vector_memory = VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
+    if memory_reranker is None:
+        memory_reranker = _build_memory_reranker()
+    if vector_memory is not None:
+        vector_memory.set_reranker(memory_reranker)
     memory_llm_client = None
     memory_llm_client_attempted = False
     if memory_extractor is None:

@@ -65,6 +65,7 @@ class VectorMemory:
         self.collection = None
         self.memory_collection = None
         self.embedding = embedding_service or HashEmbeddingFunction()
+        self.reranker = None
         self._collection_suffix = settings.embedding_signature() if settings else "hash_default"
         self._semantic_backend_reason = ""
 
@@ -127,6 +128,15 @@ class VectorMemory:
     def _final_k(self, limit):
         base = getattr(self.settings, "semantic_final_k", limit) if self.settings else limit
         return min(int(limit), int(base))
+
+    def set_reranker(self, reranker):
+        self.reranker = reranker
+
+    def _rerank_items(self, query_text, items, limit):
+        if not self.reranker or len(items) <= 1:
+            return items
+        top_n = getattr(self.settings, "memory_rerank_top_n", limit) if self.settings else limit
+        return self.reranker.rerank(query_text, items, top_n=max(int(limit), int(top_n)))
 
     @staticmethod
     def _memory_metadata(memory):
@@ -418,6 +428,7 @@ class VectorMemory:
                         }
                     )
                 items.sort(key=lambda item: self._final_rank_key(item, query_text, self._decay_halflife()), reverse=True)
+                items = self._rerank_items(query_text, items, limit)
                 return items[:final_k]
             except Exception as exc:
                 if self._strict_mode_enabled():
@@ -449,4 +460,5 @@ class VectorMemory:
                 )
 
         scored.sort(key=lambda item: self._final_rank_key(item, query_text, self._decay_halflife()), reverse=True)
+        scored = self._rerank_items(query_text, scored, limit)
         return scored[:final_k]

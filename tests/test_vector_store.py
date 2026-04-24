@@ -342,6 +342,50 @@ class VectorMemoryTests(unittest.TestCase):
         self.assertEqual(result[0]["memory_text"], "喜欢拉面")
         self.assertEqual(result[0]["memory_recall_text"], "喜欢拉面；爱吃面条；豚骨拉面；食物偏好")
 
+    def test_similar_memories_applies_optional_reranker_before_final_slice(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.return_value = {
+            "ids": [["m-cat", "m-ramen"]],
+            "documents": [["宠物 猫", "食物 拉面"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "fact",
+                    "memory_text": "家里养了猫",
+                    "memory_recall_text": "宠物 猫",
+                    "confidence": 0.9,
+                    "updated_at": 300,
+                    "recall_count": 1,
+                    "status": "active",
+                },
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "memory_text": "喜欢拉面",
+                    "memory_recall_text": "食物 拉面",
+                    "confidence": 0.8,
+                    "updated_at": 200,
+                    "recall_count": 1,
+                    "status": "active",
+                },
+            ]],
+            "distances": [[0.2, 0.21]],
+        }
+        reranker = MagicMock()
+        reranker.rerank.side_effect = lambda query, items, top_n: [items[1], items[0]]
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+        store.set_reranker(reranker)
+
+        result = store.similar_memories("想吃面", "room-1", "viewer-1", limit=1)
+
+        self.assertEqual([item["memory_id"] for item in result], ["m-ramen"])
+        reranker.rerank.assert_called_once()
+
     def test_sync_memory_removes_deleted_or_invalid_entries(self):
         fake_embedding = MagicMock()
         fake_embedding.embed_text.return_value = [0.1, 0.2]
