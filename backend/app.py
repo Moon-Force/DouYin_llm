@@ -370,7 +370,7 @@ async def process_event(event: LiveEvent):
 
     if processing_status.memory_extraction_attempted:
         try:
-            extracted_candidates = list(extract_method(event) or [])
+            extracted_candidates = list(await asyncio.to_thread(extract_method, event) or [])
         except Exception:
             extracted_candidates = []
             logging.exception("Memory extraction pipeline failed for event_id=%s", event.event_id)
@@ -387,7 +387,8 @@ async def process_event(event: LiveEvent):
         for candidate in current_comment_memories
         if str(candidate.get("memory_text") or "").strip()
     ]
-    suggestion = agent.maybe_generate(
+    suggestion = await asyncio.to_thread(
+        agent.maybe_generate,
         event,
         recent_events,
         current_comment_memories=current_comment_memories,

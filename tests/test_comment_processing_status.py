@@ -1,5 +1,6 @@
 import asyncio
 import unittest
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -28,6 +29,64 @@ def make_event():
 
 
 class CommentProcessingStatusTests(unittest.TestCase):
+    def test_process_event_does_not_block_event_loop_during_slow_extraction(self):
+        event = make_event()
+
+        original_session_memory = app_module.session_memory
+        original_long_term_store = app_module.long_term_store
+        original_agent = app_module.agent
+        original_memory_extractor = app_module.memory_extractor
+        original_vector_memory = app_module.vector_memory
+        original_broker = app_module.broker
+        try:
+            app_module.session_memory = MagicMock()
+            app_module.session_memory.recent_events.return_value = [event]
+            app_module.session_memory.stats.return_value = SimpleNamespace(
+                model_dump=lambda: {"room_id": "room-1", "total_events": 1}
+            )
+
+            app_module.long_term_store = MagicMock()
+            app_module.long_term_store.list_viewer_notes.return_value = []
+
+            app_module.agent = MagicMock()
+            app_module.agent.maybe_generate.return_value = None
+            app_module.agent.consume_last_generation_metadata.return_value = {}
+            app_module.agent.current_status.return_value = {
+                "mode": "heuristic",
+                "model": "heuristic",
+                "backend": "local",
+                "last_result": "idle",
+                "last_error": "",
+                "updated_at": 0,
+            }
+
+            def slow_extract(_event):
+                time.sleep(0.2)
+                return []
+
+            app_module.memory_extractor = MagicMock()
+            app_module.memory_extractor.extract.side_effect = slow_extract
+            app_module.vector_memory = MagicMock()
+            app_module.broker = MagicMock()
+            app_module.broker.publish = AsyncMock()
+
+            async def scenario():
+                task = asyncio.create_task(app_module.process_event(event))
+                start = time.perf_counter()
+                await asyncio.sleep(0.05)
+                elapsed = time.perf_counter() - start
+                await task
+                return elapsed
+
+            self.assertLess(asyncio.run(scenario()), 0.15)
+        finally:
+            app_module.session_memory = original_session_memory
+            app_module.long_term_store = original_long_term_store
+            app_module.agent = original_agent
+            app_module.memory_extractor = original_memory_extractor
+            app_module.vector_memory = original_vector_memory
+            app_module.broker = original_broker
+
     def test_process_event_attaches_viewer_note_preview_to_event_metadata(self):
         event = make_event()
 
