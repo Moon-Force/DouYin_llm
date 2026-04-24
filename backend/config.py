@@ -101,6 +101,18 @@ class Settings:
     semantic_memory_min_score: float = field(default_factory=lambda: _env_float("SEMANTIC_MEMORY_MIN_SCORE", 0.35))
     semantic_memory_query_limit: int = field(default_factory=lambda: _env_int("SEMANTIC_MEMORY_QUERY_LIMIT", 6))
     semantic_final_k: int = field(default_factory=lambda: _env_int("SEMANTIC_FINAL_K", 3))
+    memory_rerank_enabled: bool = field(default_factory=lambda: _env_bool("MEMORY_RERANK_ENABLED", False))
+    memory_rerank_base_url: str = field(
+        default_factory=lambda: os.getenv("MEMORY_RERANK_BASE_URL", "https://ai.gitee.com/v1").strip().rstrip("/")
+    )
+    memory_rerank_model: str = field(
+        default_factory=lambda: os.getenv("MEMORY_RERANK_MODEL", "Qwen3-Reranker-0.6B").strip()
+    )
+    memory_rerank_api_key: str = field(default_factory=lambda: os.getenv("MEMORY_RERANK_API_KEY", "").strip())
+    memory_rerank_timeout_seconds: float = field(
+        default_factory=lambda: _env_float("MEMORY_RERANK_TIMEOUT_SECONDS", 0.8)
+    )
+    memory_rerank_top_n: int = field(default_factory=lambda: _env_int("MEMORY_RERANK_TOP_N", 3))
     memory_extractor_enabled: bool = field(default_factory=lambda: _env_bool("MEMORY_EXTRACTOR_ENABLED", True))
     memory_extractor_mode: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODE", "ollama").strip().lower())
     memory_extractor_base_url: str = field(

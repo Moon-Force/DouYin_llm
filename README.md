@@ -160,6 +160,17 @@ npm run dev -- --host 127.0.0.1 --strictPort --port 5173
 - `EMBEDDING_API_KEY`
 - `SEMANTIC_*`
 
+### 记忆 rerank 相关
+
+`VectorMemory` 会先用 embedding/Chroma 召回候选，再可选调用在线 reranker 对候选重排。默认关闭；未配置 key 或接口异常时，会自动回退到原向量排序，不阻断直播主链路。
+
+- `MEMORY_RERANK_ENABLED`：是否启用在线重排，默认 `false`
+- `MEMORY_RERANK_BASE_URL`：OpenAI-compatible rerank 服务地址，默认 `https://ai.gitee.com/v1`
+- `MEMORY_RERANK_MODEL`：默认 `Qwen3-Reranker-0.6B`
+- `MEMORY_RERANK_API_KEY`：rerank API key，不要提交到仓库
+- `MEMORY_RERANK_TIMEOUT_SECONDS`：单次重排超时，默认 `0.8`
+- `MEMORY_RERANK_TOP_N`：传给 reranker 的候选上限，默认 `3`
+
 ### 本地模型目录约定
 
 项目根目录保留了 `model/` 作为本地模型存放目录，方便团队成员统一放置不提交到仓库的大模型文件：
@@ -315,8 +326,8 @@ python backend/memory/rebuild_embeddings.py
 4. 记忆合并对近义和弱冲突的覆盖不够
    当前 `ViewerMemoryMergeService` 能处理同 canonical 精确匹配（merge）、更具体表达（upgrade）、方向冲突（supersede），但对近义但不完全相同的表达、弱冲突偏好变化的覆盖还不够，长期仍可能出现冗余记忆。
 
-5. 召回排序已经系统利用质量信号，但当前仍以 feature rerank 为主
-   当前召回排序已经把 `semantic_score` 与业务特征分开处理，并系统使用 `interaction_value_score`、`evidence_score`、`stability_score`、`confidence`、`source_kind`、`is_pinned` 和时间衰减等信号做 feature rerank，不再只依赖纯向量相似度。但这套排序仍然主要依赖人工设计特征和权重，尚未接入更强的业务反馈或专门 reranker model。
+5. 召回排序已经支持 feature rerank + 可选模型 rerank
+   当前召回排序已经把 `semantic_score` 与业务特征分开处理，并系统使用 `interaction_value_score`、`evidence_score`、`stability_score`、`confidence`、`source_kind`、`is_pinned` 和时间衰减等信号做 feature rerank，不再只依赖纯向量相似度。线上还可以通过 `MEMORY_RERANK_ENABLED=true` 接入专门 reranker model 对候选二次重排；后续仍可继续接入业务反馈闭环和更细的召回可观测指标。
 
 6. 抽取评测和高并发保护仍不够完善
    当前已经有抽取相关测试和离线验证（`tests/fixtures/memory_extraction/`、`artifacts/memory_extraction_reports/`），也已经有严格模式和召回回归测试。但还缺少问句误入库率、短期状态误入库率、重复记忆生成率等持续指标，同时记忆抽取仍然是同步阻塞调用（`extract_method(event)`），没有异步队列、batch 或速率限制。当前单房间直播场景下影响不大，但如果未来扩展到多房间或高频场景，可能造成事件堆积。

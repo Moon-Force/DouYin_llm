@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
+from unittest.mock import ANY
 
 import backend.app as app_module
 from backend.schemas.live import LiveEvent
@@ -388,6 +389,7 @@ class OldViewerMessageFlowTests(unittest.TestCase):
                 raw_memory_text="我还是最爱吃豚骨拉面",
                 confidence=0.91,
                 source_event_id="evt-old-viewer-1",
+                memory_recall_text=ANY,
             )
             app_module.long_term_store.save_viewer_memory.assert_not_called()
             app_module.vector_memory.sync_memory.assert_called_once_with(upgraded_memory)

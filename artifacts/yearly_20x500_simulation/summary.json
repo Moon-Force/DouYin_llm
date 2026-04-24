@@ -1,0 +1,43 @@
+{
+  "simulation": {
+    "profile_count": 20,
+    "comments_per_viewer": 500,
+    "total_comments": 10000,
+    "time_span_days": 364,
+    "memory_bearing_comments": 480,
+    "filler_comments": 9520
+  },
+  "memory_profile": {
+    "expected_unique_memory_count": 160,
+    "active_memory_count": 160,
+    "matched_expected_unique_count": 160,
+    "missing_expected_unique_count": 0,
+    "unexpected_active_unique_count": 0,
+    "duplicate_group_count": 0,
+    "duplicate_memory_rows": 0,
+    "unique_recall": 1.0,
+    "unique_precision": 1.0
+  },
+  "merge_actions": {
+    "create": 160,
+    "merge": 320
+  },
+  "semantic_recall_hash": {
+    "case_count": 160,
+    "top1_hits": 48,
+    "top3_hits": 62,
+    "top1_rate": 0.3,
+    "top3_rate": 0.3875
+  },
+  "semantic_recall_real_embedding": {
+    "embedding_model": "bge-m3:latest",
+    "index_batch_size": 2,
+    "case_count": 160,
+    "top1_hits": 71,
+    "top3_hits": 100,
+    "top1_rate": 0.44375,
+    "top3_rate": 0.625,
+    "elapsed_seconds": 37.337
+  },
+  "elapsed_seconds": 185.365
+}

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
+from unittest.mock import ANY
 
 import backend.app as app_module
 from backend.schemas.live import LiveEvent
@@ -288,6 +289,81 @@ class CommentProcessingStatusTests(unittest.TestCase):
             app_module.memory_extractor = original_memory_extractor
             app_module.collector = original_collector
 
+    def test_ensure_runtime_wires_memory_reranker_when_enabled(self):
+        original_settings = app_module.settings
+        original_broker = app_module.broker
+        original_session_memory = app_module.session_memory
+        original_long_term_store = app_module.long_term_store
+        original_embedding_service = app_module.embedding_service
+        original_vector_memory = app_module.vector_memory
+        original_agent = app_module.agent
+        original_memory_extractor = app_module.memory_extractor
+        original_collector = app_module.collector
+        original_memory_merge_service = getattr(app_module, "memory_merge_service", None)
+        original_memory_confidence_service = getattr(app_module, "memory_confidence_service", None)
+        original_memory_recall_text_service = getattr(app_module, "memory_recall_text_service", None)
+        original_memory_reranker = getattr(app_module, "memory_reranker", None)
+        try:
+            app_module.settings = SimpleNamespace(
+                ensure_dirs=MagicMock(),
+                redis_url="redis://localhost:6379/0",
+                session_ttl_seconds=3600,
+                database_path="data/live_prompter.db",
+                chroma_dir="data/chroma",
+                memory_extractor_enabled=False,
+                memory_rerank_enabled=True,
+                memory_rerank_base_url="https://ai.gitee.com/v1",
+                memory_rerank_model="Qwen3-Reranker-0.6B",
+                memory_rerank_api_key="test-key",
+                memory_rerank_timeout_seconds=0.8,
+                memory_rerank_top_n=3,
+            )
+            app_module.broker = None
+            app_module.session_memory = None
+            app_module.long_term_store = None
+            app_module.embedding_service = None
+            app_module.vector_memory = None
+            app_module.agent = None
+            app_module.memory_extractor = None
+            app_module.collector = None
+            app_module.memory_merge_service = None
+            app_module.memory_confidence_service = None
+            app_module.memory_recall_text_service = None
+            app_module.memory_reranker = None
+
+            vector_instance = MagicMock()
+            with patch("backend.app._should_force_memory_rebuild", return_value=False), patch(
+                "backend.app.EventBroker", return_value=MagicMock()
+            ), patch("backend.app.SessionMemory", return_value=MagicMock()), patch(
+                "backend.app.LongTermStore"
+            ) as long_term_store_cls, patch(
+                "backend.app.EmbeddingService", return_value=MagicMock()
+            ), patch("backend.app.VectorMemory", return_value=vector_instance), patch(
+                "backend.app.LivePromptAgent", return_value=MagicMock()
+            ), patch("backend.app.DouyinCollector", return_value=MagicMock()):
+                long_term_store_instance = MagicMock()
+                long_term_store_instance.list_all_viewer_memories.return_value = []
+                long_term_store_cls.return_value = long_term_store_instance
+
+                app_module.ensure_runtime()
+
+            self.assertTrue(app_module.memory_reranker.enabled)
+            vector_instance.set_reranker.assert_called_with(app_module.memory_reranker)
+        finally:
+            app_module.settings = original_settings
+            app_module.broker = original_broker
+            app_module.session_memory = original_session_memory
+            app_module.long_term_store = original_long_term_store
+            app_module.embedding_service = original_embedding_service
+            app_module.vector_memory = original_vector_memory
+            app_module.agent = original_agent
+            app_module.memory_extractor = original_memory_extractor
+            app_module.collector = original_collector
+            app_module.memory_merge_service = original_memory_merge_service
+            app_module.memory_confidence_service = original_memory_confidence_service
+            app_module.memory_recall_text_service = original_memory_recall_text_service
+            app_module.memory_reranker = original_memory_reranker
+
     def test_ensure_runtime_falls_back_to_rule_only_when_ollama_client_init_fails(self):
         original_settings = app_module.settings
         original_broker = app_module.broker
@@ -512,6 +588,7 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 room_id="room-1",
                 viewer_id="id:user-1",
                 memory_text="likes ramen",
+                memory_recall_text=ANY,
                 source_event_id="evt-1",
                 memory_type="preference",
                 polarity="neutral",
@@ -654,6 +731,7 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 room_id="room-1",
                 viewer_id="id:user-1",
                 memory_text="likes ramen",
+                memory_recall_text=ANY,
                 source_event_id="evt-1",
                 memory_type="preference",
                 polarity="positive",

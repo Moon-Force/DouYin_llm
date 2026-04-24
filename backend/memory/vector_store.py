@@ -65,6 +65,7 @@ class VectorMemory:
         self.collection = None
         self.memory_collection = None
         self.embedding = embedding_service or HashEmbeddingFunction()
+        self.reranker = None
         self._collection_suffix = settings.embedding_signature() if settings else "hash_default"
         self._semantic_backend_reason = ""
 
@@ -128,13 +129,26 @@ class VectorMemory:
         base = getattr(self.settings, "semantic_final_k", limit) if self.settings else limit
         return min(int(limit), int(base))
 
+    def set_reranker(self, reranker):
+        self.reranker = reranker
+
+    def _rerank_items(self, query_text, items, limit):
+        if not self.reranker or len(items) <= 1:
+            return items
+        top_n = getattr(self.settings, "memory_rerank_top_n", limit) if self.settings else limit
+        return self.reranker.rerank(query_text, items, top_n=max(int(limit), int(top_n)))
+
     @staticmethod
     def _memory_metadata(memory):
+        memory_text = str(getattr(memory, "memory_text", "") or "")
+        memory_recall_text = str(getattr(memory, "memory_recall_text", "") or "") or memory_text
         return {
             "room_id": memory.room_id,
             "viewer_id": memory.viewer_id,
             "memory_type": memory.memory_type,
             "source_event_id": memory.source_event_id,
+            "memory_text": memory_text,
+            "memory_recall_text": memory_recall_text,
             "confidence": memory.confidence,
             "updated_at": memory.updated_at,
             "recall_count": memory.recall_count,
@@ -164,10 +178,11 @@ class VectorMemory:
             metadata = self._memory_metadata(memory)
             if self._is_expired(metadata, now_ms):
                 continue
+            recall_text = metadata.get("memory_recall_text") or memory.memory_text
             records.append(
                 {
                     "id": memory.memory_id,
-                    "document": memory.memory_text,
+                    "document": recall_text,
                     "metadata": metadata,
                 }
             )
@@ -340,17 +355,18 @@ class VectorMemory:
             return
 
         metadata = self._memory_metadata(memory)
+        document = metadata.get("memory_recall_text") or memory.memory_text
         self._memory_items = [item for item in self._memory_items if item["id"] != memory.memory_id]
-        self._memory_items.append({"id": memory.memory_id, "document": memory.memory_text, "metadata": metadata})
+        self._memory_items.append({"id": memory.memory_id, "document": document, "metadata": metadata})
         self._memory_items = self._memory_items[-3000:]
 
         self._ensure_semantic_backend()
         if self.memory_collection:
             self.memory_collection.upsert(
                 ids=[memory.memory_id],
-                documents=[memory.memory_text],
+                documents=[document],
                 metadatas=[metadata],
-                embeddings=[self.embedding.embed_text(memory.memory_text)],
+                embeddings=[self.embedding.embed_text(document)],
             )
 
     def remove_memory(self, memory_id):
@@ -405,12 +421,14 @@ class VectorMemory:
                     items.append(
                         {
                             "memory_id": memory_id,
-                            "memory_text": documents[index] if index < len(documents) else "",
+                            "memory_text": metadata.get("memory_text") or (documents[index] if index < len(documents) else ""),
+                            "memory_recall_text": metadata.get("memory_recall_text") or (documents[index] if index < len(documents) else ""),
                             "score": score,
                             "metadata": metadata,
                         }
                     )
                 items.sort(key=lambda item: self._final_rank_key(item, query_text, self._decay_halflife()), reverse=True)
+                items = self._rerank_items(query_text, items, limit)
                 return items[:final_k]
             except Exception as exc:
                 if self._strict_mode_enabled():
@@ -434,11 +452,13 @@ class VectorMemory:
                 scored.append(
                     {
                         "memory_id": item["id"],
-                        "memory_text": target_text,
+                        "memory_text": metadata.get("memory_text") or target_text,
+                        "memory_recall_text": metadata.get("memory_recall_text") or target_text,
                         "score": score,
                         "metadata": metadata,
                     }
                 )
 
         scored.sort(key=lambda item: self._final_rank_key(item, query_text, self._decay_halflife()), reverse=True)
+        scored = self._rerank_items(query_text, scored, limit)
         return scored[:final_k]
