@@ -36,6 +36,31 @@ class ViewerMemoryMergeServiceTests(unittest.TestCase):
         self.assertEqual(decision.action, "merge")
         self.assertEqual(decision.target_memory_id, "mem-1")
 
+    def test_decide_merge_when_existing_memory_is_dict_from_store(self):
+        from backend.services.memory_merge_service import ViewerMemoryMergeService
+
+        service = ViewerMemoryMergeService(similarity_threshold=0.88, supersede_threshold=0.82)
+        incoming = {
+            "memory_text": "likes ramen",
+            "memory_text_raw": "I really like ramen",
+            "memory_text_canonical": "likes ramen",
+            "memory_type": "preference",
+            "confidence": 0.86,
+        }
+        existing = [
+            {
+                "memory_id": "mem-1",
+                "memory_text": "likes ramen",
+                "memory_type": "preference",
+                "status": "active",
+            }
+        ]
+
+        decision = service.decide(incoming, existing, similar_memories=[])
+
+        self.assertEqual(decision.action, "merge")
+        self.assertEqual(decision.target_memory_id, "mem-1")
+
     def test_decide_upgrade_when_incoming_is_more_specific(self):
         from backend.services.memory_merge_service import ViewerMemoryMergeService
 

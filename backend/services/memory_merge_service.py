@@ -43,16 +43,22 @@ class ViewerMemoryMergeService:
         normalized = str(text or "")
         return any(signal in normalized for signal in signals)
 
+    @staticmethod
+    def _field(memory, name, default=""):
+        if isinstance(memory, dict):
+            return memory.get(name, default)
+        return getattr(memory, name, default)
+
     def _find_existing(self, target_memory_id, existing_memories):
         for memory in existing_memories:
-            if getattr(memory, "memory_id", "") == target_memory_id:
+            if self._field(memory, "memory_id") == target_memory_id:
                 return memory
         return None
 
     def _same_canonical_match(self, incoming_text, existing_memories):
         normalized_incoming = self._normalize(incoming_text)
         for memory in existing_memories:
-            if self._normalize(getattr(memory, "memory_text", "")) == normalized_incoming:
+            if self._normalize(self._field(memory, "memory_text")) == normalized_incoming:
                 return memory
         return None
 
@@ -90,29 +96,29 @@ class ViewerMemoryMergeService:
         if same_match is not None:
             return MemoryMergeDecision(
                 action="merge",
-                target_memory_id=same_match.memory_id,
+                target_memory_id=self._field(same_match, "memory_id"),
                 reason="same_canonical",
             )
 
         supersede_match = self._best_similar_existing(existing_memories, similar_memories, self.supersede_threshold)
         if supersede_match is not None:
-            existing_text = str(getattr(supersede_match, "memory_text", "") or "")
+            existing_text = str(self._field(supersede_match, "memory_text") or "")
             incoming_negative = self._has_any_signal(incoming_text, NEGATIVE_SIGNALS)
             existing_positive = self._has_any_signal(existing_text, POSITIVE_SIGNALS)
             if incoming_negative and existing_positive:
                 return MemoryMergeDecision(
                     action="supersede",
-                    target_memory_id=supersede_match.memory_id,
+                    target_memory_id=self._field(supersede_match, "memory_id"),
                     reason="conflicting_direction",
                 )
 
         upgrade_match = self._best_similar_existing(existing_memories, similar_memories, self.similarity_threshold)
         if upgrade_match is not None:
-            existing_text = str(getattr(upgrade_match, "memory_text", "") or "").strip()
+            existing_text = str(self._field(upgrade_match, "memory_text") or "").strip()
             if self._looks_more_specific(incoming_text, existing_text):
                 return MemoryMergeDecision(
                     action="upgrade",
-                    target_memory_id=upgrade_match.memory_id,
+                    target_memory_id=self._field(upgrade_match, "memory_id"),
                     reason="more_specific",
                 )
 
