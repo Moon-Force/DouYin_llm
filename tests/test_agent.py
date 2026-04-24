@@ -83,6 +83,26 @@ class LivePromptAgentTests(unittest.TestCase):
         )
         self.assertEqual(context["recalled_memory_ids"], ["m1", "m2"])
 
+    def test_build_context_uses_rewritten_query_for_memory_recall(self):
+        vector_memory = MagicMock()
+        vector_memory.similar_memories.return_value = []
+        long_term_store = MagicMock()
+        long_term_store.get_user_profile.return_value = {}
+        query_rewriter = MagicMock()
+        query_rewriter.rewrite.return_value = "最近想吃面；召回拉面和饮食偏好"
+        agent = LivePromptAgent(make_settings(), vector_memory, long_term_store, query_rewriter=query_rewriter)
+
+        event = make_event(content="最近想吃面")
+        agent.build_context(event, [])
+
+        query_rewriter.rewrite.assert_called_once_with("最近想吃面", room_id="room-1", viewer_id="id:user-1")
+        vector_memory.similar_memories.assert_called_once_with(
+            "最近想吃面；召回拉面和饮食偏好",
+            room_id="room-1",
+            viewer_id="id:user-1",
+            limit=2,
+        )
+
     def test_maybe_generate_skips_llm_for_gift_events(self):
         agent = LivePromptAgent(make_settings(), MagicMock(), MagicMock())
         event = make_event(event_type="gift", content="", nickname="gift-viewer")

@@ -244,6 +244,52 @@ class ViewerMemoryCorrectionStoreTests(unittest.TestCase):
         self.assertEqual(fetched.superseded_by, "")
         self.assertEqual(fetched.merge_parent_id, "")
 
+    def test_save_viewer_memory_persists_recall_text(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="likes ramen",
+            memory_recall_text="viewer likes ramen, noodles, tonkotsu ramen, food preference",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.78,
+        )
+
+        self.assertEqual(
+            memory.memory_recall_text,
+            "viewer likes ramen, noodles, tonkotsu ramen, food preference",
+        )
+
+        fetched = self.store.get_viewer_memory(memory.memory_id)
+        self.assertEqual(
+            fetched.memory_recall_text,
+            "viewer likes ramen, noodles, tonkotsu ramen, food preference",
+        )
+
+        listed = self.store.list_viewer_memories("room-1", "viewer-1", limit=10)
+        self.assertEqual(
+            listed[0]["memory_recall_text"],
+            "viewer likes ramen, noodles, tonkotsu ramen, food preference",
+        )
+
+    def test_viewer_memory_recall_text_defaults_to_memory_text(self):
+        memory = self.store.save_viewer_memory(
+            room_id="room-1",
+            viewer_id="viewer-1",
+            memory_text="likes ramen",
+            source_event_id="evt-1",
+            memory_type="preference",
+            confidence=0.78,
+        )
+
+        self.assertEqual(memory.memory_recall_text, "likes ramen")
+
+        with self.store._connect() as connection:
+            connection.execute("UPDATE viewer_memories SET memory_recall_text = '' WHERE memory_id = ?", (memory.memory_id,))
+
+        fetched = self.store.get_viewer_memory(memory.memory_id)
+        self.assertEqual(fetched.memory_recall_text, "likes ramen")
+
     def test_existing_viewer_memory_rows_get_merge_metadata_defaults(self):
         memory = self.store.save_viewer_memory(
             room_id="room-1",

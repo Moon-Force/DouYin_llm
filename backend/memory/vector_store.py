@@ -130,11 +130,15 @@ class VectorMemory:
 
     @staticmethod
     def _memory_metadata(memory):
+        memory_text = str(getattr(memory, "memory_text", "") or "")
+        memory_recall_text = str(getattr(memory, "memory_recall_text", "") or "") or memory_text
         return {
             "room_id": memory.room_id,
             "viewer_id": memory.viewer_id,
             "memory_type": memory.memory_type,
             "source_event_id": memory.source_event_id,
+            "memory_text": memory_text,
+            "memory_recall_text": memory_recall_text,
             "confidence": memory.confidence,
             "updated_at": memory.updated_at,
             "recall_count": memory.recall_count,
@@ -164,10 +168,11 @@ class VectorMemory:
             metadata = self._memory_metadata(memory)
             if self._is_expired(metadata, now_ms):
                 continue
+            recall_text = metadata.get("memory_recall_text") or memory.memory_text
             records.append(
                 {
                     "id": memory.memory_id,
-                    "document": memory.memory_text,
+                    "document": recall_text,
                     "metadata": metadata,
                 }
             )
@@ -340,17 +345,18 @@ class VectorMemory:
             return
 
         metadata = self._memory_metadata(memory)
+        document = metadata.get("memory_recall_text") or memory.memory_text
         self._memory_items = [item for item in self._memory_items if item["id"] != memory.memory_id]
-        self._memory_items.append({"id": memory.memory_id, "document": memory.memory_text, "metadata": metadata})
+        self._memory_items.append({"id": memory.memory_id, "document": document, "metadata": metadata})
         self._memory_items = self._memory_items[-3000:]
 
         self._ensure_semantic_backend()
         if self.memory_collection:
             self.memory_collection.upsert(
                 ids=[memory.memory_id],
-                documents=[memory.memory_text],
+                documents=[document],
                 metadatas=[metadata],
-                embeddings=[self.embedding.embed_text(memory.memory_text)],
+                embeddings=[self.embedding.embed_text(document)],
             )
 
     def remove_memory(self, memory_id):
@@ -405,7 +411,8 @@ class VectorMemory:
                     items.append(
                         {
                             "memory_id": memory_id,
-                            "memory_text": documents[index] if index < len(documents) else "",
+                            "memory_text": metadata.get("memory_text") or (documents[index] if index < len(documents) else ""),
+                            "memory_recall_text": metadata.get("memory_recall_text") or (documents[index] if index < len(documents) else ""),
                             "score": score,
                             "metadata": metadata,
                         }
@@ -434,7 +441,8 @@ class VectorMemory:
                 scored.append(
                     {
                         "memory_id": item["id"],
-                        "memory_text": target_text,
+                        "memory_text": metadata.get("memory_text") or target_text,
+                        "memory_recall_text": metadata.get("memory_recall_text") or target_text,
                         "score": score,
                         "metadata": metadata,
                     }

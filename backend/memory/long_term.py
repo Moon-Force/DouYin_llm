@@ -170,6 +170,7 @@ class LongTermStore:
                     viewer_id TEXT NOT NULL,
                     source_event_id TEXT,
                     memory_text TEXT NOT NULL,
+                    memory_recall_text TEXT NOT NULL DEFAULT '',
                     memory_type TEXT NOT NULL,
                     polarity TEXT NOT NULL DEFAULT 'neutral',
                     temporal_scope TEXT NOT NULL DEFAULT 'long_term',
@@ -279,6 +280,7 @@ class LongTermStore:
             "corrected_by": "TEXT NOT NULL DEFAULT ''",
             "last_operation": "TEXT NOT NULL DEFAULT 'created'",
             "last_operation_at": "INTEGER NOT NULL DEFAULT 0",
+            "memory_recall_text": "TEXT NOT NULL DEFAULT ''",
             "memory_text_raw_latest": "TEXT NOT NULL DEFAULT ''",
             "evidence_count": "INTEGER NOT NULL DEFAULT 1",
             "first_confirmed_at": "INTEGER NOT NULL DEFAULT 0",
@@ -779,6 +781,7 @@ class LongTermStore:
             viewer_id=row["viewer_id"],
             source_event_id=row["source_event_id"] or "",
             memory_text=row["memory_text"],
+            memory_recall_text=row["memory_recall_text"] or row["memory_text"],
             memory_type=row["memory_type"] or "fact",
             polarity=row["polarity"] or "neutral",
             temporal_scope=row["temporal_scope"] or "long_term",
@@ -814,7 +817,7 @@ class LongTermStore:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_recall_text, memory_type,
                        polarity, temporal_scope,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
@@ -839,7 +842,7 @@ class LongTermStore:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_recall_text, memory_type,
                        polarity, temporal_scope,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
@@ -863,7 +866,7 @@ class LongTermStore:
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_recall_text, memory_type,
                        polarity, temporal_scope,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
@@ -883,7 +886,7 @@ class LongTermStore:
         with self._connect() as connection:
             row = connection.execute(
                 """
-                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_recall_text, memory_type,
                        polarity, temporal_scope,
                        confidence, created_at, updated_at, last_recalled_at, recall_count,
                        source_kind, status, is_pinned, correction_reason, corrected_by,
@@ -960,6 +963,7 @@ class LongTermStore:
         corrected_by="",
         operation="created",
         raw_memory_text="",
+        memory_recall_text="",
         evidence_count=1,
         first_confirmed_at=0,
         last_confirmed_at=0,
@@ -985,6 +989,7 @@ class LongTermStore:
         corrected_by = safe_text(corrected_by)
         operation = safe_text(operation) or "created"
         raw_memory_text = safe_text(raw_memory_text)
+        memory_recall_text = safe_text(memory_recall_text) or memory_text
         superseded_by = safe_text(superseded_by)
         merge_parent_id = safe_text(merge_parent_id)
         lifecycle_kind = safe_text(lifecycle_kind) or "long_term"
@@ -1023,6 +1028,7 @@ class LongTermStore:
                 """
                 SELECT memory_id, created_at, last_recalled_at, recall_count,
                        polarity, temporal_scope,
+                       memory_recall_text,
                        memory_text_raw_latest, evidence_count, first_confirmed_at,
                        last_confirmed_at, superseded_by, merge_parent_id,
                        stability_score, interaction_value_score, clarity_score, evidence_score,
@@ -1039,6 +1045,9 @@ class LongTermStore:
             recall_count = existing["recall_count"] if existing else 0
             memory_text_raw_latest = raw_memory_text if raw_memory_text else (
                 existing["memory_text_raw_latest"] if existing else ""
+            )
+            persisted_memory_recall_text = memory_recall_text if memory_recall_text != memory_text else (
+                existing["memory_recall_text"] or memory_text if existing else memory_text
             )
             persisted_evidence_count = evidence_count if existing is None else max(
                 evidence_count,
@@ -1074,7 +1083,7 @@ class LongTermStore:
             connection.execute(
                 """
                 INSERT OR REPLACE INTO viewer_memories (
-                    memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                    memory_id, room_id, viewer_id, source_event_id, memory_text, memory_recall_text, memory_type,
                     polarity, temporal_scope,
                     confidence, created_at, updated_at, last_recalled_at, recall_count,
                     source_kind, status, is_pinned, correction_reason, corrected_by,
@@ -1082,7 +1091,7 @@ class LongTermStore:
                     first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
                     stability_score, interaction_value_score, clarity_score, evidence_score,
                     lifecycle_kind, expires_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -1090,6 +1099,7 @@ class LongTermStore:
                     viewer_id,
                     source_event_id,
                     memory_text,
+                    persisted_memory_recall_text,
                     memory_type,
                     polarity,
                     temporal_scope,
@@ -1134,7 +1144,16 @@ class LongTermStore:
             )
         return self.get_viewer_memory(memory_id)
 
-    def update_viewer_memory(self, memory_id, memory_text="", memory_type="", is_pinned=False, correction_reason="", corrected_by="主播"):
+    def update_viewer_memory(
+        self,
+        memory_id,
+        memory_text="",
+        memory_type="",
+        is_pinned=False,
+        correction_reason="",
+        corrected_by="主播",
+        memory_recall_text="",
+    ):
         existing = self.get_viewer_memory(memory_id)
         if not existing or existing.status == "deleted":
             return None
@@ -1143,18 +1162,20 @@ class LongTermStore:
         next_text = safe_text(memory_text) or existing.memory_text
         next_type = safe_text(memory_type) or existing.memory_type
         next_reason = safe_text(correction_reason)
+        next_recall_text = safe_text(memory_recall_text) or existing.memory_recall_text or next_text
         next_is_pinned = bool(is_pinned) and existing.status == "active"
 
         with self._connect() as connection:
             connection.execute(
                 """
                 UPDATE viewer_memories
-                SET memory_text = ?, memory_type = ?, is_pinned = ?, correction_reason = ?,
+                SET memory_text = ?, memory_recall_text = ?, memory_type = ?, is_pinned = ?, correction_reason = ?,
                     corrected_by = ?, updated_at = ?, last_operation = ?, last_operation_at = ?
                 WHERE memory_id = ?
                 """,
                 (
                     next_text,
+                    next_recall_text,
                     next_type,
                     1 if next_is_pinned else 0,
                     next_reason,
@@ -1184,13 +1205,21 @@ class LongTermStore:
             )
         return self.get_viewer_memory(memory_id)
 
-    def merge_viewer_memory_evidence(self, memory_id, raw_memory_text="", confidence=0.0, source_event_id=""):
+    def merge_viewer_memory_evidence(
+        self,
+        memory_id,
+        raw_memory_text="",
+        confidence=0.0,
+        source_event_id="",
+        memory_recall_text="",
+    ):
         existing = self.get_viewer_memory(memory_id)
         if not existing or existing.status != "active":
             return None
 
         timestamp = current_millis()
         next_raw_text = safe_text(raw_memory_text) or existing.memory_text_raw_latest
+        next_recall_text = safe_text(memory_recall_text) or existing.memory_recall_text or existing.memory_text
         scores = memory_confidence_service.score_existing_memory_update(
             existing,
             evidence_increment=1,
@@ -1207,13 +1236,14 @@ class LongTermStore:
             connection.execute(
                 """
                 UPDATE viewer_memories
-                SET memory_text_raw_latest = ?, confidence = ?, evidence_count = ?, last_confirmed_at = ?,
+                SET memory_text_raw_latest = ?, memory_recall_text = ?, confidence = ?, evidence_count = ?, last_confirmed_at = ?,
                     stability_score = ?, interaction_value_score = ?, clarity_score = ?, evidence_score = ?,
                     updated_at = ?, last_operation = ?, last_operation_at = ?
                 WHERE memory_id = ?
                 """,
                 (
                     next_raw_text,
+                    next_recall_text,
                     scores["confidence"],
                     max(1, existing.evidence_count) + 1,
                     timestamp,
@@ -1246,7 +1276,15 @@ class LongTermStore:
             )
         return self.get_viewer_memory(memory_id)
 
-    def upgrade_viewer_memory(self, memory_id, memory_text="", raw_memory_text="", confidence=0.0, source_event_id=""):
+    def upgrade_viewer_memory(
+        self,
+        memory_id,
+        memory_text="",
+        raw_memory_text="",
+        confidence=0.0,
+        source_event_id="",
+        memory_recall_text="",
+    ):
         existing = self.get_viewer_memory(memory_id)
         if not existing or existing.status != "active":
             return None
@@ -1254,6 +1292,7 @@ class LongTermStore:
         timestamp = current_millis()
         next_text = safe_text(memory_text) or existing.memory_text
         next_raw_text = safe_text(raw_memory_text) or existing.memory_text_raw_latest
+        next_recall_text = safe_text(memory_recall_text) or existing.memory_recall_text or next_text
         scores = memory_confidence_service.score_existing_memory_update(
             existing,
             evidence_increment=1,
@@ -1271,13 +1310,14 @@ class LongTermStore:
             connection.execute(
                 """
                 UPDATE viewer_memories
-                SET memory_text = ?, memory_text_raw_latest = ?, confidence = ?, evidence_count = ?, last_confirmed_at = ?,
+                SET memory_text = ?, memory_recall_text = ?, memory_text_raw_latest = ?, confidence = ?, evidence_count = ?, last_confirmed_at = ?,
                     stability_score = ?, interaction_value_score = ?, clarity_score = ?, evidence_score = ?,
                     updated_at = ?, last_operation = ?, last_operation_at = ?
                 WHERE memory_id = ?
                 """,
                 (
                     next_text,
+                    next_recall_text,
                     next_raw_text,
                     scores["confidence"],
                     max(1, existing.evidence_count) + 1,
@@ -1318,6 +1358,7 @@ class LongTermStore:
         viewer_id,
         memory_text,
         raw_memory_text="",
+        memory_recall_text="",
         source_event_id="",
         memory_type="fact",
         confidence=0.0,
@@ -1331,6 +1372,7 @@ class LongTermStore:
             room_id=room_id,
             viewer_id=viewer_id,
             memory_text=memory_text,
+            memory_recall_text=memory_recall_text,
             source_event_id=source_event_id,
             memory_type=memory_type,
             confidence=confidence,

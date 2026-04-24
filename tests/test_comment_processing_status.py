@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
+from unittest.mock import ANY
 
 import backend.app as app_module
 from backend.schemas.live import LiveEvent
@@ -512,6 +513,7 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 room_id="room-1",
                 viewer_id="id:user-1",
                 memory_text="likes ramen",
+                memory_recall_text=ANY,
                 source_event_id="evt-1",
                 memory_type="preference",
                 polarity="neutral",
@@ -654,6 +656,7 @@ class CommentProcessingStatusTests(unittest.TestCase):
                 room_id="room-1",
                 viewer_id="id:user-1",
                 memory_text="likes ramen",
+                memory_recall_text=ANY,
                 source_event_id="evt-1",
                 memory_type="preference",
                 polarity="positive",

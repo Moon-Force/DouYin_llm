@@ -3,6 +3,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from unittest.mock import patch
+from unittest.mock import ANY
 
 import backend.app as app_module
 
@@ -38,6 +39,7 @@ class ViewerMemoryApiTests(unittest.TestCase):
             "room-1",
             "viewer-1",
             "喜欢豚骨拉面",
+            memory_recall_text=ANY,
             source_event_id="",
             memory_type="preference",
             confidence=1.0,

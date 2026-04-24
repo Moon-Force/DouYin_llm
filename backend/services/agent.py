@@ -10,6 +10,7 @@ import urllib.request
 import uuid
 
 from backend.schemas.live import Suggestion
+from backend.services.recall_query_rewriter import RecallQueryRewriter
 
 
 logger = logging.getLogger(__name__)
@@ -21,10 +22,11 @@ DEFAULT_SYSTEM_PROMPT = (
 
 
 class LivePromptAgent:
-    def __init__(self, settings, vector_memory, long_term_store):
+    def __init__(self, settings, vector_memory, long_term_store, query_rewriter=None):
         self.settings = settings
         self.vector_memory = vector_memory
         self.long_term_store = long_term_store
+        self.query_rewriter = query_rewriter or RecallQueryRewriter()
         self._last_generation_metadata = {}
         self._status = {
             "mode": settings.llm_mode,
@@ -129,8 +131,13 @@ class LivePromptAgent:
         return ordered
 
     def build_context(self, event, recent_events, current_comment_memories=None):
-        viewer_memories = self.vector_memory.similar_memories(
+        query_text = self.query_rewriter.rewrite(
             event.content,
+            room_id=event.room_id,
+            viewer_id=event.user.viewer_id,
+        )
+        viewer_memories = self.vector_memory.similar_memories(
+            query_text or event.content,
             room_id=event.room_id,
             viewer_id=event.user.viewer_id,
             limit=2,

@@ -279,6 +279,69 @@ class VectorMemoryTests(unittest.TestCase):
         self.assertEqual(upsert_kwargs["metadatas"][0]["interaction_value_score"], 0.85)
         self.assertEqual(upsert_kwargs["metadatas"][0]["evidence_score"], 0.5)
 
+    def test_add_memory_indexes_recall_text_but_keeps_canonical_text_in_metadata(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        memory = SimpleNamespace(
+            memory_id="mem-1",
+            room_id="room-1",
+            viewer_id="viewer-1",
+            source_event_id="evt-1",
+            memory_text="喜欢拉面",
+            memory_recall_text="喜欢拉面；爱吃面条；豚骨拉面；食物偏好",
+            memory_type="preference",
+            confidence=0.91,
+            updated_at=123,
+            recall_count=2,
+            status="active",
+            source_kind="auto",
+            is_pinned=False,
+        )
+
+        store.add_memory(memory)
+
+        upsert_kwargs = fake_collection.upsert.call_args.kwargs
+        self.assertEqual(upsert_kwargs["documents"], ["喜欢拉面；爱吃面条；豚骨拉面；食物偏好"])
+        fake_embedding.embed_text.assert_called_with("喜欢拉面；爱吃面条；豚骨拉面；食物偏好")
+        self.assertEqual(upsert_kwargs["metadatas"][0]["memory_text"], "喜欢拉面")
+        self.assertEqual(upsert_kwargs["metadatas"][0]["memory_recall_text"], "喜欢拉面；爱吃面条；豚骨拉面；食物偏好")
+
+    def test_similar_memories_returns_canonical_text_when_document_is_recall_text(self):
+        fake_embedding = MagicMock()
+        fake_embedding.embed_text.return_value = [0.1, 0.2]
+        fake_collection = MagicMock()
+        fake_collection.query.return_value = {
+            "ids": [["mem-1"]],
+            "documents": [["喜欢拉面；爱吃面条；豚骨拉面；食物偏好"]],
+            "metadatas": [[
+                {
+                    "room_id": "room-1",
+                    "viewer_id": "viewer-1",
+                    "memory_type": "preference",
+                    "memory_text": "喜欢拉面",
+                    "memory_recall_text": "喜欢拉面；爱吃面条；豚骨拉面；食物偏好",
+                    "confidence": 0.9,
+                    "updated_at": 200,
+                    "recall_count": 2,
+                    "status": "active",
+                }
+            ]],
+            "distances": [[0.2]],
+        }
+
+        store = VectorMemory("data/chroma", settings=make_settings(), embedding_service=fake_embedding)
+        store.memory_collection = fake_collection
+
+        result = store.similar_memories("最近想吃面", "room-1", "viewer-1", limit=1)
+
+        self.assertEqual(result[0]["memory_text"], "喜欢拉面")
+        self.assertEqual(result[0]["memory_recall_text"], "喜欢拉面；爱吃面条；豚骨拉面；食物偏好")
+
     def test_sync_memory_removes_deleted_or_invalid_entries(self):
         fake_embedding = MagicMock()
         fake_embedding.embed_text.return_value = [0.1, 0.2]
@@ -421,6 +484,8 @@ class VectorMemoryTests(unittest.TestCase):
                     "viewer_id": "viewer-1",
                     "memory_type": "preference",
                     "source_event_id": "evt-1",
+                    "memory_text": "likes ramen",
+                    "memory_recall_text": "likes ramen",
                     "confidence": 0.8,
                     "updated_at": 10,
                     "recall_count": 1,
@@ -438,6 +503,8 @@ class VectorMemoryTests(unittest.TestCase):
                     "viewer_id": "viewer-2",
                     "memory_type": "preference",
                     "source_event_id": "evt-2",
+                    "memory_text": "likes noodles",
+                    "memory_recall_text": "likes noodles",
                     "confidence": 0.9,
                     "updated_at": 20,
                     "recall_count": 2,
@@ -571,6 +638,8 @@ class VectorMemoryTests(unittest.TestCase):
                     "viewer_id": "viewer-1",
                     "memory_type": "preference",
                     "source_event_id": "evt-1",
+                    "memory_text": "likes ramen",
+                    "memory_recall_text": "likes ramen",
                     "confidence": 0.8,
                     "updated_at": 10,
                     "recall_count": 1,
@@ -784,6 +853,8 @@ class VectorMemoryTests(unittest.TestCase):
                     "viewer_id": "viewer-1",
                     "memory_type": "preference",
                     "source_event_id": "evt-1",
+                    "memory_text": "likes ramen",
+                    "memory_recall_text": "likes ramen",
                     "confidence": 0.8,
                     "updated_at": 10,
                     "recall_count": 1,

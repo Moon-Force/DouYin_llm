@@ -27,6 +27,8 @@ from backend.services.memory_confidence_service import MemoryConfidenceService
 from backend.services.memory_extractor_client import MemoryExtractorClient
 from backend.services.memory_extractor import ViewerMemoryExtractor
 from backend.services.memory_merge_service import ViewerMemoryMergeService
+from backend.services.memory_recall_text import MemoryRecallTextService
+from backend.services.recall_query_rewriter import RecallQueryRewriter
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -40,6 +42,7 @@ memory_extractor = None
 collector = None
 memory_merge_service = None
 memory_confidence_service = None
+memory_recall_text_service = None
 _primed_memory_room_id = ""
 
 
@@ -214,6 +217,31 @@ def _candidate_raw_text(candidate):
     return str(candidate.get("memory_text_raw") or "").strip()
 
 
+def _memory_recall_text(memory_text, raw_memory_text="", memory_type="fact", polarity="neutral", temporal_scope=""):
+    if memory_recall_text_service is None:
+        return str(memory_text or "").strip()
+    return memory_recall_text_service.expand_memory(
+        memory_text=memory_text,
+        raw_memory_text=raw_memory_text,
+        memory_type=memory_type,
+        polarity=polarity,
+        temporal_scope=temporal_scope,
+    )
+
+
+def _optional_memory_llm_client(purpose):
+    if not getattr(settings, "memory_extractor_enabled", False):
+        return None
+    mode = str(getattr(settings, "memory_extractor_mode", "") or "").strip().lower()
+    if mode != "ollama":
+        return None
+    try:
+        return MemoryExtractorClient(settings)
+    except Exception:
+        logging.exception("%s LLM client initialization failed; using rule fallback", purpose)
+        return None
+
+
 def _candidate_extraction_source(candidate):
     source = str(candidate.get("extraction_source") or "").strip().lower()
     if source == "llm":
@@ -266,11 +294,11 @@ def _viewer_note_preview(room_id, viewer_id, limit=5):
 
 
 def ensure_runtime():
-    global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service
+    global broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service, memory_recall_text_service
 
     if all(
         component is not None
-        for component in (broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service)
+        for component in (broker, session_memory, long_term_store, embedding_service, vector_memory, agent, memory_extractor, collector, memory_merge_service, memory_confidence_service, memory_recall_text_service)
     ):
         return
 
@@ -288,15 +316,16 @@ def ensure_runtime():
         embedding_service = EmbeddingService(settings)
     if vector_memory is None:
         vector_memory = VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
-    if agent is None:
-        agent = LivePromptAgent(settings, vector_memory, long_term_store)
+    memory_llm_client = None
+    memory_llm_client_attempted = False
     if memory_extractor is None:
         if getattr(settings, "memory_extractor_enabled", False):
             mode = str(getattr(settings, "memory_extractor_mode", "") or "").strip().lower()
             if mode == "ollama":
                 try:
-                    memory_extractor_client = MemoryExtractorClient(settings)
-                    llm_memory_extractor = LLMBackedViewerMemoryExtractor(settings, memory_extractor_client)
+                    memory_llm_client_attempted = True
+                    memory_llm_client = MemoryExtractorClient(settings)
+                    llm_memory_extractor = LLMBackedViewerMemoryExtractor(settings, memory_llm_client)
                     memory_extractor = ViewerMemoryExtractor(settings=settings, llm_extractor=llm_memory_extractor)
                 except Exception:
                     logging.exception(
@@ -311,6 +340,17 @@ def ensure_runtime():
                 memory_extractor = ViewerMemoryExtractor(settings=settings)
         else:
             memory_extractor = ViewerMemoryExtractor(settings=settings)
+    if memory_recall_text_service is None:
+        recall_client = memory_llm_client if memory_llm_client_attempted else _optional_memory_llm_client("Memory recall text")
+        memory_recall_text_service = MemoryRecallTextService(client=recall_client)
+    if agent is None:
+        query_rewrite_client = memory_llm_client if memory_llm_client_attempted else _optional_memory_llm_client("Recall query rewrite")
+        agent = LivePromptAgent(
+            settings,
+            vector_memory,
+            long_term_store,
+            query_rewriter=RecallQueryRewriter(client=query_rewrite_client),
+        )
     if collector is None:
         collector = DouyinCollector(settings, event_handler=process_event)
     if memory_merge_service is None:
@@ -439,11 +479,21 @@ async def process_event(event: LiveEvent):
                 decision = memory_merge_service.decide(candidate, existing_memories, similar_memories)
 
                 if decision.action == "merge":
+                    raw_text = _candidate_raw_text(candidate)
+                    recall_text = await asyncio.to_thread(
+                        _memory_recall_text,
+                        candidate["memory_text"],
+                        raw_text,
+                        candidate["memory_type"],
+                        str(candidate.get("polarity") or "neutral"),
+                        str(candidate.get("temporal_scope") or "long_term"),
+                    )
                     memory = long_term_store.merge_viewer_memory_evidence(
                         decision.target_memory_id,
-                        raw_memory_text=_candidate_raw_text(candidate),
+                        raw_memory_text=raw_text,
                         confidence=candidate["confidence"],
                         source_event_id=event.event_id,
+                        memory_recall_text=recall_text,
                     )
                     if memory:
                         vector_memory.sync_memory(memory)
@@ -451,12 +501,22 @@ async def process_event(event: LiveEvent):
                     continue
 
                 if decision.action == "upgrade":
+                    raw_text = _candidate_raw_text(candidate)
+                    recall_text = await asyncio.to_thread(
+                        _memory_recall_text,
+                        candidate["memory_text"],
+                        raw_text,
+                        candidate["memory_type"],
+                        str(candidate.get("polarity") or "neutral"),
+                        str(candidate.get("temporal_scope") or "long_term"),
+                    )
                     memory = long_term_store.upgrade_viewer_memory(
                         decision.target_memory_id,
                         memory_text=candidate["memory_text"],
-                        raw_memory_text=_candidate_raw_text(candidate),
+                        raw_memory_text=raw_text,
                         confidence=candidate["confidence"],
                         source_event_id=event.event_id,
+                        memory_recall_text=recall_text,
                     )
                     if memory:
                         vector_memory.sync_memory(memory)
@@ -464,12 +524,22 @@ async def process_event(event: LiveEvent):
                     continue
 
                 if decision.action == "supersede":
+                    raw_text = _candidate_raw_text(candidate)
+                    recall_text = await asyncio.to_thread(
+                        _memory_recall_text,
+                        candidate["memory_text"],
+                        raw_text,
+                        candidate["memory_type"],
+                        str(candidate.get("polarity") or "neutral"),
+                        str(candidate.get("temporal_scope") or "long_term"),
+                    )
                     old_memory, new_memory = long_term_store.supersede_viewer_memory(
                         decision.target_memory_id,
                         room_id=event.room_id,
                         viewer_id=event.user.viewer_id,
                         memory_text=candidate["memory_text"],
-                        raw_memory_text=_candidate_raw_text(candidate),
+                        raw_memory_text=raw_text,
+                        memory_recall_text=recall_text,
                         source_event_id=event.event_id,
                         memory_type=candidate["memory_type"],
                         confidence=candidate["confidence"],
@@ -483,10 +553,20 @@ async def process_event(event: LiveEvent):
 
                 scores = memory_confidence_service.score_new_memory(candidate)
                 lifecycle_kind, expires_at = _candidate_lifecycle(candidate, event.ts, settings)
+                raw_text = _candidate_raw_text(candidate)
+                recall_text = await asyncio.to_thread(
+                    _memory_recall_text,
+                    candidate["memory_text"],
+                    raw_text,
+                    candidate["memory_type"],
+                    str(candidate.get("polarity") or "neutral"),
+                    str(candidate.get("temporal_scope") or "long_term"),
+                )
                 memory = long_term_store.save_viewer_memory(
                     room_id=event.room_id,
                     viewer_id=event.user.viewer_id,
                     memory_text=candidate["memory_text"],
+                    memory_recall_text=recall_text,
                     source_event_id=event.event_id,
                     memory_type=candidate["memory_type"],
                     polarity=str(candidate.get("polarity") or "neutral"),
@@ -498,7 +578,7 @@ async def process_event(event: LiveEvent):
                     correction_reason="",
                     corrected_by="system",
                     operation="created",
-                    raw_memory_text=_candidate_raw_text(candidate),
+                    raw_memory_text=raw_text,
                     evidence_count=1,
                     first_confirmed_at=event.ts,
                     last_confirmed_at=event.ts,
@@ -635,11 +715,20 @@ async def create_viewer_memory(payload: ViewerMemoryUpsertRequest):
         raise HTTPException(status_code=400, detail="viewer_id is required")
     if not memory_text:
         raise HTTPException(status_code=400, detail="memory_text is required")
+    recall_text = await asyncio.to_thread(
+        _memory_recall_text,
+        memory_text,
+        "",
+        payload.memory_type.strip() or "fact",
+        "neutral",
+        "long_term",
+    )
 
     memory = long_term_store.save_viewer_memory(
         room_id,
         viewer_id,
         memory_text,
+        memory_recall_text=recall_text,
         source_event_id="",
         memory_type=payload.memory_type.strip() or "fact",
         confidence=1.0,
@@ -657,10 +746,19 @@ async def create_viewer_memory(payload: ViewerMemoryUpsertRequest):
 @app.put("/api/viewer/memories/{memory_id}")
 async def update_viewer_memory(memory_id: str, payload: ViewerMemoryUpdateRequest):
     ensure_runtime()
+    recall_text = await asyncio.to_thread(
+        _memory_recall_text,
+        payload.memory_text,
+        "",
+        payload.memory_type,
+        "neutral",
+        "long_term",
+    )
     memory = long_term_store.update_viewer_memory(
         memory_id=memory_id,
         memory_text=payload.memory_text,
         memory_type=payload.memory_type,
+        memory_recall_text=recall_text,
         is_pinned=payload.is_pinned,
         correction_reason=payload.correction_reason,
         corrected_by="主播",
