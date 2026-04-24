@@ -106,9 +106,11 @@ class Settings:
     memory_extractor_base_url: str = field(
         default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_BASE_URL", "http://127.0.0.1:11434/v1").strip().rstrip("/")
     )
-    memory_extractor_model: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL", "").strip())
+    memory_extractor_model: str = field(
+        default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_MODEL", "gemma4:e2b").strip()
+    )
     memory_extractor_api_key: str = field(default_factory=lambda: os.getenv("MEMORY_EXTRACTOR_API_KEY", "").strip())
-    memory_extractor_max_tokens: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_MAX_TOKENS", 512))
+    memory_extractor_max_tokens: int = field(default_factory=lambda: _env_int("MEMORY_EXTRACTOR_MAX_TOKENS", 2048))
     memory_extractor_timeout_seconds: float = field(
         default_factory=lambda: _env_float("MEMORY_EXTRACTOR_TIMEOUT_SECONDS", 30.0)
     )

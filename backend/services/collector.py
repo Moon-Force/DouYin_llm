@@ -36,6 +36,8 @@ def safe_int(value, default=0):
 
 
 class DouyinCollector:
+    _RECENT_EVENT_TTL_SECONDS = 15.0
+
     def __init__(
         self,
         settings: Settings,
@@ -50,6 +52,7 @@ class DouyinCollector:
         self.ws: websocket.WebSocketApp | None = None
         self.running = False
         self.stop_event = threading.Event()
+        self._recent_event_ids: dict[str, float] = {}
 
     @property
     def url(self) -> str:
@@ -100,6 +103,7 @@ class DouyinCollector:
     def stop(self) -> None:
         self.stop_event.set()
         self.running = False
+        self._recent_event_ids.clear()
         if self.ping_stop_event:
             self.ping_stop_event.set()
 
@@ -156,6 +160,10 @@ class DouyinCollector:
         if not event:
             return
 
+        if self._remember_recent_event_id(event.event_id):
+            logger.info("Ignoring duplicate Douyin event %s", event.event_id)
+            return
+
         self._submit_event(event)
 
     def _on_error(self, ws, error) -> None:
@@ -204,6 +212,51 @@ class DouyinCollector:
         positive_counts = [count for count in counts if count > 0]
         return max(positive_counts, default=1)
 
+    @classmethod
+    def _gift_business_key(cls, data: dict, user: dict, gift: dict) -> str:
+        trace_id = str(data.get("traceId") or "").strip()
+        if trace_id:
+            return f"trace:{trace_id}"
+
+        send_time = str(data.get("sendTime") or "").strip()
+        group_id = str(data.get("groupId") or "").strip()
+        user_id = str(user.get("id") or "").strip()
+        gift_id = str(gift.get("id") or data.get("giftId") or "").strip()
+        parts = [part for part in (send_time, group_id, user_id, gift_id) if part]
+        return ":".join(parts)
+
+    @classmethod
+    def _build_event_id(cls, common: dict, data: dict, user: dict, gift: dict) -> str:
+        method = str(common.get("method") or "").strip()
+        msg_id = str(common.get("msgId") or "").strip()
+        if method != "WebcastGiftMessage":
+            return msg_id or f"local-{int(time.time() * 1000)}"
+
+        business_key = cls._gift_business_key(data, user, gift)
+        gift_count = cls._extract_gift_count(data)
+        if business_key:
+            return f"gift:{business_key}:count:{gift_count}"
+        return msg_id or f"local-{int(time.time() * 1000)}"
+
+    def _remember_recent_event_id(self, event_id: str) -> bool:
+        normalized = str(event_id or "").strip()
+        if not normalized:
+            return False
+
+        now = time.monotonic()
+        cutoff = now - self._RECENT_EVENT_TTL_SECONDS
+        expired_ids = [
+            cached_id for cached_id, seen_at in self._recent_event_ids.items() if seen_at < cutoff
+        ]
+        for cached_id in expired_ids:
+            self._recent_event_ids.pop(cached_id, None)
+
+        if normalized in self._recent_event_ids:
+            return True
+
+        self._recent_event_ids[normalized] = now
+        return False
+
     def normalize_event(self, data: dict) -> LiveEvent | None:
         common = data.get("common", {})
         method = common.get("method", "unknown")
@@ -220,16 +273,22 @@ class DouyinCollector:
         metadata = {
             "method": method,
             "livename": data.get("livename", ""),
+            "title": data.get("title", ""),
             "source_room_id": source_room_id,
         }
 
         if method == "WebcastGiftMessage":
+            business_key = self._gift_business_key(data, user, gift)
             metadata["gift_name"] = gift.get("name", "")
             metadata["gift_id"] = str(gift.get("id") or data.get("giftId") or "").strip()
             metadata["gift_count"] = self._extract_gift_count(data)
             metadata["gift_diamond_count"] = safe_int(gift.get("diamondCount"))
             metadata["combo_count"] = safe_int(data.get("comboCount"))
             metadata["group_count"] = safe_int(data.get("groupCount"))
+            metadata["gift_trace_id"] = str(data.get("traceId") or "").strip()
+            metadata["gift_send_time"] = str(data.get("sendTime") or "").strip()
+            metadata["gift_group_id"] = str(data.get("groupId") or "").strip()
+            metadata["gift_business_key"] = business_key
         elif method == "WebcastLikeMessage":
             metadata["action"] = "like"
         elif method == "WebcastMemberMessage":
@@ -242,7 +301,7 @@ class DouyinCollector:
 
         try:
             return LiveEvent(
-                event_id=common.get("msgId") or f"local-{int(time.time() * 1000)}",
+                event_id=self._build_event_id(common, data, user, gift),
                 room_id=self.settings.room_id,
                 source_room_id=source_room_id or self.settings.room_id,
                 platform="douyin",

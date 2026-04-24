@@ -2,6 +2,7 @@ import asyncio
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import backend.app as app_module
 
@@ -67,6 +68,80 @@ class ViewerMemoryApiTests(unittest.TestCase):
         self.assertEqual(logs_result, {"items": [{"operation": "created"}]})
         app_module.vector_memory.sync_memory.assert_called_once_with(invalid)
         app_module.vector_memory.remove_memory.assert_called_once_with("mem-1")
+
+    def test_get_llm_settings_returns_runtime_options(self):
+        original_agent = app_module.agent
+        original_ensure_runtime = app_module.ensure_runtime
+        try:
+            app_module.ensure_runtime = MagicMock()
+            app_module.agent = MagicMock()
+            app_module.agent.current_llm_settings.return_value = {
+                "model": "qwen-main",
+                "system_prompt": "prompt",
+                "default_model": "qwen-main",
+                "default_system_prompt": "prompt",
+                "embedding_model": "bge-m3:latest",
+                "memory_extractor_model": "qwen3.5:0.8b",
+                "default_embedding_model": "bge-m3:latest",
+                "default_memory_extractor_model": "qwen3.5:0.8b",
+                "embedding_model_options": ["bge-m3:latest", "nomic-embed-text:latest"],
+                "memory_extractor_model_options": ["qwen3.5:0.8b", "llama3.2:latest"],
+            }
+
+            with patch.object(
+                app_module,
+                "_list_ollama_models",
+                return_value=["bge-m3:latest", "nomic-embed-text:latest"],
+            ):
+                result = asyncio.run(app_module.get_llm_settings())
+        finally:
+            app_module.agent = original_agent
+            app_module.ensure_runtime = original_ensure_runtime
+
+        self.assertEqual(result["embedding_model"], "bge-m3:latest")
+        self.assertEqual(result["memory_extractor_model"], "qwen3.5:0.8b")
+        self.assertEqual(result["embedding_model_options"], ["bge-m3:latest", "nomic-embed-text:latest"])
+        self.assertEqual(
+            result["memory_extractor_model_options"],
+            ["qwen3.5:0.8b", "bge-m3:latest", "nomic-embed-text:latest"],
+        )
+
+    def test_save_llm_settings_persists_embedding_and_extractor_models(self):
+        original_ensure_runtime = app_module.ensure_runtime
+        try:
+            app_module.ensure_runtime = MagicMock()
+            app_module.long_term_store.save_llm_settings.return_value = {
+                "model": "qwen-main",
+                "system_prompt": "prompt",
+                "default_model": "qwen-main",
+                "default_system_prompt": "prompt",
+                "embedding_model": "bge-m3:latest",
+                "memory_extractor_model": "qwen3.5:0.8b",
+                "default_embedding_model": "bge-m3:latest",
+                "default_memory_extractor_model": "qwen3.5:0.8b",
+                "embedding_model_options": ["bge-m3:latest"],
+                "memory_extractor_model_options": ["qwen3.5:0.8b"],
+            }
+
+            payload = app_module.LlmSettingsUpdateRequest(
+                model="qwen-main",
+                system_prompt="prompt",
+                embedding_model="bge-m3:latest",
+                memory_extractor_model="qwen3.5:0.8b",
+            )
+
+            result = asyncio.run(app_module.save_llm_settings(payload))
+        finally:
+            app_module.ensure_runtime = original_ensure_runtime
+
+        self.assertEqual(result["embedding_model"], "bge-m3:latest")
+        self.assertEqual(result["memory_extractor_model"], "qwen3.5:0.8b")
+        app_module.long_term_store.save_llm_settings.assert_called_with(
+            "qwen-main",
+            "prompt",
+            "bge-m3:latest",
+            "qwen3.5:0.8b",
+        )
 
 
 if __name__ == "__main__":

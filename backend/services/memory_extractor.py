@@ -80,11 +80,23 @@ HIGH_CONFIDENCE_RULE_PATTERNS = (
     (re.compile(r"^我?不喜欢.+$"), "preference"),
 )
 SHORT_TERM_HINTS = ("今天", "今晚", "明天", "这周", "最近", "下周", "下个月")
+QUESTION_LIKE_PATTERNS = (
+    re.compile(r"[?？]"),
+    re.compile(r"(你猜|猜猜)"),
+    re.compile(r"(叫什么|叫啥|是什么|是不是|有没有|能不能|可不可以|怎么|咋|哪(?:里|儿)|谁|几岁|多大)"),
+)
 
 
 def clean_comment_text(text):
     cleaned = re.sub(r"\s+", " ", str(text or "")).strip()
     return cleaned.strip("，。！？!?,.~～")
+
+
+def is_question_like_comment(content):
+    normalized = clean_comment_text(content)
+    if not normalized:
+        return False
+    return any(pattern.search(normalized) for pattern in QUESTION_LIKE_PATTERNS)
 
 
 def is_obvious_non_memory_comment(content):
@@ -168,7 +180,7 @@ class RuleFallbackMemoryExtractor:
 
         viewer_id = event.user.viewer_id
         content = self._clean_text(event.content)
-        if not viewer_id or self._is_low_signal(content):
+        if not viewer_id or self._is_low_signal(content) or is_question_like_comment(content):
             return []
 
         if not any(keyword in content for keyword in MEMORY_HINT_KEYWORDS) and len(content) < 14:
@@ -193,11 +205,9 @@ class RuleFallbackMemoryExtractor:
 
         viewer_id = event.user.viewer_id
         content = self._clean_text(event.content)
-        if not viewer_id or self._is_low_signal(content):
+        if not viewer_id or self._is_low_signal(content) or is_question_like_comment(content):
             return []
         if any(keyword in content for keyword in SHORT_TERM_HINTS):
-            return []
-        if any(token in content for token in ("?", "？", "吗", "嘛", "呢")):
             return []
 
         match_text = self._fallback_match_text(content)
@@ -250,7 +260,7 @@ class ViewerMemoryExtractor:
     def _should_prefilter(self, event: LiveEvent):
         if event.event_type != "comment":
             return False
-        return is_obvious_non_memory_comment(event.content)
+        return is_obvious_non_memory_comment(event.content) or is_question_like_comment(event.content)
 
     @staticmethod
     def _should_attempt_llm(event: LiveEvent):

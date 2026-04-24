@@ -34,8 +34,10 @@ const {
   viewerNotePinned,
   isSavingViewerNote,
   editingViewerNoteId,
+  isViewerNoteEditorOpen,
   viewerMemoryDraft,
   editingViewerMemoryId,
+  isViewerMemoryEditorOpen,
   isSavingViewerMemory,
   viewerMemoryLogsById,
   llmSettings,
@@ -70,7 +72,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-6 px-4 py-5 md:px-6 xl:px-10">
+  <main class="mx-auto flex h-screen max-w-[1880px] flex-col gap-6 overflow-hidden px-4 py-5 md:px-6 xl:px-10">
     <StatusStrip
       :locale="locale"
       :room-id="roomId"
@@ -90,7 +92,7 @@ onBeforeUnmount(() => {
       @open-llm-settings="liveStore.openLlmSettings"
     />
 
-    <section class="grid min-h-0 flex-1 gap-6 xl:grid-cols-[1.75fr_0.85fr]">
+    <section class="grid min-h-0 flex-1 gap-6 xl:grid-cols-[1.45fr_1.15fr]">
       <TeleprompterCard
         :locale="locale"
         :suggestion="activeSuggestion"
@@ -102,6 +104,7 @@ onBeforeUnmount(() => {
         :event-filters="eventFilters"
         :selected-event-types="selectedEventTypes"
         :are-all-event-types-selected="areAllEventTypesSelected"
+        :room-selected="Boolean(roomId)"
         @toggle-filter="liveStore.toggleEventType"
         @select-all-filters="liveStore.selectAllEventTypes"
         @clear-events="liveStore.clearEvents"
@@ -120,16 +123,22 @@ onBeforeUnmount(() => {
     :note-pinned="viewerNotePinned"
     :saving="isSavingViewerNote || isSavingViewerMemory"
     :editing-note-id="editingViewerNoteId"
+    :note-editor-open="isViewerNoteEditorOpen"
     :memory-draft="viewerMemoryDraft"
     :editing-memory-id="editingViewerMemoryId"
+    :memory-editor-open="isViewerMemoryEditorOpen"
     :memory-logs-by-id="viewerMemoryLogsById"
     @close="liveStore.closeViewerWorkbench"
     @update-note-draft="liveStore.setViewerNoteDraft"
     @toggle-note-pinned="liveStore.toggleViewerNotePinned"
+    @open-new-note="liveStore.openNewViewerNote"
+    @close-note-editor="liveStore.closeViewerNoteEditor"
     @save-note="liveStore.saveActiveViewerNote"
     @edit-note="liveStore.beginEditingViewerNote"
     @delete-note="liveStore.deleteViewerNote"
     @update-memory-draft="liveStore.setViewerMemoryDraft"
+    @open-new-memory="liveStore.openNewViewerMemory"
+    @close-memory-editor="liveStore.closeViewerMemoryEditor"
     @save-memory="liveStore.saveActiveViewerMemory"
     @edit-memory="liveStore.beginEditingViewerMemory"
     @invalidate-memory="liveStore.invalidateViewerMemory"
@@ -148,6 +157,8 @@ onBeforeUnmount(() => {
     :error="llmSettingsError"
     @close="liveStore.closeLlmSettings"
     @update-model="liveStore.updateLlmModelDraft"
+    @update-embedding-model="liveStore.updateEmbeddingModelDraft"
+    @update-memory-extractor-model="liveStore.updateMemoryExtractorModelDraft"
     @update-system-prompt="liveStore.updateSystemPromptDraft"
     @save="liveStore.saveLlmSettings"
     @reset="liveStore.resetLlmSettings"

@@ -11,6 +11,17 @@ function buildMeta(key, values) {
   return joined ? [{ key, value: joined }] : [];
 }
 
+function buildTextMeta(key, value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized ? [{ key, value: normalized }] : [];
+}
+
+function buildPreviewText(values, limit = 2) {
+  return Array.isArray(values) && values.length > 0
+    ? values.filter(Boolean).slice(0, limit).join(" / ")
+    : "";
+}
+
 function buildAttemptState(status, successFlag, attemptedFlag) {
   if (status?.[successFlag]) {
     return "success";
@@ -173,14 +184,26 @@ export function getCommentProcessingDetails(event) {
       state: memorySavedState,
       titleKey: "feed.processing.detail.memorySaved.title",
       summaryKey: `feed.processing.detail.memorySaved.${memorySavedState}`,
-      meta: buildMeta("feed.processing.savedMemoryIds", status.saved_memory_ids),
+      meta: [
+        ...buildMeta("feed.processing.savedMemoryIds", status.saved_memory_ids),
+        ...buildTextMeta(
+          "feed.processing.extractedMemoryPreview",
+          buildPreviewText(status.extracted_memory_texts),
+        ),
+      ],
     },
     {
       key: "memoryRecalled",
       state: memoryRecalledState,
       titleKey: "feed.processing.detail.memoryRecalled.title",
       summaryKey: `feed.processing.detail.memoryRecalled.${memoryRecalledState}`,
-      meta: buildMeta("feed.processing.recalledMemoryIds", status.recalled_memory_ids),
+      meta: [
+        ...buildMeta("feed.processing.recalledMemoryIds", status.recalled_memory_ids),
+        ...buildTextMeta(
+          "feed.processing.recalledMemoryPreview",
+          buildPreviewText(status.recalled_memory_texts),
+        ),
+      ],
     },
     {
       key: "suggestionGenerated",

@@ -142,6 +142,7 @@ class LongTermStore:
                     room_id TEXT NOT NULL,
                     source_room_id TEXT,
                     livename TEXT,
+                    title TEXT,
                     status TEXT NOT NULL,
                     started_at INTEGER NOT NULL,
                     last_event_at INTEGER NOT NULL,
@@ -226,6 +227,7 @@ class LongTermStore:
             )
             self._ensure_event_columns(connection)
             self._ensure_viewer_profile_columns(connection)
+            self._ensure_live_session_columns(connection)
             self._ensure_viewer_memory_columns(connection)
             self._create_indexes(connection)
             self._backfill_event_columns(connection)
@@ -257,6 +259,15 @@ class LongTermStore:
         for column_name, column_type in required_columns.items():
             if column_name not in existing_columns:
                 connection.execute(f"ALTER TABLE viewer_profiles ADD COLUMN {column_name} {column_type}")
+
+    def _ensure_live_session_columns(self, connection):
+        existing_columns = self._table_columns(connection, "live_sessions")
+        required_columns = {
+            "title": "TEXT",
+        }
+        for column_name, column_type in required_columns.items():
+            if column_name not in existing_columns:
+                connection.execute(f"ALTER TABLE live_sessions ADD COLUMN {column_name} {column_type}")
 
     def _ensure_viewer_memory_columns(self, connection):
         existing_columns = self._table_columns(connection, "viewer_memories")
@@ -337,6 +348,7 @@ class LongTermStore:
             "event_type": event.event_type,
             "method": event.method,
             "livename": event.livename,
+            "title": safe_text(metadata.get("title") or raw.get("title")),
             "user_id": safe_text(event.user.id),
             "short_id": safe_text(event.user.short_id),
             "sec_uid": safe_text(event.user.sec_uid),
@@ -387,11 +399,19 @@ class LongTermStore:
         connection.execute(
             """
             INSERT INTO live_sessions (
-                session_id, room_id, source_room_id, livename, status,
+                session_id, room_id, source_room_id, livename, title, status,
                 started_at, last_event_at, ended_at, event_count, comment_count, gift_event_count, join_count
-            ) VALUES (?, ?, ?, ?, 'active', ?, ?, NULL, 0, 0, 0, 0)
+            ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, NULL, 0, 0, 0, 0)
             """,
-            (session_id, event_record["room_id"], event_record["source_room_id"], event_record["livename"], event_record["ts"], event_record["ts"]),
+            (
+                session_id,
+                event_record["room_id"],
+                event_record["source_room_id"],
+                event_record["livename"],
+                event_record["title"],
+                event_record["ts"],
+                event_record["ts"],
+            ),
         )
         return session_id
 
@@ -414,6 +434,7 @@ class LongTermStore:
             UPDATE live_sessions
             SET source_room_id = CASE WHEN ? <> '' THEN ? ELSE source_room_id END,
                 livename = CASE WHEN ? <> '' THEN ? ELSE livename END,
+                title = CASE WHEN ? <> '' THEN ? ELSE title END,
                 last_event_at = CASE WHEN last_event_at >= ? THEN last_event_at ELSE ? END,
                 event_count = event_count + 1,
                 comment_count = comment_count + ?,
@@ -424,6 +445,7 @@ class LongTermStore:
             (
                 event_record["source_room_id"], event_record["source_room_id"],
                 event_record["livename"], event_record["livename"],
+                event_record["title"], event_record["title"],
                 event_record["ts"], event_record["ts"],
                 1 if event_record["event_type"] == "comment" else 0,
                 1 if event_record["event_type"] == "gift" else 0,
@@ -805,6 +827,31 @@ class LongTermStore:
                 ORDER BY updated_at DESC LIMIT ?
                 """,
                 (now_ms, limit),
+            ).fetchall()
+        return [self._viewer_memory_from_row(row) for row in rows if row]
+
+    def list_room_viewer_memories(self, room_id, limit=5000, now_ms=None):
+        room_id = str(room_id or "").strip()
+        if not room_id:
+            return []
+        limit = max(1, min(int(limit), 20000))
+        now_ms = safe_int(now_ms, current_millis())
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT memory_id, room_id, viewer_id, source_event_id, memory_text, memory_type,
+                       polarity, temporal_scope,
+                       confidence, created_at, updated_at, last_recalled_at, recall_count,
+                       source_kind, status, is_pinned, correction_reason, corrected_by,
+                       last_operation, last_operation_at, memory_text_raw_latest, evidence_count,
+                       first_confirmed_at, last_confirmed_at, superseded_by, merge_parent_id,
+                       stability_score, interaction_value_score, clarity_score, evidence_score,
+                       lifecycle_kind, expires_at
+                FROM viewer_memories
+                WHERE room_id = ? AND status <> 'deleted' AND (expires_at = 0 OR expires_at > ?)
+                ORDER BY updated_at DESC LIMIT ?
+                """,
+                (room_id, now_ms, limit),
             ).fetchall()
         return [self._viewer_memory_from_row(row) for row in rows if row]
 
@@ -1497,19 +1544,39 @@ class LongTermStore:
             cursor = connection.execute("DELETE FROM app_settings WHERE setting_key = ?", (key,))
         return cursor.rowcount > 0
 
-    def get_llm_settings(self, default_model, default_system_prompt):
+    def get_llm_settings(
+        self,
+        default_model,
+        default_system_prompt,
+        default_embedding_model="",
+        default_memory_extractor_model="",
+        embedding_model_options=None,
+        memory_extractor_model_options=None,
+    ):
         model_override = self.get_setting("llm_model_override")
         prompt_override = self.get_setting("system_prompt_override")
+        embedding_model_override = self.get_setting("embedding_model_override")
+        memory_extractor_model_override = self.get_setting("memory_extractor_model_override")
         model = model_override or safe_text(default_model)
         system_prompt = prompt_override if safe_text(prompt_override) else str(default_system_prompt or "")
+        embedding_model = embedding_model_override or safe_text(default_embedding_model)
+        memory_extractor_model = (
+            memory_extractor_model_override or safe_text(default_memory_extractor_model)
+        )
         return {
             "model": model,
             "system_prompt": system_prompt,
             "default_model": safe_text(default_model),
             "default_system_prompt": str(default_system_prompt or ""),
+            "embedding_model": embedding_model,
+            "memory_extractor_model": memory_extractor_model,
+            "default_embedding_model": safe_text(default_embedding_model),
+            "default_memory_extractor_model": safe_text(default_memory_extractor_model),
+            "embedding_model_options": list(embedding_model_options or []),
+            "memory_extractor_model_options": list(memory_extractor_model_options or []),
         }
 
-    def save_llm_settings(self, model, system_prompt):
+    def save_llm_settings(self, model, system_prompt, embedding_model="", memory_extractor_model=""):
         normalized_model = safe_text(model)
         if not normalized_model:
             raise ValueError("model is required")
@@ -1519,7 +1586,23 @@ class LongTermStore:
             self.set_setting("system_prompt_override", normalized_prompt)
         else:
             self.delete_setting("system_prompt_override")
-        return self.get_llm_settings(normalized_model, normalized_prompt)
+        normalized_embedding_model = safe_text(embedding_model)
+        if normalized_embedding_model:
+            self.set_setting("embedding_model_override", normalized_embedding_model)
+        else:
+            self.delete_setting("embedding_model_override")
+
+        normalized_memory_extractor_model = safe_text(memory_extractor_model)
+        if normalized_memory_extractor_model:
+            self.set_setting("memory_extractor_model_override", normalized_memory_extractor_model)
+        else:
+            self.delete_setting("memory_extractor_model_override")
+        return self.get_llm_settings(
+            normalized_model,
+            normalized_prompt,
+            normalized_embedding_model,
+            normalized_memory_extractor_model,
+        )
 
     def list_live_sessions(self, room_id="", status="", limit=20):
         conditions = []
@@ -1537,7 +1620,7 @@ class LongTermStore:
         with self._connect() as connection:
             rows = connection.execute(
                 f"""
-                SELECT session_id, room_id, source_room_id, livename, status, started_at, last_event_at, ended_at,
+                SELECT session_id, room_id, source_room_id, livename, title, status, started_at, last_event_at, ended_at,
                        event_count, comment_count, gift_event_count, join_count
                 FROM live_sessions {where_clause}
                 ORDER BY last_event_at DESC LIMIT ?
@@ -1550,7 +1633,7 @@ class LongTermStore:
         with self._connect() as connection:
             row = connection.execute(
                 """
-                SELECT session_id, room_id, source_room_id, livename, status, started_at, last_event_at, ended_at,
+                SELECT session_id, room_id, source_room_id, livename, title, status, started_at, last_event_at, ended_at,
                        event_count, comment_count, gift_event_count, join_count
                 FROM live_sessions WHERE room_id = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1
                 """,

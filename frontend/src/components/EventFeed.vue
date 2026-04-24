@@ -23,6 +23,10 @@ const props = defineProps({
     type: Array,
     required: true,
   },
+  roomSelected: {
+    type: Boolean,
+    default: true,
+  },
   areAllEventTypesSelected: {
     type: Boolean,
     required: true,
@@ -173,6 +177,12 @@ function processingStepTone(state) {
   };
 }
 
+function viewerNotesPreview(event) {
+  return Array.isArray(event?.metadata?.viewer_notes_preview)
+    ? event.metadata.viewer_notes_preview.filter((item) => `${item ?? ""}`.trim())
+    : [];
+}
+
 function isProcessingExpanded(event) {
   return expandedEventIds.value.has(event.event_id);
 }
@@ -241,7 +251,7 @@ function toggleProcessingDetails(event) {
       {{ t("feed.showing", { selected: selectedEventTypes.length, total: eventFilters.length }) }}
     </p>
 
-    <div class="mt-5 max-h-[60vh] overflow-y-auto pr-2 xl:max-h-[calc(100vh-260px)]">
+    <div class="mt-5 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-2">
       <div class="space-y-3">
         <article
           v-for="event in events.slice(0, 10)"
@@ -270,6 +280,21 @@ function toggleProcessingDetails(event) {
               >
                 {{ event.user?.nickname || t("common.unknownUser") }}
               </button>
+              <div
+                v-if="viewerNotesPreview(event).length"
+                class="mt-3 border-t border-line/12 pt-3"
+              >
+                <p class="text-[10px] uppercase tracking-[0.18em] text-muted">
+                  {{ t("feed.notes") }}
+                </p>
+                <p
+                  v-for="(note, index) in viewerNotesPreview(event)"
+                  :key="`${event.event_id}-note-${index}`"
+                  class="mt-2 text-xs leading-5 text-paper/88"
+                >
+                  {{ note }}
+                </p>
+              </div>
             </div>
 
             <div class="rounded-2xl border border-line/14 bg-panel/92 px-3 py-3 shadow-sm">
@@ -283,11 +308,11 @@ function toggleProcessingDetails(event) {
                 v-if="processingTimeline(event).length > 0"
                 class="mt-4 rounded-2xl border border-line/12 bg-panel-soft/68 px-3 py-3"
               >
-                <div class="flex flex-wrap items-start gap-y-3 sm:flex-nowrap sm:gap-y-0">
+                <div class="flex flex-wrap items-start gap-3">
                   <div
                     v-for="(step, index) in processingTimeline(event)"
                     :key="step.key"
-                    class="flex min-w-[110px] flex-1 items-center gap-2"
+                    class="flex min-w-0 flex-[1_1_140px] items-center gap-2"
                   >
                     <div class="flex min-w-0 items-center gap-2">
                       <span
@@ -308,7 +333,7 @@ function toggleProcessingDetails(event) {
                     </div>
                     <span
                       v-if="index < processingTimeline(event).length - 1"
-                      class="hidden h-px flex-1 sm:block"
+                      class="hidden h-px flex-1 lg:block"
                       :class="processingStepTone(step.state).line"
                     />
                   </div>
@@ -366,7 +391,7 @@ function toggleProcessingDetails(event) {
           v-if="events.length === 0"
           class="rounded-2xl border border-line/14 bg-panel/92 p-4 text-sm text-muted shadow-sm"
         >
-          {{ t("feed.empty") }}
+          {{ t(roomSelected ? "feed.empty" : "feed.waitingForRoom") }}
         </p>
       </div>
     </div>

@@ -53,10 +53,20 @@ class LivePromptAgent:
                 "system_prompt": DEFAULT_SYSTEM_PROMPT,
                 "default_model": self.settings.resolved_llm_model(),
                 "default_system_prompt": DEFAULT_SYSTEM_PROMPT,
+                "embedding_model": str(getattr(self.settings, "embedding_model", "") or ""),
+                "memory_extractor_model": str(getattr(self.settings, "memory_extractor_model", "") or ""),
+                "default_embedding_model": str(getattr(self.settings, "embedding_model", "") or ""),
+                "default_memory_extractor_model": str(
+                    getattr(self.settings, "memory_extractor_model", "") or ""
+                ),
+                "embedding_model_options": [],
+                "memory_extractor_model_options": [],
             }
         return self.long_term_store.get_llm_settings(
             self.settings.resolved_llm_model(),
             DEFAULT_SYSTEM_PROMPT,
+            str(getattr(self.settings, "embedding_model", "") or ""),
+            str(getattr(self.settings, "memory_extractor_model", "") or ""),
         )
 
     def consume_last_generation_metadata(self):
@@ -82,7 +92,9 @@ class LivePromptAgent:
         memory_recall_attempted=False,
         memory_recalled=False,
         recalled_memory_ids=None,
+        recalled_memory_texts=None,
         current_comment_memory_used=False,
+        suggestion_support_kind="context",
     ):
         return {
             "suggestion_status": suggestion_status,
@@ -91,7 +103,9 @@ class LivePromptAgent:
             "memory_recall_attempted": bool(memory_recall_attempted),
             "memory_recalled": bool(memory_recalled),
             "recalled_memory_ids": list(recalled_memory_ids or []),
+            "recalled_memory_texts": list(recalled_memory_texts or []),
             "current_comment_memory_used": bool(current_comment_memory_used),
+            "suggestion_support_kind": str(suggestion_support_kind or "context"),
         }
 
     @staticmethod
@@ -188,7 +202,15 @@ class LivePromptAgent:
                 memory_recall_attempted=True,
                 memory_recalled=bool(context["recalled_memory_ids"]),
                 recalled_memory_ids=context["recalled_memory_ids"],
+                recalled_memory_texts=[item["memory_text"] for item in context["viewer_memories"] if item.get("memory_text")],
                 current_comment_memory_used=bool(context["current_comment_memory_texts"]),
+                suggestion_support_kind=(
+                    "memory"
+                    if context["recalled_memory_ids"]
+                    else "current_comment"
+                    if context["current_comment_memory_texts"]
+                    else "context"
+                ),
             )
             payload = self._generate_payload(event, context)
         self._last_generation_metadata = generation_metadata
@@ -209,6 +231,7 @@ class LivePromptAgent:
             reply_text=payload["reply_text"],
             tone=payload["tone"],
             reason=payload["reason"],
+            support_kind=str(generation_metadata.get("suggestion_support_kind") or "context"),
             confidence=payload["confidence"],
             references=references,
             source_events=[event.event_id],

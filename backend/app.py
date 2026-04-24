@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import subprocess
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -39,6 +40,7 @@ memory_extractor = None
 collector = None
 memory_merge_service = None
 memory_confidence_service = None
+_primed_memory_room_id = ""
 
 
 class RoomSwitchRequest(BaseModel):
@@ -77,6 +79,8 @@ class ViewerMemoryStatusRequest(BaseModel):
 class LlmSettingsUpdateRequest(BaseModel):
     model: str
     system_prompt: str = ""
+    embedding_model: str = ""
+    memory_extractor_model: str = ""
 
 
 def _active_memory_count(memories):
@@ -126,6 +130,54 @@ def _normalize_recalled_memory_ids(raw_ids):
     return normalized_ids
 
 
+def _parse_ollama_list_output(stdout):
+    models = []
+    for index, raw_line in enumerate(str(stdout or "").splitlines()):
+        line = raw_line.strip()
+        if not line:
+            continue
+        if index == 0 and line.lower().startswith("name"):
+            continue
+        model = line.split(maxsplit=1)[0].strip()
+        if model and model.lower() != "name":
+            models.append(model)
+    return models
+
+
+def _list_ollama_models():
+    try:
+        completed = subprocess.run(
+            ["ollama", "list"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        logging.exception("Failed to load Ollama model list")
+        return []
+
+    if completed.returncode != 0:
+        stderr = str(completed.stderr or "").strip()
+        logging.warning("ollama list failed with code=%s stderr=%s", completed.returncode, stderr)
+        return []
+    return _parse_ollama_list_output(completed.stdout)
+
+
+def _model_options_with_current(current_value, options):
+    normalized_current = str(current_value or "").strip()
+    merged = []
+    if normalized_current:
+        merged.append(normalized_current)
+    for option in options or []:
+        normalized = str(option or "").strip()
+        if normalized and normalized not in merged:
+            merged.append(normalized)
+    return merged
+
+
 def _consume_extraction_metadata(extractor):
     consume = getattr(extractor, "consume_last_extraction_metadata", None)
     if not callable(consume):
@@ -162,6 +214,15 @@ def _candidate_raw_text(candidate):
     return str(candidate.get("memory_text_raw") or "").strip()
 
 
+def _candidate_extraction_source(candidate):
+    source = str(candidate.get("extraction_source") or "").strip().lower()
+    if source == "llm":
+        return "llm"
+    if source == "rule_fallback":
+        return "rule_fallback"
+    return "auto"
+
+
 def _existing_memory_candidates(room_id, viewer_id):
     if long_term_store is None:
         return []
@@ -178,6 +239,30 @@ def _candidate_lifecycle(candidate, created_at, settings_obj):
         ttl_hours = float(getattr(settings_obj, "memory_short_term_ttl_hours", 72.0) or 72.0)
         return "short_term", created_at + int(ttl_hours * 3600 * 1000)
     return "long_term", 0
+
+
+def _viewer_note_preview(room_id, viewer_id, limit=5):
+    if long_term_store is None:
+        return []
+    room_id = str(room_id or "").strip()
+    viewer_id = str(viewer_id or "").strip()
+    if not room_id or not viewer_id:
+        return []
+    try:
+        notes = long_term_store.list_viewer_notes(room_id, viewer_id, limit=limit) or []
+    except Exception:
+        logging.exception(
+            "Failed to load viewer notes preview for room_id=%s viewer_id=%s",
+            room_id,
+            viewer_id,
+        )
+        return []
+    preview = []
+    for note in notes:
+        content = str((note or {}).get("content") or "").strip()
+        if content:
+            preview.append(content)
+    return preview
 
 
 def ensure_runtime():
@@ -203,8 +288,6 @@ def ensure_runtime():
         embedding_service = EmbeddingService(settings)
     if vector_memory is None:
         vector_memory = VectorMemory(settings.chroma_dir, settings=settings, embedding_service=embedding_service)
-        memories = long_term_store.list_all_viewer_memories(limit=10000)
-        vector_memory.prime_memory_index(memories, force_rebuild=_should_force_memory_rebuild(memories))
     if agent is None:
         agent = LivePromptAgent(settings, vector_memory, long_term_store)
     if memory_extractor is None:
@@ -240,9 +323,21 @@ def event_envelope(kind, data):
     return {"type": kind, "data": data}
 
 
+def prime_room_memory_index(room_id):
+    global _primed_memory_room_id
+    room_id = str(room_id or "").strip()
+    if not room_id or room_id == _primed_memory_room_id:
+        return
+    ensure_runtime()
+    memories = long_term_store.list_room_viewer_memories(room_id, limit=10000)
+    vector_memory.prime_memory_index(memories, force_rebuild=_should_force_memory_rebuild(memories))
+    _primed_memory_room_id = room_id
+
+
 def snapshot_with_status(room_id):
     ensure_runtime()
     room_id = str(room_id or "").strip()
+    prime_room_memory_index(room_id)
     snapshot = session_memory.snapshot(room_id)
     if not snapshot.recent_events:
         snapshot.recent_events = long_term_store.recent_events(room_id, limit=30)
@@ -256,6 +351,12 @@ def snapshot_with_status(room_id):
 
 async def process_event(event: LiveEvent):
     ensure_runtime()
+    note_preview = _viewer_note_preview(event.room_id, event.user.viewer_id)
+    if note_preview:
+        event.metadata = {
+            **dict(event.metadata or {}),
+            "viewer_notes_preview": note_preview,
+        }
     processing_status = CommentProcessingStatus(received=True)
     session_memory.add_event(event)
     long_term_store.persist_event(event)
@@ -269,7 +370,7 @@ async def process_event(event: LiveEvent):
 
     if processing_status.memory_extraction_attempted:
         try:
-            extracted_candidates = list(extract_method(event) or [])
+            extracted_candidates = list(await asyncio.to_thread(extract_method, event) or [])
         except Exception:
             extracted_candidates = []
             logging.exception("Memory extraction pipeline failed for event_id=%s", event.event_id)
@@ -281,7 +382,13 @@ async def process_event(event: LiveEvent):
     current_comment_memories = [
         candidate for candidate in extracted_candidates if _candidate_is_suggestion_ready(candidate)
     ]
-    suggestion = agent.maybe_generate(
+    processing_status.extracted_memory_texts = [
+        str(candidate.get("memory_text") or "").strip()
+        for candidate in current_comment_memories
+        if str(candidate.get("memory_text") or "").strip()
+    ]
+    suggestion = await asyncio.to_thread(
+        agent.maybe_generate,
         event,
         recent_events,
         current_comment_memories=current_comment_memories,
@@ -294,11 +401,19 @@ async def process_event(event: LiveEvent):
     processing_status.recalled_memory_ids = _normalize_recalled_memory_ids(
         generation_metadata.get("recalled_memory_ids")
     )
+    processing_status.recalled_memory_texts = [
+        str(text or "").strip()
+        for text in (generation_metadata.get("recalled_memory_texts") or [])
+        if str(text or "").strip()
+    ]
     processing_status.memory_recalled = bool(
         generation_metadata.get("memory_recalled") or processing_status.recalled_memory_ids
     )
     processing_status.memory_used_for_current_suggestion = bool(
         generation_metadata.get("current_comment_memory_used")
+    )
+    processing_status.suggestion_support_kind = str(
+        generation_metadata.get("suggestion_support_kind") or ""
     )
     if suggestion:
         session_memory.add_suggestion(suggestion)
@@ -377,7 +492,7 @@ async def process_event(event: LiveEvent):
                     polarity=str(candidate.get("polarity") or "neutral"),
                     temporal_scope=str(candidate.get("temporal_scope") or "long_term"),
                     confidence=scores["confidence"],
-                    source_kind="auto",
+                    source_kind=_candidate_extraction_source(candidate),
                     status="active",
                     is_pinned=False,
                     correction_reason="",
@@ -635,7 +750,17 @@ async def delete_viewer_note(note_id: str):
 @app.get("/api/settings/llm")
 async def get_llm_settings():
     ensure_runtime()
-    return agent.current_llm_settings()
+    payload = dict(agent.current_llm_settings())
+    ollama_models = _list_ollama_models()
+    payload["embedding_model_options"] = _model_options_with_current(
+        payload.get("embedding_model"),
+        ollama_models,
+    )
+    payload["memory_extractor_model_options"] = _model_options_with_current(
+        payload.get("memory_extractor_model"),
+        ollama_models,
+    )
+    return payload
 
 
 @app.put("/api/settings/llm")
@@ -644,7 +769,22 @@ async def save_llm_settings(payload: LlmSettingsUpdateRequest):
     model = payload.model.strip()
     if not model:
         raise HTTPException(status_code=400, detail="model is required")
-    return long_term_store.save_llm_settings(model, payload.system_prompt or "")
+    saved = long_term_store.save_llm_settings(
+        model,
+        payload.system_prompt or "",
+        payload.embedding_model or "",
+        payload.memory_extractor_model or "",
+    )
+    ollama_models = _list_ollama_models()
+    saved["embedding_model_options"] = _model_options_with_current(
+        saved.get("embedding_model"),
+        ollama_models,
+    )
+    saved["memory_extractor_model_options"] = _model_options_with_current(
+        saved.get("memory_extractor_model"),
+        ollama_models,
+    )
+    return saved
 
 
 @app.get("/api/sessions")

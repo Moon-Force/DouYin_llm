@@ -165,6 +165,25 @@ class LLMBackedViewerMemoryExtractorTests(unittest.TestCase):
 
         self.assertEqual(extractor.extract(make_event(content="我是不是不能吃辣")), [])
 
+    def test_extract_rejects_guess_name_interaction_shell(self):
+        from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
+
+        runtime = FakeRuntime(
+            json.dumps(
+                llm_payload(
+                    raw="主播猜猜我的名字",
+                    canonical="主播猜猜我的名字",
+                    memory_type="fact",
+                    polarity="neutral",
+                    reason="互动问句",
+                ),
+                ensure_ascii=False,
+            )
+        )
+        extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=runtime)
+
+        self.assertEqual(extractor.extract(make_event(content="主播猜猜我的名字")), [])
+
     def test_extract_rejects_negative_polarity_without_negative_signal(self):
         from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
 
@@ -250,6 +269,21 @@ class ViewerMemoryExtractorCompositeTests(unittest.TestCase):
         self.assertTrue(metadata["memory_refined"])
         self.assertFalse(metadata["fallback_used"])
 
+    def test_composite_prefilters_question_like_comment_before_llm(self):
+        from backend.services.memory_extractor import ViewerMemoryExtractor
+
+        llm_extractor = MagicMock()
+        rule_extractor = MagicMock()
+        extractor = ViewerMemoryExtractor(settings=None, llm_extractor=llm_extractor, rule_extractor=rule_extractor)
+
+        result = extractor.extract(make_event(content="主播猜猜我的名字"))
+
+        self.assertEqual(result, [])
+        llm_extractor.extract.assert_not_called()
+        rule_extractor.extract.assert_not_called()
+        metadata = extractor.consume_last_extraction_metadata()
+        self.assertTrue(metadata["memory_prefiltered"])
+
     def test_composite_does_not_fallback_when_llm_returns_empty(self):
         from backend.services.memory_extractor import ViewerMemoryExtractor
 
@@ -320,6 +354,17 @@ class ViewerMemoryExtractorCompositeTests(unittest.TestCase):
 
         self.assertEqual(result, [])
 
+    def test_rule_fallback_general_extract_rejects_name_guess_question(self):
+        from backend.services.memory_extractor import RuleFallbackMemoryExtractor
+
+        extractor = RuleFallbackMemoryExtractor()
+
+        result = extractor.extract(
+            make_event(content="\u4e3b\u64ad\uff0c\u4f60\u731c\u731c\u6211\u7684\u540d\u5b57\u53eb\u4ec0\u4e48\uff1f")
+        )
+
+        self.assertEqual(result, [])
+
     def test_rule_fallback_accepts_clear_negative_food_constraint(self):
         from backend.services.memory_extractor import RuleFallbackMemoryExtractor
 
@@ -374,6 +419,51 @@ class ViewerMemoryExtractorCompositeTests(unittest.TestCase):
         result = extractor.extract_high_confidence(make_event(content="我不太能吃辣"))
 
         self.assertEqual(result[0]["polarity"], "negative")
+
+
+class InteractiveQuestionRegressionTests(unittest.TestCase):
+    def test_llm_normalizer_rejects_guess_name_question_variants(self):
+        from backend.services.llm_memory_extractor import LLMBackedViewerMemoryExtractor
+
+        cases = (
+            ("主播猜猜我的名字", "主播猜猜我的名字"),
+            ("主播猜猜我的名字叫啥", "主播猜猜我的名字"),
+            ("主播猜猜我的名字叫什么？", "主播猜猜我的名字"),
+        )
+
+        for raw_text, canonical_text in cases:
+            with self.subTest(raw_text=raw_text, canonical_text=canonical_text):
+                runtime = FakeRuntime(
+                    json.dumps(
+                        llm_payload(
+                            raw=raw_text,
+                            canonical=canonical_text,
+                            memory_type="fact",
+                            polarity="neutral",
+                            reason="互动问句",
+                        ),
+                        ensure_ascii=False,
+                    )
+                )
+                extractor = LLMBackedViewerMemoryExtractor(settings=SimpleNamespace(), runtime=runtime)
+                self.assertEqual(extractor.extract(make_event(content=raw_text)), [])
+
+    def test_composite_prefilters_guess_name_question_variants_before_llm(self):
+        from backend.services.memory_extractor import ViewerMemoryExtractor
+
+        llm_extractor = MagicMock()
+        rule_extractor = MagicMock()
+        extractor = ViewerMemoryExtractor(settings=None, llm_extractor=llm_extractor, rule_extractor=rule_extractor)
+
+        for content in ("主播猜猜我的名字", "主播猜猜我的名字叫啥", "主播猜猜我的名字叫什么？"):
+            with self.subTest(content=content):
+                result = extractor.extract(make_event(content=content))
+                self.assertEqual(result, [])
+                metadata = extractor.consume_last_extraction_metadata()
+                self.assertTrue(metadata["memory_prefiltered"])
+
+        llm_extractor.extract.assert_not_called()
+        rule_extractor.extract.assert_not_called()
 
 
 if __name__ == "__main__":

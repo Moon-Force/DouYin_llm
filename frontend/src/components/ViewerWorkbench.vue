@@ -6,6 +6,9 @@ import {
   canReactivateViewerMemory,
   canTogglePinViewerMemory,
   getViewerMemoryBadges,
+  getViewerMemoryLifecycleLabel,
+  getViewerMemoryRawTextPreview,
+  getViewerMemorySourceLabel,
   getViewerMemoryTimelinePreview,
 } from "./viewer-memory-presenter.js";
 
@@ -46,6 +49,10 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  noteEditorOpen: {
+    type: Boolean,
+    default: false,
+  },
   memoryDraft: {
     type: Object,
     default: () => ({
@@ -59,6 +66,10 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  memoryEditorOpen: {
+    type: Boolean,
+    default: false,
+  },
   memoryLogsById: {
     type: Object,
     default: () => ({}),
@@ -69,10 +80,14 @@ const emit = defineEmits([
   "close",
   "update-note-draft",
   "toggle-note-pinned",
+  "open-new-note",
+  "close-note-editor",
   "save-note",
   "edit-note",
   "delete-note",
   "update-memory-draft",
+  "open-new-memory",
+  "close-memory-editor",
   "save-memory",
   "edit-memory",
   "invalidate-memory",
@@ -106,6 +121,12 @@ function formatTimestamp(value) {
 }
 
 const errorMessage = computed(() => translateError(props.locale, props.error));
+const memoryTypeOptions = computed(() => [
+  { value: "fact", label: t("viewerWorkbench.memoryTypeOptions.fact") },
+  { value: "preference", label: t("viewerWorkbench.memoryTypeOptions.preference") },
+  { value: "context", label: t("viewerWorkbench.memoryTypeOptions.context") },
+  { value: "plan", label: t("viewerWorkbench.memoryTypeOptions.plan") },
+]);
 </script>
 
 <template>
@@ -133,7 +154,17 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
 
     <div v-else-if="viewer" class="space-y-5 text-sm text-paper">
       <section class="space-y-2">
-        <p class="text-2xl font-semibold">{{ viewer.nickname || t("common.unknownUser") }}</p>
+        <div class="flex items-start justify-between gap-3">
+          <p class="text-2xl font-semibold">{{ viewer.nickname || t("common.unknownUser") }}</p>
+          <button
+            type="button"
+            class="rounded-full border border-line/16 bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-accent transition hover:border-accent/40 hover:text-accent disabled:opacity-60"
+            :disabled="saving || !viewer.viewer_id"
+            @click="emit('open-new-note')"
+          >
+            {{ t("viewerWorkbench.addNote") }}
+          </button>
+        </div>
         <p class="text-xs uppercase tracking-widest text-muted">{{ viewer.viewer_id }}</p>
         <div class="flex flex-wrap gap-4 text-xs uppercase tracking-wide text-muted">
           <p>{{ t("common.comments") }} {{ viewer.comment_count ?? 0 }}</p>
@@ -158,23 +189,89 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
             v-if="viewer.first_seen_at"
             class="rounded-xl border border-line/20 bg-surface px-3 py-2 text-xs leading-relaxed text-paper"
           >
-            {{ t("common.firstSeen") }}: {{ viewer.first_seen_at }}
+            {{ t("common.firstSeen") }}: {{ formatTimestamp(viewer.first_seen_at) }}
           </p>
           <p
             v-if="viewer.last_seen_at"
             class="rounded-xl border border-line/20 bg-surface px-3 py-2 text-xs leading-relaxed text-paper"
           >
-            {{ t("common.lastSeen") }}: {{ viewer.last_seen_at }}
+            {{ t("common.lastSeen") }}: {{ formatTimestamp(viewer.last_seen_at) }}
+          </p>
+        </div>
+
+        <div
+          v-if="noteEditorOpen"
+          class="space-y-2 rounded-xl border border-line/20 bg-surface px-3 py-3"
+        >
+          <textarea
+            class="w-full rounded-xl border border-line/40 bg-panel px-3 py-2 text-xs text-paper outline-none transition placeholder:text-muted focus:border-accent"
+            rows="3"
+            :value="noteDraft"
+            :placeholder="t('viewerWorkbench.notePlaceholder')"
+            :disabled="saving || !viewer.viewer_id"
+            @input="emit('update-note-draft', $event.target.value)"
+          ></textarea>
+
+          <div class="flex items-center justify-between gap-3 text-xs text-muted">
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="font-semibold text-paper transition hover:text-accent"
+                :disabled="saving || !viewer.viewer_id"
+                @click="emit('toggle-note-pinned')"
+              >
+                {{ notePinned ? t("viewerWorkbench.unpinNote") : t("viewerWorkbench.pinNote") }}
+              </button>
+              <button
+                type="button"
+                class="font-semibold text-muted transition hover:text-paper disabled:opacity-60"
+                :disabled="saving"
+                @click="emit('close-note-editor')"
+              >
+                {{ t("common.cancel") }}
+              </button>
+            </div>
+            <button
+              type="button"
+              class="rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-ink transition hover:bg-accent/90 disabled:opacity-60"
+              :disabled="saving || !viewer.viewer_id || !noteDraft.trim()"
+              @click="emit('save-note')"
+            >
+              {{
+                saving
+                  ? t("common.saving")
+                  : editingNoteId
+                    ? t("viewerWorkbench.updateNote")
+                    : t("viewerWorkbench.saveNote")
+              }}
+            </button>
+          </div>
+
+          <p v-if="editingNoteId" class="text-[11px] text-muted">
+            {{ t("viewerWorkbench.editing") }} {{ editingNoteId }}
           </p>
         </div>
       </section>
 
       <section class="space-y-3">
-        <p class="text-xs font-semibold uppercase tracking-widest text-muted">
-          {{ t("viewerWorkbench.memories") }}
-        </p>
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-xs font-semibold uppercase tracking-widest text-muted">
+            {{ t("viewerWorkbench.memories") }}
+          </p>
+          <button
+            type="button"
+            class="rounded-full border border-line/16 bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-accent transition hover:border-accent/40 hover:text-accent disabled:opacity-60"
+            :disabled="saving || !viewer.viewer_id"
+            @click="emit('open-new-memory')"
+          >
+            {{ t("viewerWorkbench.addMemory") }}
+          </button>
+        </div>
 
-        <div class="space-y-2 rounded-xl border border-line/20 bg-surface px-3 py-3">
+        <div
+          v-if="memoryEditorOpen"
+          class="space-y-2 rounded-xl border border-line/20 bg-surface px-3 py-3"
+        >
           <textarea
             class="w-full rounded-xl border border-line/40 bg-panel px-3 py-2 text-xs text-paper outline-none transition placeholder:text-muted focus:border-accent"
             rows="3"
@@ -184,13 +281,39 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
             @input="emit('update-memory-draft', { memoryText: $event.target.value })"
           ></textarea>
 
-          <input
-            class="w-full rounded-xl border border-line/40 bg-panel px-3 py-2 text-xs text-paper outline-none transition placeholder:text-muted focus:border-accent"
-            :value="memoryDraft.memoryType"
-            :placeholder="t('viewerWorkbench.memoryTypePlaceholder')"
-            :disabled="saving || !viewer.viewer_id"
-            @input="emit('update-memory-draft', { memoryType: $event.target.value })"
-          />
+          <div class="relative">
+            <select
+              class="w-full appearance-none rounded-xl border border-line/40 bg-panel px-3 py-2 pr-10 text-xs text-paper outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+              :value="memoryDraft.memoryType"
+              :disabled="saving || !viewer.viewer_id"
+              @input="emit('update-memory-draft', { memoryType: $event.target.value })"
+            >
+              <option
+                v-for="option in memoryTypeOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+            <span
+              class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted"
+              aria-hidden="true"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                class="h-4 w-4"
+              >
+                <path d="m4 6 4 4 4-4" />
+              </svg>
+            </span>
+          </div>
 
           <input
             class="w-full rounded-xl border border-line/40 bg-panel px-3 py-2 text-xs text-paper outline-none transition placeholder:text-muted focus:border-accent"
@@ -201,14 +324,24 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
           />
 
           <div class="flex items-center justify-between gap-3 text-xs text-muted">
-            <button
-              type="button"
-              class="font-semibold text-paper transition hover:text-accent"
-              :disabled="saving || !viewer.viewer_id"
-              @click="emit('update-memory-draft', { isPinned: !memoryDraft.isPinned })"
-            >
-              {{ memoryDraft.isPinned ? t("viewerWorkbench.unpinMemory") : t("viewerWorkbench.pinMemory") }}
-            </button>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="font-semibold text-paper transition hover:text-accent"
+                :disabled="saving || !viewer.viewer_id"
+                @click="emit('update-memory-draft', { isPinned: !memoryDraft.isPinned })"
+              >
+                {{ memoryDraft.isPinned ? t("viewerWorkbench.unpinMemory") : t("viewerWorkbench.pinMemory") }}
+              </button>
+              <button
+                type="button"
+                class="font-semibold text-muted transition hover:text-paper disabled:opacity-60"
+                :disabled="saving"
+                @click="emit('close-memory-editor')"
+              >
+                {{ t("common.cancel") }}
+              </button>
+            </div>
             <button
               type="button"
               class="rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-ink transition hover:bg-accent/90 disabled:opacity-60"
@@ -232,10 +365,19 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
           class="rounded-xl border border-line/20 bg-surface px-3 py-3"
         >
           <p class="text-xs leading-relaxed text-paper">{{ memory.memory_text }}</p>
+          <p
+            v-if="getViewerMemoryRawTextPreview(memory)"
+            class="mt-2 text-[11px] leading-relaxed text-muted"
+          >
+            {{ t("viewerWorkbench.memoryRawText") }}:
+            {{ getViewerMemoryRawTextPreview(memory) }}
+          </p>
           <div class="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.14em] text-muted">
             <span v-for="badgeKey in getViewerMemoryBadges(memory)" :key="badgeKey">
               {{ t(badgeKey) }}
             </span>
+            <span>{{ t(getViewerMemorySourceLabel(memory)) }}</span>
+            <span>{{ t(getViewerMemoryLifecycleLabel(memory)) }}</span>
             <span>{{ memory.memory_type || "fact" }}</span>
             <span>{{ t("viewerWorkbench.memoryConfidence") }} {{ memory.confidence ?? 0 }}</span>
             <span>{{ t("viewerWorkbench.memoryRecall") }} {{ memory.recall_count ?? 0 }}</span>
@@ -245,6 +387,13 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
             <span v-if="getViewerMemoryTimelinePreview(memory).reason">
               ：{{ getViewerMemoryTimelinePreview(memory).reason }}
             </span>
+          </p>
+          <p
+            v-if="getViewerMemoryTimelinePreview(memory).recalledAt"
+            class="mt-1 text-[11px] text-muted"
+          >
+            {{ t("viewerWorkbench.lastRecalledAt") }}:
+            {{ formatTimestamp(getViewerMemoryTimelinePreview(memory).recalledAt) }}
           </p>
           <div class="mt-3 flex flex-wrap gap-3 text-[11px] text-muted">
             <button
@@ -361,46 +510,6 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
         <p class="text-xs font-semibold uppercase tracking-widest text-muted">
           {{ t("viewerWorkbench.notes") }}
         </p>
-        <div class="space-y-2 rounded-xl border border-line/20 bg-surface px-3 py-3">
-          <textarea
-            class="w-full rounded-xl border border-line/40 bg-panel px-3 py-2 text-xs text-paper outline-none transition placeholder:text-muted focus:border-accent"
-            rows="3"
-            :value="noteDraft"
-            :placeholder="t('viewerWorkbench.notePlaceholder')"
-            :disabled="saving || !viewer.viewer_id"
-            @input="emit('update-note-draft', $event.target.value)"
-          ></textarea>
-
-          <div class="flex items-center justify-between gap-3 text-xs text-muted">
-            <button
-              type="button"
-              class="font-semibold text-paper transition hover:text-accent"
-              :disabled="saving || !viewer.viewer_id"
-              @click="emit('toggle-note-pinned')"
-            >
-              {{ notePinned ? t("viewerWorkbench.unpinNote") : t("viewerWorkbench.pinNote") }}
-            </button>
-            <button
-              type="button"
-              class="rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-ink transition hover:bg-accent/90 disabled:opacity-60"
-              :disabled="saving || !viewer.viewer_id || !noteDraft.trim()"
-              @click="emit('save-note')"
-            >
-              {{
-                saving
-                  ? t("common.saving")
-                  : editingNoteId
-                    ? t("viewerWorkbench.updateNote")
-                    : t("viewerWorkbench.saveNote")
-              }}
-            </button>
-          </div>
-
-          <p v-if="editingNoteId" class="text-[11px] text-muted">
-            {{ t("viewerWorkbench.editing") }} {{ editingNoteId }}
-          </p>
-        </div>
-
         <article
           v-for="note in viewer.notes || []"
           :key="note.note_id"
@@ -497,7 +606,8 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
           <p class="text-xs leading-relaxed text-paper">
             {{
               t("viewerWorkbench.sessionSummary", {
-                sessionId: session.session_id,
+                sessionStart: formatTimestamp(session.started_at || session.last_viewer_event_at),
+                sessionId: formatTimestamp(session.started_at || session.last_viewer_event_at),
                 comments: session.comment_count ?? 0,
                 gifts: session.gift_event_count ?? 0,
               })

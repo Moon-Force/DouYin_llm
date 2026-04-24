@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from backend.memory.long_term import LongTermStore
+from backend.schemas.live import LiveEvent
 
 
 class LongTermStoreConnectTests(unittest.TestCase):
@@ -25,6 +26,87 @@ class LongTermStoreConnectTests(unittest.TestCase):
         connection.execute.assert_any_call("PRAGMA journal_mode=TRUNCATE")
         self.assertIs(result, connection)
         self.assertEqual(connection.row_factory, unittest.mock.ANY)
+
+    def test_setup_adds_title_column_to_existing_live_sessions_table(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            database_path = os.path.join(tmpdir, "legacy.db")
+            legacy_store = LongTermStore.__new__(LongTermStore)
+            legacy_store.database_path = database_path
+            with legacy_store._connect() as connection:
+                connection.execute(
+                    """
+                    CREATE TABLE live_sessions (
+                        session_id TEXT PRIMARY KEY,
+                        room_id TEXT NOT NULL,
+                        source_room_id TEXT,
+                        livename TEXT,
+                        status TEXT NOT NULL,
+                        started_at INTEGER NOT NULL,
+                        last_event_at INTEGER NOT NULL,
+                        ended_at INTEGER,
+                        event_count INTEGER NOT NULL DEFAULT 0,
+                        comment_count INTEGER NOT NULL DEFAULT 0,
+                        gift_event_count INTEGER NOT NULL DEFAULT 0,
+                        join_count INTEGER NOT NULL DEFAULT 0
+                    )
+                    """
+                )
+
+            store = LongTermStore(database_path)
+            with store._connect() as connection:
+                columns = [row[1] for row in connection.execute("PRAGMA table_info(live_sessions)").fetchall()]
+
+        self.assertIn("title", columns)
+
+
+class LiveSessionStoreTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.database_path = os.path.join(self.temp_dir.name, "sessions.db")
+        self.store = LongTermStore(self.database_path)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_persist_event_saves_and_updates_live_session_title_and_livename(self):
+        first_event = LiveEvent(
+            event_id="evt-1",
+            room_id="room-1",
+            source_room_id="source-room-1",
+            platform="douyin",
+            event_type="comment",
+            method="WebcastChatMessage",
+            livename="第一直播间名",
+            ts=1000,
+            user={"id": "user-1", "nickname": "Alice"},
+            content="hello",
+            metadata={"title": "第一直播标题", "livename": "第一直播间名"},
+            raw={},
+        )
+        second_event = LiveEvent(
+            event_id="evt-2",
+            room_id="room-1",
+            source_room_id="source-room-1",
+            platform="douyin",
+            event_type="gift",
+            method="WebcastGiftMessage",
+            livename="第二直播间名",
+            ts=2000,
+            user={"id": "user-1", "nickname": "Alice"},
+            content="gift",
+            metadata={"title": "第二直播标题", "livename": "第二直播间名"},
+            raw={},
+        )
+
+        self.store.persist_event(first_event)
+        self.store.persist_event(second_event)
+
+        current = self.store.get_active_session("room-1")
+        listed = self.store.list_live_sessions("room-1", "active", limit=10)
+
+        self.assertEqual(current["livename"], "第二直播间名")
+        self.assertEqual(current["title"], "第二直播标题")
+        self.assertEqual(listed[0]["title"], "第二直播标题")
 
 
 class ViewerMemoryCorrectionStoreTests(unittest.TestCase):

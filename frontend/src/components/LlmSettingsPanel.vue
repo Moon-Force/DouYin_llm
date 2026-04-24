@@ -33,6 +33,8 @@ const props = defineProps({
 const emit = defineEmits([
   "close",
   "update-model",
+  "update-embedding-model",
+  "update-memory-extractor-model",
   "update-system-prompt",
   "save",
   "reset",
@@ -46,6 +48,16 @@ const errorMessage = computed(() => translateError(props.locale, props.error));
 const defaultModelLabel = computed(() =>
   t("llmSettings.modelDefault", {
     value: props.defaults.defaultModel || t("common.notAvailable"),
+  }),
+);
+const defaultEmbeddingModelLabel = computed(() =>
+  t("llmSettings.embeddingModelDefault", {
+    value: props.defaults.defaultEmbeddingModel || t("common.notAvailable"),
+  }),
+);
+const defaultMemoryExtractorModelLabel = computed(() =>
+  t("llmSettings.memoryExtractorModelDefault", {
+    value: props.defaults.defaultMemoryExtractorModel || t("common.notAvailable"),
   }),
 );
 </script>
@@ -80,6 +92,47 @@ const defaultModelLabel = computed(() =>
           @input="emit('update-model', $event.target.value)"
         />
         <p class="text-[11px] text-muted">{{ defaultModelLabel }}</p>
+      </label>
+
+      <label class="block space-y-2">
+        <span class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+          {{ t("llmSettings.embeddingModel") }}
+        </span>
+        <select
+          class="w-full rounded-xl border border-line/40 bg-panel-soft px-3 py-2 text-sm text-paper outline-none transition focus:border-accent"
+          :value="draft.embeddingModel"
+          @change="emit('update-embedding-model', $event.target.value)"
+        >
+          <option
+            v-for="option in defaults.embeddingModelOptions || []"
+            :key="`embedding-${option}`"
+            :value="option"
+          >
+            {{ option }}
+          </option>
+        </select>
+        <p class="text-[11px] text-muted">{{ defaultEmbeddingModelLabel }}</p>
+      </label>
+
+      <label class="block space-y-2">
+        <span class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+          {{ t("llmSettings.memoryExtractorModel") }}
+        </span>
+        <select
+          class="w-full rounded-xl border border-line/40 bg-panel-soft px-3 py-2 text-sm text-paper outline-none transition focus:border-accent"
+          :value="draft.memoryExtractorModel"
+          @change="emit('update-memory-extractor-model', $event.target.value)"
+        >
+          <option
+            v-for="option in defaults.memoryExtractorModelOptions || []"
+            :key="`memory-extractor-${option}`"
+            :value="option"
+          >
+            {{ option }}
+          </option>
+        </select>
+        <p class="text-[11px] text-muted">{{ defaultMemoryExtractorModelLabel }}</p>
+        <p class="text-[11px] text-muted">{{ t("llmSettings.ollamaOptionsHint") }}</p>
       </label>
 
       <label class="block space-y-2">

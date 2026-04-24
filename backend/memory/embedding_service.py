@@ -1,27 +1,19 @@
-"""Embedding service with HTTP backend and hash fallback."""
+"""Embedding service with HTTP backend only."""
 
 import json
 import logging
 import urllib.request
 
-from backend.memory.vector_store import HashEmbeddingFunction
-
-
 logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
-    def __init__(self, settings, fallback_dimensions=256):
+    def __init__(self, settings):
         self.settings = settings
-        self.fallback = HashEmbeddingFunction(dimensions=fallback_dimensions)
-        self._fallback_logged = False
 
-    def _strict_mode_enabled(self) -> bool:
-        return bool(getattr(self.settings, "embedding_strict", False))
-
-    def _raise_strict_mode_error(self, exc: Exception):
+    def _raise_backend_error(self, exc: Exception):
         raise RuntimeError(
-            f"Embedding strict mode blocked fallback: mode={self.settings.embedding_mode} "
+            f"Embedding backend failed: mode={self.settings.embedding_mode} "
             f"model={self.settings.embedding_model} error={exc}"
         ) from exc
 
@@ -38,24 +30,14 @@ class EmbeddingService:
                 return self._embed_cloud(normalized)
             raise RuntimeError(f"Unsupported embedding mode: {self.settings.embedding_mode}")
         except Exception as exc:
-            if self._strict_mode_enabled():
-                logger.error(
-                    "Embedding backend failed and strict mode blocked fallback: mode=%s model=%s error=%s",
-                    self.settings.embedding_mode,
-                    self.settings.embedding_model,
-                    exc,
-                )
-                self._raise_strict_mode_error(exc)
-            if not self._fallback_logged:
-                logger.warning(
-                    "Embedding backend failed; falling back to hash embeddings: mode=%s model=%s error=%s",
-                    self.settings.embedding_mode,
-                    self.settings.embedding_model,
-                    exc,
-                )
-                self._fallback_logged = True
+            logger.error(
+                "Embedding backend failed: mode=%s model=%s error=%s",
+                self.settings.embedding_mode,
+                self.settings.embedding_model,
+                exc,
+            )
+            self._raise_backend_error(exc)
 
-        return [self.fallback.embed_text(text) for text in normalized]
     def _embed_cloud(self, texts: list[str]) -> list[list[float]]:
         headers = {"Content-Type": "application/json"}
         if self.settings.embedding_api_key:
@@ -81,5 +63,4 @@ class EmbeddingService:
 
         with urllib.request.urlopen(request, timeout=self.settings.embedding_timeout_seconds) as response:
             payload = json.loads(response.read().decode("utf-8"))
-        self._fallback_logged = False
         return [list(item["embedding"]) for item in payload["data"]]

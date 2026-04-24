@@ -302,7 +302,7 @@ class DocsCleanupTests(unittest.TestCase):
         self.assertIn("OpenAI-compatible", content)
         self.assertIn("MEMORY_EXTRACTOR_MODE=ollama", content)
         self.assertIn("MEMORY_EXTRACTOR_BASE_URL=http://127.0.0.1:11434/v1", content)
-        self.assertIn("MEMORY_EXTRACTOR_MODEL=", content)
+        self.assertIn("MEMORY_EXTRACTOR_MODEL=gemma4:e2b", content)
         self.assertIn("MEMORY_EXTRACTOR_REASONING_EFFORT=none", content)
         self.assertIn("MEMORY_EXTRACTOR_PROMPT_VARIANT=cot", content)
 
