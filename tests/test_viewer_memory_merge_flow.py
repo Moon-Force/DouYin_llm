@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import backend.app as app_module
 from backend.schemas.live import LiveEvent
 from backend.services.memory_merge_service import MemoryMergeDecision
+from backend.services.memory_merge_service import ViewerMemoryMergeService
 
 
 def make_event():
@@ -98,12 +99,7 @@ class ViewerMemoryMergeFlowTests(unittest.TestCase):
                 {"memory_id": "mem-1", "memory_text": "likes ramen", "score": 0.94, "metadata": {}}
             ]
 
-            app_module.memory_merge_service = MagicMock()
-            app_module.memory_merge_service.decide.return_value = MemoryMergeDecision(
-                action="merge",
-                target_memory_id="mem-1",
-                reason="same_canonical",
-            )
+            app_module.memory_merge_service = ViewerMemoryMergeService()
 
             app_module.broker = MagicMock()
             app_module.broker.publish = AsyncMock()
