@@ -173,10 +173,8 @@ npm run dev -- --host 127.0.0.1 --strictPort --port 5173
 
 ### 本地模型目录约定
 
-项目根目录保留了 `model/` 作为本地模型存放目录，方便团队成员统一放置不提交到仓库的大模型文件：
+项目根目录保留了 `model/` 作为本地模型存放目录，方便团队成员统一放置不提交到仓库的大模型文件。该目录非必需，不创建也可正常运行。
 
-| 路径 | 用途 |
-| --- | --- |
 ### 观众记忆抽取（Ollama）
 
 观众记忆抽取现在使用 Ollama / OpenAI-compatible chat 接口，推荐按以下方式配置：
@@ -186,8 +184,6 @@ npm run dev -- --host 127.0.0.1 --strictPort --port 5173
 3. 设置 `MEMORY_EXTRACTOR_ENABLED=true`
 4. 设置 `MEMORY_EXTRACTOR_BASE_URL=http://127.0.0.1:11434/v1`
 5. 设置 `MEMORY_EXTRACTOR_MODEL=<your ollama model name>`
-
-说明：之前的 in-process GGUF runtime 路径已移除。
 
 ### Embedding
 
@@ -260,14 +256,10 @@ node frontend/src/stores/viewer-workbench.test.mjs
 npm --prefix frontend run build
 ```
 
-后端：
+后端（使用 pytest）：
 
 ```powershell
-python -m unittest `
-  tests.test_comment_processing_status `
-  tests.test_long_term `
-  tests.test_vector_store `
-  tests.test_viewer_memory_api
+python -m pytest tests/ -v
 ```
 
 语义链路自检：
@@ -275,7 +267,7 @@ python -m unittest `
 ```powershell
 python tests/verify_memory_pipeline.py --mode internal
 python tests/verify_memory_pipeline.py --mode e2e
-python -m unittest tests.test_verify_memory_pipeline
+python -m pytest tests/test_verify_memory_pipeline.py -v
 ```
 
 ## 数据文件
@@ -326,8 +318,8 @@ python backend/memory/rebuild_embeddings.py
 4. 记忆合并对近义和弱冲突的覆盖不够
    当前 `ViewerMemoryMergeService` 能处理同 canonical 精确匹配（merge）、更具体表达（upgrade）、方向冲突（supersede），但对近义但不完全相同的表达、弱冲突偏好变化的覆盖还不够，长期仍可能出现冗余记忆。
 
-5. 召回排序已经支持 feature rerank + 可选模型 rerank
-   当前召回排序已经把 `semantic_score` 与业务特征分开处理，并系统使用 `interaction_value_score`、`evidence_score`、`stability_score`、`confidence`、`source_kind`、`is_pinned` 和时间衰减等信号做 feature rerank，不再只依赖纯向量相似度。线上还可以通过 `MEMORY_RERANK_ENABLED=true` 接入专门 reranker model 对候选二次重排；后续仍可继续接入业务反馈闭环和更细的召回可观测指标。
+5. 召回排序已支持 feature rerank + 在线模型 rerank
+   当前召回排序已经把 `semantic_score` 与业务特征分开处理，并系统使用 `interaction_value_score`、`evidence_score`、`stability_score`、`confidence`、`source_kind`、`is_pinned` 和时间衰减等信号做 feature rerank。在线记忆重排模型已接入（`MEMORY_RERANK_ENABLED=true` 启用），配合召回记忆扩写与查询重写进一步提升语义匹配精度；后续可继续接入业务反馈闭环和更细的召回可观测指标。
 
 6. 抽取评测和高并发保护仍不够完善
    当前已经有抽取相关测试和离线验证（`tests/fixtures/memory_extraction/`、`artifacts/memory_extraction_reports/`），也已经有严格模式和召回回归测试。但还缺少问句误入库率、短期状态误入库率、重复记忆生成率等持续指标，同时记忆抽取仍然是同步阻塞调用（`extract_method(event)`），没有异步队列、batch 或速率限制。当前单房间直播场景下影响不大，但如果未来扩展到多房间或高频场景，可能造成事件堆积。
@@ -370,3 +362,7 @@ python backend/memory/rebuild_embeddings.py
 
 - [jwwsjlm/douyinLive](https://github.com/jwwsjlm/douyinLive)
 - 所有在 issue / PR 中持续推动这个项目演进的贡献者
+
+## 趋势
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Moon-Force/DouYin_llm&type=Date)](https://star-history.com/#Moon-Force/DouYin_llm&Date)
