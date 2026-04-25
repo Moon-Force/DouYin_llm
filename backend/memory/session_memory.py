@@ -4,6 +4,7 @@
 就自动退化到进程内 deque，保证项目仍然能正常运行。
 """
 
+import logging
 from collections import defaultdict, deque
 
 from backend.schemas.live import LiveEvent, SessionSnapshot, SessionStats, Suggestion
@@ -27,7 +28,11 @@ class SessionMemory:
         self._suggestions = defaultdict(lambda: deque(maxlen=40))
 
         if redis and redis_url:
-            self.redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
+            try:
+                self.redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
+            except Exception:
+                logging.warning("Redis connection failed for %s, falling back to local memory", redis_url)
+                self.redis_client = None
 
     def _events_key(self, room_id):
         """Redis 中某个房间事件列表的 key。"""

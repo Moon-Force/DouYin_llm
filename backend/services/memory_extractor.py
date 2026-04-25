@@ -139,7 +139,7 @@ class RuleFallbackMemoryExtractor:
         if any(keyword in content for keyword in ("喜欢", "爱吃", "一直用", "常买")):
             return "preference"
         if any(keyword in content for keyword in ("今晚", "明天", "周末", "准备", "打算", "要去")):
-            return "plan"
+            return "fact"
         if any(keyword in content for keyword in ("公司", "附近", "家里", "上班", "下班")):
             return "context"
         return "fact"

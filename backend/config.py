@@ -1,5 +1,6 @@
 """Backend runtime configuration."""
 
+import logging
 import os
 import re
 from dataclasses import dataclass, field
@@ -42,7 +43,11 @@ def _env_int(key, default):
     value = value.strip()
     if value == "":
         return int(default)
-    return int(value)
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        logging.warning("Invalid int for env %s=%r, using default %s", key, value, default)
+        return int(default)
 
 
 def _env_float(key, default):
@@ -52,7 +57,11 @@ def _env_float(key, default):
     value = value.strip()
     if value == "":
         return float(default)
-    return float(value)
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        logging.warning("Invalid float for env %s=%r, using default %s", key, value, default)
+        return float(default)
 
 
 def _env_path(key, default):

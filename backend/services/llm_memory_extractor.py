@@ -119,7 +119,8 @@ class LLMBackedViewerMemoryExtractor:
     def _normalize(self, payload):
         if not isinstance(payload, dict):
             return []
-        if payload.get("should_extract") is not True:
+        should_extract = payload.get("should_extract")
+        if should_extract is not True and str(should_extract).lower() != "true":
             return []
 
         temporal_scope = str(payload.get("temporal_scope", "")).strip().lower()
