@@ -449,15 +449,6 @@ class LivePromptAgent:
             )
             self._mark_status("error", "network_error")
             return None
-        except TimeoutError:
-            logger.error(
-                "LLM timeout: mode=%s model=%s timeout=%s",
-                self.settings.llm_mode,
-                self.settings.resolved_llm_model(),
-                self.settings.llm_timeout_seconds,
-            )
-            self._mark_status("error", "timeout")
-            return None
         except json.JSONDecodeError:
             logger.error(
                 "LLM returned invalid JSON envelope: mode=%s model=%s",

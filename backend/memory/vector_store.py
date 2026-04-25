@@ -70,14 +70,25 @@ class VectorMemory:
         self._semantic_backend_reason = ""
 
         if chromadb:
-            client = chromadb.PersistentClient(path=str(storage_path))
-            self._client = client
-            self.memory_collection = client.get_or_create_collection(f"viewer_memories_{self._collection_suffix}")
-            self._semantic_backend_reason = ""
-            logger.info(
-                "VectorMemory initialized with Chroma collection: memories=%s",
-                f"viewer_memories_{self._collection_suffix}",
-            )
+            try:
+                client = chromadb.PersistentClient(path=str(storage_path))
+            except Exception:
+                logger.exception("Chroma PersistentClient failed, falling back to in-process mode")
+                client = None
+            if client:
+                self._client = client
+                self.memory_collection = client.get_or_create_collection(f"viewer_memories_{self._collection_suffix}")
+                self._semantic_backend_reason = ""
+                logger.info(
+                    "VectorMemory initialized with Chroma collection: memories=%s",
+                    f"viewer_memories_{self._collection_suffix}",
+                )
+            else:
+                self._semantic_backend_reason = "Chroma failed to initialize"
+                logger.warning(
+                    "Chroma failed to initialize; VectorMemory will use in-process fallback only (suffix=%s)",
+                    self._collection_suffix,
+                )
         else:
             self._semantic_backend_reason = "Chroma is unavailable"
             logger.warning(

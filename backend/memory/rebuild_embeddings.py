@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import sqlite3
+import time
 from contextlib import contextmanager
 from itertools import islice
 from pathlib import Path
@@ -96,7 +97,7 @@ def save_manifest(settings, manifest):
 
 def update_manifest(settings, result):
     manifest = load_manifest(settings)
-    now = __import__("time").time_ns() // 1_000_000
+    now = time.time_ns() // 1_000_000
     signature = settings.embedding_signature()
     manifest["active_signature"] = signature
     manifest["updated_at"] = now

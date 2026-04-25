@@ -21,7 +21,7 @@ class EmbeddingService:
         return self.embed_texts([text])[0]
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        normalized = [str(text or "").strip() for text in texts]
+        normalized = [t for t in (str(text or "").strip() for text in texts) if t]
         if not normalized:
             return []
 
