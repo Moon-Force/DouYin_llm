@@ -493,8 +493,8 @@ async def process_event(event: LiveEvent):
         processing_status.suggestion_id = ""
 
     if extracted_candidates:
-        try:
-            for candidate in extracted_candidates:
+        for candidate in extracted_candidates:
+            try:
                 existing_memories = _existing_memory_candidates(event.room_id, event.user.viewer_id)
                 similar_memories = vector_memory.similar_memories(
                     candidate["memory_text"],
@@ -620,9 +620,8 @@ async def process_event(event: LiveEvent):
                 if memory:
                     vector_memory.sync_memory(memory)
                     saved_memory_ids.append(memory.memory_id)
-        except Exception:
-            saved_memory_ids = []
-            logging.exception("Memory persistence pipeline failed for event_id=%s", event.event_id)
+            except Exception:
+                logging.exception("Memory persistence failed for event_id=%s", event.event_id)
 
     processing_status.memory_persisted = bool(saved_memory_ids)
     processing_status.memory_saved = bool(saved_memory_ids)
