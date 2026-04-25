@@ -576,9 +576,7 @@ class LongTermStore:
                     event_record["gift_id"], event_record["gift_count"], event_record["gift_diamond_count"], event_record["ts"], event_record["metadata_json"], event_record["raw_json"],
                 ),
             )
-            if existing_row:
-                self._rebuild_viewer_aggregates(connection)
-            else:
+            if not existing_row:
                 self._touch_live_session(connection, event_record)
                 self._upsert_viewer_profile(connection, event_record)
                 if event_record["event_type"] == "gift":
