@@ -33,6 +33,7 @@ model/*
 
 # IDE configs
 .vscode/
+.claude/
 
 # Evaluation artifacts
 artifacts/memory_extraction_reports/
