@@ -28,6 +28,9 @@
 - 评论处理状态可视化：前端可看到每条评论是否入库、是否写入观众记忆、是否参与召回、是否生成提词
 - 观众记忆人工纠偏：前端工作台支持人工新增、编辑、失效、恢复、置顶、删除和查看时间线
 - 记忆状态同步召回：只有有效记忆参与语义召回；失效/删除记忆不会再被召回；人工新增和置顶记忆在排序上优先
+- 在线记忆重排：可选接入在线 reranker 对向量召回候选重排，未配置时自动回退到原向量排序
+- 召回查询重写：LLM 将评论转写为更适合语义召回的查询，提升召回精度
+- 召回记忆扩写：LLM 对已有记忆文本做扩写，生成更丰富的向量表示
 - 模型设置面板：前端可直接在线修改模型名和系统提示词
 
 ## 架构总览
@@ -111,24 +114,48 @@ Copy-Item .env.example .env
 pip install -r requirements.txt
 ```
 
-4. 启动后端
-
-```powershell
-python -m uvicorn backend.app:app --host 127.0.0.1 --port 8010 --reload
-```
-
-5. 启动前端
+4. 安装前端依赖
 
 ```powershell
 cd frontend
 npm install
-npm run dev -- --host 127.0.0.1 --strictPort --port 5173
+cd ..
 ```
 
-6. 或者直接使用脚本
+5. 一键启动（推荐）
 
 ```powershell
 .\start_all.ps1
+```
+
+或使用批处理版本：
+
+```powershell
+.\start_all.bat
+```
+
+也可以分模块启动：
+
+```powershell
+# 仅启动后端（Qwen 模式）
+.\start_backend_qwen.ps1
+
+# 仅启动前端
+.\start_frontend.ps1
+```
+
+6. 手动启动
+
+```powershell
+# 终端 1：采集器
+.\tool\douyinLive-windows-amd64.exe
+
+# 终端 2：后端
+python -m uvicorn backend.app:app --host 127.0.0.1 --port 8010 --reload
+
+# 终端 3：前端
+cd frontend
+npm run dev -- --host 127.0.0.1 --strictPort --port 5173
 ```
 
 默认访问地址：
@@ -138,9 +165,23 @@ npm run dev -- --host 127.0.0.1 --strictPort --port 5173
 
 ## 关键配置
 
+### 直播间与采集器
+
+- `ROOM_ID`
+- `COLLECTOR_ENABLED`
+- `COLLECTOR_HOST`
+- `COLLECTOR_PORT`
+- `COLLECTOR_PING_INTERVAL_SECONDS`
+- `COLLECTOR_RECONNECT_DELAY_SECONDS`
+
+### 应用服务
+
+- `APP_HOST`
+- `APP_PORT`
+
 ### LLM 相关
 
-- `LLM_MODE`
+- `LLM_MODE`（`qwen` / `heuristic`）
 - `LLM_BASE_URL`
 - `LLM_MODEL`
 - `LLM_API_KEY`
@@ -151,14 +192,39 @@ npm run dev -- --host 127.0.0.1 --strictPort --port 5173
 
 ### 向量与 embedding 相关
 
-- `DATA_DIR`
-- `DATABASE_PATH`
-- `CHROMA_DIR`
 - `EMBEDDING_MODE`
 - `EMBEDDING_MODEL`
 - `EMBEDDING_BASE_URL`
 - `EMBEDDING_API_KEY`
-- `SEMANTIC_*`
+- `EMBEDDING_TIMEOUT_SECONDS`
+- `EMBEDDING_STRICT`
+- `SEMANTIC_MEMORY_MIN_SCORE`
+- `SEMANTIC_MEMORY_QUERY_LIMIT`
+- `SEMANTIC_FINAL_K`
+
+### 存储与记忆生命周期
+
+- `DATA_DIR`
+- `DATABASE_PATH`
+- `CHROMA_DIR`
+- `REDIS_URL`
+- `SESSION_TTL_SECONDS`
+- `MEMORY_DECAY_HALFLIFE_HOURS`：记忆置信度时间衰减半衰期，默认 `168`（7 天）
+- `MEMORY_SHORT_TERM_TTL_HOURS`：短期记忆过期时间，默认 `72`（3 天）
+
+### 记忆抽取相关
+
+详见下方"观众记忆抽取（Ollama）"章节，完整配置项包括：
+
+- `MEMORY_EXTRACTOR_ENABLED`
+- `MEMORY_EXTRACTOR_MODE`
+- `MEMORY_EXTRACTOR_BASE_URL`
+- `MEMORY_EXTRACTOR_MODEL`
+- `MEMORY_EXTRACTOR_API_KEY`
+- `MEMORY_EXTRACTOR_MAX_TOKENS`
+- `MEMORY_EXTRACTOR_TIMEOUT_SECONDS`
+- `MEMORY_EXTRACTOR_REASONING_EFFORT`
+- `MEMORY_EXTRACTOR_PROMPT_VARIANT`
 
 ### 记忆 rerank 相关
 
@@ -184,6 +250,18 @@ npm run dev -- --host 127.0.0.1 --strictPort --port 5173
 3. 设置 `MEMORY_EXTRACTOR_ENABLED=true`
 4. 设置 `MEMORY_EXTRACTOR_BASE_URL=http://127.0.0.1:11434/v1`
 5. 设置 `MEMORY_EXTRACTOR_MODEL=<your ollama model name>`
+
+完整配置项：
+
+- `MEMORY_EXTRACTOR_ENABLED`：是否启用 LLM 记忆抽取，默认 `true`
+- `MEMORY_EXTRACTOR_MODE`：`ollama` / `openai`
+- `MEMORY_EXTRACTOR_BASE_URL`：Ollama / OpenAI-compatible 地址
+- `MEMORY_EXTRACTOR_MODEL`：抽取用模型名
+- `MEMORY_EXTRACTOR_API_KEY`：API key（Ollama 通常留空）
+- `MEMORY_EXTRACTOR_MAX_TOKENS`：最大输出 token，默认 `2048`
+- `MEMORY_EXTRACTOR_TIMEOUT_SECONDS`：单次抽取超时，默认 `30`
+- `MEMORY_EXTRACTOR_REASONING_EFFORT`：推理强度 `none` / `low` / `medium` / `high`
+- `MEMORY_EXTRACTOR_PROMPT_VARIANT`：提示词风格 `cot` / `baseline`
 
 ### Embedding
 
@@ -216,14 +294,28 @@ EMBEDDING_STRICT=true
 | 路径 | 说明 |
 | --- | --- |
 | `backend/app.py` | FastAPI 入口，提供 REST、SSE、WebSocket 接口 |
+| `backend/config.py` | 配置读取（dataclass，从 `.env` 加载） |
+| `backend/schemas/live.py` | Pydantic 模型：LiveEvent、Suggestion、ViewerMemory 等 |
 | `backend/services/collector.py` | 对接 douyinLive WebSocket，转换并分发事件 |
 | `backend/services/agent.py` | 提词生成、语义召回上下文拼装、模型状态输出 |
+| `backend/services/llm_memory_extractor.py` | LLM 记忆抽取（Ollama / OpenAI） |
+| `backend/services/memory_merge_service.py` | 记忆合并决策（merge / upgrade / supersede / create） |
+| `backend/services/memory_confidence_service.py` | 四维置信度打分 |
+| `backend/services/memory_reranker.py` | 在线记忆重排 |
+| `backend/services/recall_query_rewriter.py` | 召回查询重写 |
+| `backend/services/memory_recall_text.py` | 召回记忆扩写 |
 | `backend/memory/` | SessionMemory、SQLite LongTermStore、Chroma VectorMemory、EmbeddingService |
 | `frontend/src/App.vue` | 前端主布局 |
 | `frontend/src/stores/live.js` | Pinia Store，管理事件流、状态、ViewerWorkbench、LLM 设置 |
 | `frontend/src/components/ViewerWorkbench.vue` | 观众详情、备注、记忆纠偏与时间线 UI |
-| `tests/` | Python 单元测试 |
-| `docs/` | 设计稿与实施计划 |
+| `frontend/src/components/LlmSettingsPanel.vue` | 模型设置与系统提示词编辑 |
+| `tests/` | Python 单元测试（~30 个） |
+| `scripts/` | 辅助脚本（年度画像基准测试等） |
+| `artifacts/` | 评测报告与基准产物 |
+| `docs/` | 设计文档与实施计划 |
+| `tool/` | 采集器可执行文件与配置 |
+| `data/` | 运行时数据（SQLite + ChromaDB） |
+| `logs/` | 调试日志 |
 
 ## 后端接口速览
 
@@ -234,6 +326,7 @@ EMBEDDING_STRICT=true
 | `POST /api/room` | 切换房间 |
 | `POST /api/events` | 手动注入事件 |
 | `GET /api/viewer` | 获取观众画像、记忆、备注、近期互动 |
+| `GET /api/viewer/memories` | 获取观众记忆列表 |
 | `POST /api/viewer/memories` | 新增观众记忆 |
 | `PUT /api/viewer/memories/{memory_id}` | 更新观众记忆 |
 | `POST /api/viewer/memories/{memory_id}/invalidate` | 标记记忆失效 |
@@ -242,6 +335,8 @@ EMBEDDING_STRICT=true
 | `GET /api/viewer/memories/{memory_id}/logs` | 获取单条记忆时间线 |
 | `GET /api/viewer/notes` / `POST /api/viewer/notes` / `DELETE /api/viewer/notes/{id}` | 观众备注 CRUD |
 | `GET /api/settings/llm` / `PUT /api/settings/llm` | 获取/保存模型设置 |
+| `GET /api/sessions` | 获取直播场次列表 |
+| `GET /api/sessions/current` | 获取当前直播场次 |
 | `GET /api/events/stream` | SSE 实时流 |
 | `GET /ws/live` | WebSocket 实时流 |
 
@@ -250,9 +345,10 @@ EMBEDDING_STRICT=true
 前端：
 
 ```powershell
-node frontend/src/components/event-feed-processing-presenter.test.mjs
-node frontend/src/components/viewer-memory-presenter.test.mjs
-node frontend/src/stores/viewer-workbench.test.mjs
+# 运行所有前端测试（共 24 个 .test.mjs 文件）
+Get-ChildItem -Recurse frontend/src -Filter *.test.mjs | ForEach-Object { node $_.FullName }
+
+# 构建检查
 npm --prefix frontend run build
 ```
 
@@ -307,7 +403,7 @@ python backend/memory/rebuild_embeddings.py
 当前版本已经接入 LLM 记忆抽取（`LLMBackedViewerMemoryExtractor`），支持 `memory_text_raw / memory_text_canonical` 双字段提纯、`polarity / temporal_scope` 门控、评论预筛、仅异常时规则兜底。抽取后由 `ViewerMemoryMergeService` 决策合并策略，由 `MemoryConfidenceService` 做四维置信度打分，`VectorMemory` 负责 feature rerank 与生命周期过滤。主链路已经比较完整，但从直播提词和长期记忆维护的角度看，仍然有这些问题：
 
 1. 记忆生命周期管理已经起步，但还不够完整
-   当前 `viewer_memories` 已经增加 `lifecycle_kind / expires_at`，存储查询和向量召回也会过滤过期记忆，`VectorMemory` 仍保留时间衰减排序作为补充。但这还不是完整的 long-term / short-term 双层架构，也没有独立的短期记忆池、自动迁移和更丰富的生命周期策略。
+   当前 `viewer_memories` 已经增加 `lifecycle_kind / expires_at`，存储查询和向量召回也会过滤过期记忆，`VectorMemory` 保留时间衰减排序作为补充，衰减半衰期和短期 TTL 已可通过 `MEMORY_DECAY_HALFLIFE_HOURS` / `MEMORY_SHORT_TERM_TTL_HOURS` 配置。但这还不是完整的 long-term / short-term 双层架构，也没有独立的短期记忆池、自动迁移和更丰富的生命周期策略。
 
 2. 规则驱动的质量判断仍然偏启发式
    无论是 `interaction_value_score`，还是 `MemoryConfidenceService` 中的 `stability_score / interaction_value_score / clarity_score / evidence_score`，当前都主要依赖手工规则和关键词启发。它们已经能覆盖明显样本，但对复杂表达、弱信号、边界语义和真实业务反馈的利用还不够充分。
